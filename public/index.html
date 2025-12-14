@@ -3,9 +3,34 @@
 <head>
   <meta charset="utf-8" />
   <title>Phone ↔ Desktop Link</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; }
+    .box { padding: 16px; border: 1px solid #ddd; border-radius: 12px; }
+    .muted { opacity: 0.7; }
+  </style>
 </head>
 <body>
-  <h1>Hallo, Server läuft 🎉</h1>
-  <p>Wenn du das siehst, funktioniert Express.</p>
+  <h1>Phone ↔ Desktop Link</h1>
+
+  <div class="box" id="desktop" style="display:none">
+    <h2>Desktop Mode 💻</h2>
+    <p class="muted">Als nächstes kommt hier QR-Code + Live-Preview.</p>
+  </div>
+
+  <div class="box" id="mobile" style="display:none">
+    <h2>Mobile Mode 📱</h2>
+    <p class="muted">Als nächstes kommt hier Kamera + Foto-Button.</p>
+  </div>
+
+  <script>
+    // robustere Mobile-Erkennung (userAgentData wenn vorhanden)
+    const isMobile =
+      (navigator.userAgentData && navigator.userAgentData.mobile) ||
+      /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+    document.getElementById(isMobile ? "mobile" : "desktop").style.display = "block";
+    console.log("isMobile =", isMobile);
+  </script>
 </body>
 </html>
