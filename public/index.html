@@ -39,7 +39,6 @@
       border-radius: 12px;
     }
 
-    /* Mobile fullscreen camera UI */
     #mobileFullscreen {
       position: fixed;
       inset: 0;
@@ -62,8 +61,8 @@
       place-items: center;
       padding: 24px;
       text-align: center;
-      color: rgba(255,255,255,0.85);
-      background: linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.15));
+      color: rgba(255,255,255,0.9);
+      background: linear-gradient(to bottom, rgba(0,0,0,0.65), rgba(0,0,0,0.12));
     }
 
     #mobileTopBar {
@@ -72,7 +71,6 @@
       right: 0;
       top: 0;
       padding: 16px 16px env(safe-area-inset-top);
-      color: rgba(255,255,255,0.9);
       display: flex;
       gap: 12px;
       align-items: center;
@@ -82,15 +80,28 @@
 
     #mobileTopBar .status {
       pointer-events: auto;
-      font-size: 14px;
-      background: rgba(0,0,0,0.35);
-      padding: 8px 10px;
+      font-size: 13px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      padding: 8px 12px;
       border-radius: 999px;
       backdrop-filter: blur(6px);
-      max-width: 80vw;
-      overflow: hidden;
-      text-overflow: ellipsis;
+      max-width: 72vw;
+      overflow-x: auto;
       white-space: nowrap;
+    }
+
+    .sizeSelect {
+      pointer-events: auto;
+      font-size: 13px;
+      font-family: system-ui, sans-serif;
+      background: rgba(0,0,0,0.65);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 999px;
+      padding: 8px 12px;
+      backdrop-filter: blur(6px);
     }
 
     #mobileControls {
@@ -159,11 +170,17 @@
 
     <div id="mobileTopBar">
       <div class="status" id="mobileStatus">…</div>
+      <select id="sizeSelect" class="sizeSelect" aria-label="Bildgröße">
+        <option value="720">Klein</option>
+        <option value="1280" selected>Mittel</option>
+        <option value="1920">Groß</option>
+        <option value="2560">Sehr groß</option>
+      </select>
     </div>
 
     <div id="mobileHint">
       <div>
-        <div style="font-size:18px; margin-bottom:10px;">Tippe irgendwo, um die Kamera zu starten</div>
+        <div style="font-size:18px; margin-bottom:10px;">Tippe, um die Kamera zu starten</div>
         <div style="font-size:14px; opacity:0.85;">(Session muss gekoppelt sein)</div>
       </div>
     </div>
@@ -239,6 +256,7 @@
       const statusEl = document.getElementById("mobileStatus");
       const shutterBtn = document.getElementById("shutterBtn");
       const stopBtn = document.getElementById("stopBtn");
+      const sizeSelect = document.getElementById("sizeSelect");
 
       mobileRoot.style.display = "block";
       document.body.style.padding = "0";
@@ -277,7 +295,7 @@
       if (!sessionId) {
         statusEl.textContent = "Keine Session. Bitte QR-Code vom Desktop scannen.";
       } else {
-        statusEl.innerHTML = `Session <code>${sessionId}</code> verbunden ✅`;
+        statusEl.textContent = `Session ${sessionId}`;
         joinSession("mobile");
       }
 
@@ -285,7 +303,7 @@
 
       mobileRoot.addEventListener("click", async (e) => {
         const target = e.target;
-        if (target === shutterBtn || target === stopBtn) return;
+        if (target === shutterBtn || target === stopBtn || target === sizeSelect) return;
         await startCamera();
       });
 
@@ -294,12 +312,22 @@
         if (!cameraStream) return;
         if (!video.videoWidth || !video.videoHeight) return;
 
+        const maxDim = parseInt(sizeSelect.value, 10);
+        const srcW = video.videoWidth;
+        const srcH = video.videoHeight;
+
+        const longEdge = Math.max(srcW, srcH);
+        const scale = Math.min(1, maxDim / longEdge);
+
+        const dstW = Math.round(srcW * scale);
+        const dstH = Math.round(srcH * scale);
+
         const canvas = document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+        canvas.width = dstW;
+        canvas.height = dstH;
 
         const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0);
+        ctx.drawImage(video, 0, 0, dstW, dstH);
 
         const imageDataUrl = canvas.toDataURL("image/jpeg", 0.8);
         socket.emit("photo", { sessionId, imageDataUrl });

@@ -4,6 +4,7 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: { origin: true, credentials: true },
 });
@@ -33,12 +34,12 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     const sessionId = socket.data.sessionId;
-    if (sessionId) {
-      io.to(sessionId).emit("peer-left", {
-        role: socket.data.role || "unknown",
-        socketId: socket.id,
-      });
-    }
+    if (!sessionId) return;
+
+    io.to(sessionId).emit("peer-left", {
+      role: socket.data.role || "unknown",
+      socketId: socket.id,
+    });
   });
 });
 
