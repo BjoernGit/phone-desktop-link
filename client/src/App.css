@@ -1,0 +1,81 @@
+import { useEffect, useMemo, useState } from "react";
+import { io } from "socket.io-client";
+
+function getSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  let session = params.get("session");
+
+  if (!session) {
+    session = crypto.randomUUID();
+    params.set("session", session);
+    window.history.replaceState({}, "", `?${params.toString()}`);
+  }
+
+  return session;
+}
+
+export default function App() {
+  const [connected, setConnected] = useState(false);
+  const sessionId = useMemo(() => getSessionId(), []);
+
+  const socket = useMemo(() => {
+    return io("http://127.0.0.1:3000", {
+      autoConnect: false,
+      transports: ["websocket", "polling"],
+    });
+  }, []);
+
+  useEffect(() => {
+    const onConnect = () => {
+      setConnected(true);
+      socket.emit("join-session", { sessionId, role: "desktop" });
+    };
+
+    const onDisconnect = () => {
+      setConnected(false);
+    };
+
+    const onConnectError = (err) => {
+      setConnected(false);
+      console.error("socket connect_error:", err?.message || err);
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("disconnect", onDisconnect);
+    socket.on("connect_error", onConnectError);
+
+    socket.connect();
+    setConnected(socket.connected);
+
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("disconnect", onDisconnect);
+      socket.off("connect_error", onConnectError);
+      socket.disconnect();
+    };
+  }, [socket, sessionId]);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        padding: "32px",
+        fontFamily: "system-ui, sans-serif",
+        background: "#0f172a",
+        color: "#e5e7eb",
+      }}
+    >
+      <h1>Phone ↔ Desktop Link</h1>
+
+      <p>
+        <strong>Session:</strong> {sessionId}
+      </p>
+
+      <p>
+        <strong>Socket:</strong> {connected ? "connected ✅" : "disconnected ❌"}
+      </p>
+
+      <p>Status: {connected ? "Warte auf Handy…" : "Keine Verbindung"}</p>
+    </div>
+  );
+}
