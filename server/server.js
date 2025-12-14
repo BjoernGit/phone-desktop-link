@@ -1,31 +1,36 @@
 const path = require("path");
 const express = require("express");
 const http = require("http");
-const cors = require("cors");
 const { Server } = require("socket.io");
 
 const app = express();
-app.use(cors());
-
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+  cors: { origin: "*", methods: ["GET", "POST"] },
 });
 
 io.on("connection", (socket) => {
-  console.log("Socket connected:", socket.id);
+  socket.on("join-session", ({ sessionId, role }) => {
+    if (!sessionId) return;
 
-  socket.on("photo", ({ sessionId, imageDataUrl }) => {
+    socket.join(sessionId);
+    socket.data.sessionId = sessionId;
+    socket.data.role = role;
+
+    socket.to(sessionId).emit("peer-joined", { role });
+  });
+
+  socket.on("photo", ({ sessionId, imageDataUrl, meta }) => {
     if (!sessionId || !imageDataUrl) return;
-    io.emit(`session-${sessionId}`, imageDataUrl);
+    socket.to(sessionId).emit("photo", { imageDataUrl, meta: meta || null });
   });
 
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
+    const { sessionId, role } = socket.data || {};
+    if (sessionId && role) {
+      socket.to(sessionId).emit("peer-left", { role });
+    }
   });
 });
 
