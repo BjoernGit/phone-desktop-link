@@ -1,108 +1,90 @@
-import { useState, useEffect, useRef } from 'react';
-import io from 'socket.io-client';
-import { QRCodeSVG } from 'qrcode.react';
-import './App.css';
+import { useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
+import { QRCodeSVG } from "qrcode.react";
+import "./App.css";
 
-// --- CONNECTION LOGIC ---
-// Local (localhost) -> Force Port 3000.
-// Online (Render) -> Automatically use the current URL (since Frontend & Backend are served together).
-const SERVER_URL = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3000' 
+const isLocal =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
+
+const SERVER_URL = isLocal
+  ? "http://localhost:3000"
   : window.location.origin;
 
-const socket = io(SERVER_URL);
-
 function App() {
-  const [sessionId, setSessionId] = useState(null);
-  const [isMobile, setIsMobile] = useState(false);
-  const [status, setStatus] = useState('Waiting for connection...');
-  const [photos, setPhotos] = useState([]);
-  const [cameraActive, setCameraActive] = useState(false);
-  
+  const socketRef = useRef(null);
   const videoRef = useRef(null);
 
+  const [sessionId, setSessionId] = useState(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [status, setStatus] = useState("connecting");
+  const [photos, setPhotos] = useState([]);
+  const [cameraActive, setCameraActive] = useState(false);
+
   useEffect(() => {
-    // Check if mobile device
-    const checkMobile = /Mobi|Android|iPhone/i.test(navigator.userAgent);
-    setIsMobile(checkMobile);
+    const mobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    setIsMobile(mobile);
 
-    // Get Session ID from URL or create new one
     const params = new URLSearchParams(window.location.search);
-    let currentSession = params.get("session");
+    let session = params.get("session");
 
-    if (!currentSession && !checkMobile) {
-      currentSession = crypto.randomUUID().slice(0, 8);
-      const newUrl = `${window.location.pathname}?session=${currentSession}`;
-      window.history.replaceState({}, "", newUrl);
+    if (!session && !mobile) {
+      session = crypto.randomUUID().slice(0, 8);
+      window.history.replaceState({}, "", `?session=${session}`);
     }
 
-    if (currentSession) {
-      setSessionId(currentSession);
-      
-      // Event Listeners
-      socket.on(`session-${currentSession}`, (imageSrc) => {
-        setPhotos((prev) => [imageSrc, ...prev]); 
-      });
+    setSessionId(session);
 
-      socket.on("connect", () => {
-        setStatus("Connected! 🟢");
-      });
+    const socket = io(SERVER_URL, { transports: ["websocket"] });
+    socketRef.current = socket;
 
-      socket.on("disconnect", () => {
-        setStatus("Disconnected 🔴");
-      });
+    socket.on("connect", () => setStatus("connected"));
+    socket.on("disconnect", () => setStatus("disconnected"));
 
-      return () => {
-        socket.off(`session-${currentSession}`);
-        socket.off("connect");
-        socket.off("disconnect");
-      };
+    if (session) {
+      socket.emit("join-session", { sessionId: session });
+
+      socket.on("photo", ({ imageDataUrl }) => {
+        setPhotos((p) => [imageDataUrl, ...p]);
+      });
     }
+
+    return () => {
+      socket.disconnect();
+    };
   }, []);
 
   const startCamera = async () => {
-    try {
-      setCameraActive(true);
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
-      });
-      if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch (err) {
-      alert("Camera Error: " + err.message);
-      setCameraActive(false);
-    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+      audio: false,
+    });
+    videoRef.current.srcObject = stream;
+    setCameraActive(true);
   };
 
   const takePhoto = () => {
-    if (!videoRef.current) return;
     const canvas = document.createElement("canvas");
     canvas.width = videoRef.current.videoWidth;
     canvas.height = videoRef.current.videoHeight;
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+    canvas
+      .getContext("2d")
+      .drawImage(videoRef.current, 0, 0);
+
     const imageDataUrl = canvas.toDataURL("image/jpeg", 0.7);
-    
-    socket.emit("photo", { sessionId, imageDataUrl });
-    if (navigator.vibrate) navigator.vibrate(50);
-    alert("Sent! 🚀");
+    socketRef.current.emit("photo", { sessionId, imageDataUrl });
   };
 
   if (!isMobile) {
     return (
-      <div className="container desktop">
-        <h1>Phone ↔ Desktop Link 💻</h1>
-        <div className="box">
-          <p className="muted">Scan the QR Code:</p>
-          {sessionId && (
-            <div className="qr-wrapper">
-              <QRCodeSVG value={window.location.href} size={200} />
-            </div>
-          )}
-          <div className="status-box">Status: <strong>{status}</strong></div>
-        </div>
+      <div className="desktop">
+        <h1>Phone ↔ Desktop Link</h1>
+        {sessionId && <QRCodeSVG value={window.location.href} size={220} />}
+        <p>Status: {status}</p>
+
         <div className="gallery">
-          {photos.map((src, idx) => (
-            <img key={idx} src={src} alt={`Upload ${idx}`} />
+          {photos.map((p, i) => (
+            <img key={i} src={p} />
           ))}
         </div>
       </div>
@@ -110,17 +92,15 @@ function App() {
   }
 
   return (
-    <div className="mobile-fullscreen">
+    <div className="mobile">
       {!cameraActive ? (
-        <div className="start-screen" onClick={startCamera}>
-          <h2>Start Camera 📸</h2>
+        <div className="start" onClick={startCamera}>
+          Tap to start camera
         </div>
       ) : (
         <>
-          <video ref={videoRef} autoPlay playsInline muted className="camera-video" />
-          <div className="controls">
-            <button className="shutter-btn" onClick={takePhoto}></button>
-          </div>
+          <video ref={videoRef} autoPlay playsInline />
+          <button className="shutter" onClick={takePhoto} />
         </>
       )}
     </div>
