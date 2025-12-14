@@ -10,32 +10,34 @@
     .muted { opacity: 0.7; }
     code { background: #f5f5f5; padding: 2px 6px; border-radius: 6px; }
     #qr { margin-top: 12px; }
+    #photos img { max-width: 100%; display: block; margin-top: 12px; border-radius: 12px; }
   </style>
 </head>
 <body>
   <h1>Phone ↔ Desktop Link</h1>
 
-  <!-- Desktop -->
   <div class="box" id="desktop" style="display:none">
     <h2>Desktop Mode 💻</h2>
-    <p class="muted">Scanne den QR-Code mit dem Handy. Damit wird die Session übernommen.</p>
-
-    <div>
-      <div><strong>Session:</strong> <code id="sessionText"></code></div>
-      <canvas id="qr" width="256" height="256"></canvas>
-      <div class="muted" style="margin-top:8px">
-        QR-Link: <code id="qrLinkText"></code>
-      </div>
+    <p class="muted">Scanne den QR-Code mit dem Handy, um die Session zu koppeln.</p>
+    <div><strong>Session:</strong> <code id="sessionText"></code></div>
+    <canvas id="qr" width="256" height="256"></canvas>
+    <div class="muted" style="margin-top:8px">
+      Status: <span id="desktopStatus">…</span>
     </div>
+    <div id="photos"></div>
   </div>
 
-  <!-- Mobile -->
   <div class="box" id="mobile" style="display:none">
     <h2>Mobile Mode 📱</h2>
-    <p id="mobileStatus" class="muted"></p>
+    <div class="muted" id="mobileStatus">…</div>
+    <div style="margin-top:12px">
+      <button id="startCamera">Kamera starten</button>
+      <button id="takePhoto">Foto senden</button>
+    </div>
+    <video id="video" playsinline autoplay style="width:100%;max-height:60vh;margin-top:12px;background:#000;border-radius:12px;"></video>
   </div>
 
-  <!-- QR Lib -->
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrious/4.0.2/qrious.min.js"></script>
 
   <script>
@@ -47,13 +49,18 @@
     let sessionId = params.get("session");
 
     function newSessionId() {
-      // UUID wenn verfügbar, sonst fallback
       return (crypto.randomUUID && crypto.randomUUID()) ||
         ("sess_" + Math.random().toString(16).slice(2) + Date.now().toString(16));
     }
 
+    const socket = io();
+
+    function joinSession(role) {
+      if (!sessionId) return;
+      socket.emit("join-session", { sessionId, role });
+    }
+
     if (!isMobile) {
-      // DESKTOP: wenn keine Session in URL, erzeugen und URL updaten
       if (!sessionId) {
         sessionId = newSessionId();
         const newUrl = `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`;
@@ -63,26 +70,68 @@
       document.getElementById("desktop").style.display = "block";
       document.getElementById("sessionText").textContent = sessionId;
 
-      const link = window.location.href; // enthält ?session=...
-      document.getElementById("qrLinkText").textContent = link;
-
-      // QR rendern
       new QRious({
         element: document.getElementById("qr"),
-        value: link,
-        size: 256
+        value: window.location.href,
+        size: 256,
+      });
+
+      const statusEl = document.getElementById("desktopStatus");
+      statusEl.textContent = "Warte auf Verbindung…";
+
+      joinSession("desktop");
+
+      socket.on("peer-joined", ({ role }) => {
+        if (role === "mobile") statusEl.textContent = "Handy verbunden ✅";
+      });
+
+      socket.on("peer-left", ({ role }) => {
+        if (role === "mobile") statusEl.textContent = "Handy getrennt";
+      });
+
+      socket.on("photo", ({ imageDataUrl }) => {
+        const img = document.createElement("img");
+        img.src = imageDataUrl;
+        document.getElementById("photos").prepend(img);
       });
 
     } else {
-      // MOBILE: Session aus URL lesen
       document.getElementById("mobile").style.display = "block";
+      const mobileStatus = document.getElementById("mobileStatus");
 
-      const status = document.getElementById("mobileStatus");
-      if (sessionId) {
-        status.innerHTML = `✅ Verbunden mit Session <code>${sessionId}</code>.<br>Als nächstes: Kamera & Live-Upload.`;
+      if (!sessionId) {
+        mobileStatus.textContent = "Keine Session. Bitte QR-Code vom Desktop scannen.";
       } else {
-        status.textContent = "Noch keine Session. Bitte QR-Code vom Desktop scannen.";
+        mobileStatus.innerHTML = `Verbunden mit Session <code>${sessionId}</code> ✅`;
+        joinSession("mobile");
       }
+
+      const video = document.getElementById("video");
+      const startBtn = document.getElementById("startCamera");
+      const takeBtn = document.getElementById("takePhoto");
+
+      startBtn.addEventListener("click", async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+          audio: false,
+        });
+        video.srcObject = stream;
+      });
+
+      takeBtn.addEventListener("click", () => {
+        if (!sessionId) return;
+        if (!video.videoWidth || !video.videoHeight) return;
+
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(video, 0, 0);
+
+        const imageDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        socket.emit("photo", { sessionId, imageDataUrl });
+      });
     }
   </script>
 </body>

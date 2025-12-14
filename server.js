@@ -4,20 +4,47 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+const io = new Server(server, {
+  cors: { origin: true, credentials: true },
+});
 
-// Statische Dateien aus dem "public"-Ordner
 app.use(express.static("public"));
 
 io.on("connection", (socket) => {
-  console.log("Client connected:", socket.id);
+  socket.on("join-session", ({ sessionId, role }) => {
+    if (!sessionId || typeof sessionId !== "string") return;
+
+    socket.join(sessionId);
+    socket.data.sessionId = sessionId;
+    socket.data.role = role || "unknown";
+
+    io.to(sessionId).emit("peer-joined", {
+      role: socket.data.role,
+      socketId: socket.id,
+    });
+  });
+
+  socket.on("photo", ({ sessionId, imageDataUrl }) => {
+    if (!sessionId || typeof sessionId !== "string") return;
+    if (!imageDataUrl || typeof imageDataUrl !== "string") return;
+
+    socket.to(sessionId).emit("photo", { imageDataUrl });
+  });
 
   socket.on("disconnect", () => {
-    console.log("Client disconnected:", socket.id);
+    const sessionId = socket.data.sessionId;
+    if (sessionId) {
+      io.to(sessionId).emit("peer-left", {
+        role: socket.data.role || "unknown",
+        socketId: socket.id,
+      });
+    }
   });
 });
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log("Server running on http://localhost:" + PORT);
+const HOST = "0.0.0.0";
+
+server.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
 });
