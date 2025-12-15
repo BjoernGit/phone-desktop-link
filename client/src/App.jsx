@@ -400,6 +400,14 @@ export default function App() {
 
   return (
     <div className="mobileRoot">
+      <div className="mobileDebugAlways" aria-hidden>
+        <div>cameraReady: {String(cameraReady)}</div>
+        <div>error: {cameraError || "-"}</div>
+        <div>
+          video: {videoRef.current ? `${videoRef.current.videoWidth}×${videoRef.current.videoHeight}` : "-"}
+        </div>
+        <div>tracks: {streamRef.current ? streamRef.current.getTracks().length : 0}</div>
+      </div>
       <div className="sessionPill" aria-label="Session ID">
         {sessionId ? `Session ${sessionId}` : "No session"}
       </div>
