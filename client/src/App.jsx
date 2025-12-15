@@ -3,82 +3,108 @@ import { io } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 
-const socket = io();
-
-function isMobileUA() {
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+function getSessionIdFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("session");
 }
 
-function newSessionId() {
-  return (crypto.randomUUID && crypto.randomUUID()) || `sess_${Math.random().toString(16).slice(2)}`;
+function ensureDesktopSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  let sessionId = params.get("session");
+
+  if (!sessionId) {
+    sessionId = (crypto.randomUUID?.() ?? `sess_${Date.now().toString(16)}`).slice(0, 8);
+    params.set("session", sessionId);
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, "", newUrl);
+  }
+
+  return sessionId;
 }
 
-function clampInt(v, min, max) {
-  return Math.max(min, Math.min(max, v | 0));
+function isMobileDevice() {
+  return (
+    (navigator.userAgentData && navigator.userAgentData.mobile) ||
+    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+  );
 }
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sessionId, setSessionId] = useState("");
-  const [socketState, setSocketState] = useState("disconnected");
-  const [peerState, setPeerState] = useState("Keine Verbindung");
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [peerConnected, setPeerConnected] = useState(false);
   const [photos, setPhotos] = useState([]);
-  const [cameraActive, setCameraActive] = useState(false);
+
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraError, setCameraError] = useState("");
   const [quality, setQuality] = useState("medium");
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  const socket = useMemo(() => {
+    const host = window.location.hostname;
+    const isLocal = host === "localhost" || host === "127.0.0.1";
+    const url = isLocal ? "http://localhost:3000" : window.location.origin;
+    return io(url, { transports: ["websocket"] });
+  }, []);
+
   useEffect(() => {
-    const mobile = isMobileUA();
+    const mobile = isMobileDevice();
     setIsMobile(mobile);
 
-    const params = new URLSearchParams(window.location.search);
-    let sid = params.get("session") || "";
-
-    if (!sid && !mobile) {
-      sid = newSessionId();
-      const url = `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sid)}`;
-      window.history.replaceState({}, "", url);
-    }
-
+    const sid = mobile ? (getSessionIdFromUrl() ?? "") : ensureDesktopSessionId();
     setSessionId(sid);
 
-    socket.on("connect", () => setSocketState("connected"));
-    socket.on("disconnect", () => setSocketState("disconnected"));
-
-    socket.on("peer-joined", ({ role }) => {
-      if (role === "mobile") setPeerState("Handy verbunden ✅");
-      if (role === "desktop") setPeerState("Desktop verbunden ✅");
-    });
-
-    socket.on("peer-left", ({ role }) => {
-      if (role === "mobile") setPeerState("Handy getrennt");
-      if (role === "desktop") setPeerState("Desktop getrennt");
-    });
-
-    socket.on("photo", ({ imageDataUrl }) => {
-      setPhotos((prev) => [imageDataUrl, ...prev]);
+    socket.on("connect", () => setSocketConnected(true));
+    socket.on("disconnect", () => {
+      setSocketConnected(false);
+      setPeerConnected(false);
     });
 
     return () => {
       socket.off("connect");
       socket.off("disconnect");
-      socket.off("peer-joined");
-      socket.off("peer-left");
-      socket.off("photo");
     };
-  }, []);
+  }, [socket]);
 
   useEffect(() => {
     if (!sessionId) return;
-    socket.emit("join-session", { sessionId, role: isMobile ? "mobile" : "desktop" });
-  }, [sessionId, isMobile]);
 
-  const desktopUrl = useMemo(() => {
-    if (!sessionId) return window.location.origin;
-    return `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`;
-  }, [sessionId]);
+    const role = isMobile ? "mobile" : "desktop";
+    socket.emit("join-session", { sessionId, role });
+
+    const onPeerJoined = ({ role: joinedRole }) => {
+      if (joinedRole === (isMobile ? "desktop" : "mobile")) setPeerConnected(true);
+    };
+
+    const onPeerLeft = ({ role: leftRole }) => {
+      if (leftRole === (isMobile ? "desktop" : "mobile")) setPeerConnected(false);
+    };
+
+    const onPhoto = ({ imageDataUrl }) => {
+      setPhotos((prev) => [imageDataUrl, ...prev]);
+    };
+
+    socket.on("peer-joined", onPeerJoined);
+    socket.on("peer-left", onPeerLeft);
+    socket.on("photo", onPhoto);
+
+    return () => {
+      socket.off("peer-joined", onPeerJoined);
+      socket.off("peer-left", onPeerLeft);
+      socket.off("photo", onPhoto);
+    };
+  }, [socket, sessionId, isMobile]);
+
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      socket.close();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function stopCamera() {
     if (streamRef.current) {
@@ -86,144 +112,176 @@ export default function App() {
       streamRef.current = null;
     }
     if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraActive(false);
+    setCameraReady(false);
   }
 
-  async function startCamera() {
-    stopCamera();
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraActive(true);
-    } catch (e) {
-      stopCamera();
-      alert(`Camera Error: ${e?.message || e}`);
+  function getCaptureTarget() {
+    switch (quality) {
+      case "small":
+        return { width: 640, height: 360, jpeg: 0.65 };
+      case "medium":
+        return { width: 1280, height: 720, jpeg: 0.75 };
+      case "large":
+        return { width: 1920, height: 1080, jpeg: 0.8 };
+      case "xlarge":
+        return { width: 2560, height: 1440, jpeg: 0.82 };
+      default:
+        return { width: 1280, height: 720, jpeg: 0.75 };
     }
   }
 
-  function qualityPreset() {
-    if (quality === "small") return { maxW: 640, jpeg: 0.6 };
-    if (quality === "large") return { maxW: 1600, jpeg: 0.85 };
-    if (quality === "xlarge") return { maxW: 2048, jpeg: 0.9 };
-    return { maxW: 1280, jpeg: 0.75 };
+  async function startCamera() {
+    setCameraError("");
+    stopCamera();
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+
+      setCameraReady(true);
+    } catch (err) {
+      setCameraError(err?.message ?? "Camera permission denied");
+      setCameraReady(false);
+    }
   }
 
-  function takePhoto() {
-    if (!sessionId) return;
+  function takePhotoAndSend() {
+    if (!cameraReady || !videoRef.current || !sessionId) return;
+
     const v = videoRef.current;
-    if (!v || !v.videoWidth || !v.videoHeight) return;
+    const { width, height, jpeg } = getCaptureTarget();
 
-    const { maxW, jpeg } = qualityPreset();
-    const srcW = v.videoWidth;
-    const srcH = v.videoHeight;
+    const vw = v.videoWidth || width;
+    const vh = v.videoHeight || height;
 
-    const targetW = clampInt(Math.min(srcW, maxW), 320, maxW);
-    const targetH = clampInt((srcH * targetW) / srcW, 240, 4096);
+    const scale = Math.min(width / vw, height / vh, 1);
+    const outW = Math.floor(vw * scale);
+    const outH = Math.floor(vh * scale);
 
     const canvas = document.createElement("canvas");
-    canvas.width = targetW;
-    canvas.height = targetH;
+    canvas.width = outW;
+    canvas.height = outH;
 
-    const ctx = canvas.getContext("2d");
-    ctx.drawImage(v, 0, 0, targetW, targetH);
+    const ctx = canvas.getContext("2d", { alpha: false });
+    ctx.drawImage(v, 0, 0, outW, outH);
 
     const imageDataUrl = canvas.toDataURL("image/jpeg", jpeg);
+    socket.emit("photo", { sessionId, imageDataUrl });
 
-    socket.emit("photo", {
-      sessionId,
-      imageDataUrl,
-      meta: { w: targetW, h: targetH, q: jpeg, preset: quality },
-    });
-
-    if (navigator.vibrate) navigator.vibrate(30);
+    if (navigator.vibrate) navigator.vibrate(20);
   }
 
   if (!isMobile) {
+    const url = sessionId
+      ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
+      : window.location.href;
+
     return (
-      <div className="desktopRoot">
+      <div className="desktopPage">
         <header className="desktopHeader">
-          <div className="title">Phone ↔ Desktop Link</div>
-          <div className="pill">
-            Socket: <span className={socketState === "connected" ? "ok" : "bad"}>{socketState}</span>
-          </div>
-          <div className="pill">Status: {peerState}</div>
-        </header>
-
-        <section className="desktopCard">
-          <div className="row">
-            <div className="label">Session</div>
-            <code className="code">{sessionId || "—"}</code>
-          </div>
-
-          <div className="qrCard">
-            <QRCodeSVG
-              value={desktopUrl}
-              size={320}
-              level="M"
-              includeMargin={true}
-              bgColor="#ffffff"
-              fgColor="#000000"
-            />
-            <div className="qrLink">
-              <a href={desktopUrl} target="_blank" rel="noreferrer">
-                {desktopUrl}
-              </a>
+          <div className="brand">
+            <div className="brandTitle">Phone ↔ Desktop Link</div>
+            <div className="brandSub">
+              Socket: <strong>{socketConnected ? "connected" : "disconnected"}</strong> · Device:{" "}
+              <strong>{peerConnected ? "paired" : "waiting"}</strong>
             </div>
           </div>
-        </section>
 
-        <section className="gallery">
-          {photos.map((src, idx) => (
-            <img key={idx} src={src} alt={`photo-${idx}`} />
-          ))}
-        </section>
+          <div className="desktopQrCard">
+            <div className="desktopQrLabel">Scan QR to pair</div>
+            <div className="desktopQrWrap">
+              <QRCodeSVG value={url} size={220} />
+            </div>
+            <div className="desktopSession">
+              Session: <code>{sessionId}</code>
+            </div>
+          </div>
+        </header>
+
+        <main className="desktopMain">
+          <div className="desktopGrid">
+            {photos.map((src, idx) => (
+              <a key={idx} className="photoCard" href={src} target="_blank" rel="noreferrer">
+                <img className="photoImg" src={src} alt={`Photo ${idx}`} />
+              </a>
+            ))}
+          </div>
+
+          {photos.length === 0 && (
+            <div className="emptyState">
+              <div className="emptyTitle">Noch keine Bilder</div>
+              <div className="emptyText">Öffne den QR-Code auf dem Handy und drück den Shutter.</div>
+            </div>
+          )}
+        </main>
       </div>
     );
   }
 
   return (
     <div className="mobileRoot">
-      <div className="mobileTop">
-        <div className="mobileTitle">Phone Link</div>
-        <div className="mobileSub">
-          Session: <code className="code">{sessionId || "—"}</code>
-        </div>
+      <div className="sessionPill" aria-label="Session ID">
+        {sessionId ? `Session ${sessionId}` : "No session"}
       </div>
 
-      {!sessionId ? (
-        <div className="mobileCenter">
-          Keine Session. Bitte QR-Code am Desktop scannen.
-        </div>
+      {!cameraReady ? (
+        <button
+          type="button"
+          className="tapToStart"
+          onClick={startCamera}
+          disabled={!sessionId}
+          aria-label="Tap to start camera"
+        >
+          <div className="tapTitle">Tippe, um die Kamera zu starten</div>
+          <div className="tapSub">
+            {sessionId ? "Session ist gekoppelt" : "Bitte QR-Code vom Desktop scannen"}
+          </div>
+          {cameraError && <div className="tapError">{cameraError}</div>}
+        </button>
       ) : (
-        <>
-          <div className="cameraStage" onClick={!cameraActive ? startCamera : undefined}>
-            <video ref={videoRef} className="video" autoPlay playsInline muted />
-            {!cameraActive && <div className="tapHint">Tippe auf den Bildschirm, um die Kamera zu starten</div>}
-          </div>
+        <div className="cameraStage">
+          <video ref={videoRef} className="cameraVideo" playsInline muted autoPlay />
+          <div className="cameraTopFade" />
+          <div className="cameraBottomFade" />
 
-          <div className="controls">
-            <select value={quality} onChange={(e) => setQuality(e.target.value)} className="quality">
-              <option value="small">Klein</option>
-              <option value="medium">Mittel</option>
-              <option value="large">Groß</option>
-              <option value="xlarge">Sehr groß</option>
-            </select>
+          <div className="cameraControls">
+            <div className="qualityWrap">
+              <select
+                className="qualitySelect"
+                value={quality}
+                onChange={(e) => setQuality(e.target.value)}
+                aria-label="Image size"
+              >
+                <option value="small">Klein</option>
+                <option value="medium">Mittel</option>
+                <option value="large">Gross</option>
+                <option value="xlarge">Sehr gross</option>
+              </select>
+            </div>
 
-            <button className="btnStop" onClick={stopCamera} disabled={!cameraActive}>
-              Stop
+            <button
+              type="button"
+              className="shutter"
+              onClick={takePhotoAndSend}
+              aria-label="Take photo"
+            >
+              <span className="shutterInner" />
             </button>
 
-            <button className="btnShutter" onClick={takePhoto} disabled={!cameraActive} aria-label="Take photo" />
-
-            <button className="btnStart" onClick={startCamera}>
-              Start
+            <button type="button" className="stopBtn" onClick={stopCamera} aria-label="Stop camera">
+              ×
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   );

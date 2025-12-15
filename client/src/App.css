@@ -1,81 +1,303 @@
-import { useEffect, useMemo, useState } from "react";
-import { io } from "socket.io-client";
-
-function getSessionId() {
-  const params = new URLSearchParams(window.location.search);
-  let session = params.get("session");
-
-  if (!session) {
-    session = crypto.randomUUID();
-    params.set("session", session);
-    window.history.replaceState({}, "", `?${params.toString()}`);
-  }
-
-  return session;
+:root {
+  --bg0: #070a12;
+  --bg1: #0b1224;
+  --card: rgba(255, 255, 255, 0.06);
+  --card2: rgba(255, 255, 255, 0.09);
+  --text: rgba(255, 255, 255, 0.92);
+  --muted: rgba(255, 255, 255, 0.68);
+  --line: rgba(255, 255, 255, 0.12);
+  --milk: rgba(255, 255, 255, 0.78);
+  --milkText: rgba(0, 0, 0, 0.86);
 }
 
-export default function App() {
-  const [connected, setConnected] = useState(false);
-  const sessionId = useMemo(() => getSessionId(), []);
+* {
+  box-sizing: border-box;
+}
 
-  const socket = useMemo(() => {
-    return io("http://127.0.0.1:3000", {
-      autoConnect: false,
-      transports: ["websocket", "polling"],
-    });
-  }, []);
+html,
+body,
+#root {
+  height: 100%;
+}
 
-  useEffect(() => {
-    const onConnect = () => {
-      setConnected(true);
-      socket.emit("join-session", { sessionId, role: "desktop" });
-    };
+body {
+  margin: 0;
+  color: var(--text);
+  background: radial-gradient(1200px 800px at 20% 0%, #1d2a55 0%, var(--bg0) 60%);
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+}
 
-    const onDisconnect = () => {
-      setConnected(false);
-    };
+/* Desktop */
+.desktopPage {
+  min-height: 100%;
+  padding: 28px;
+}
 
-    const onConnectError = (err) => {
-      setConnected(false);
-      console.error("socket connect_error:", err?.message || err);
-    };
+.desktopHeader {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 18px;
+  align-items: start;
+  max-width: 1200px;
+  margin: 0 auto 18px;
+}
 
-    socket.on("connect", onConnect);
-    socket.on("disconnect", onDisconnect);
-    socket.on("connect_error", onConnectError);
+.brandTitle {
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
 
-    socket.connect();
-    setConnected(socket.connected);
+.brandSub {
+  margin-top: 8px;
+  color: var(--muted);
+}
 
-    return () => {
-      socket.off("connect", onConnect);
-      socket.off("disconnect", onDisconnect);
-      socket.off("connect_error", onConnectError);
-      socket.disconnect();
-    };
-  }, [socket, sessionId]);
+.desktopQrCard {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+}
 
-  return (
-    <div
-      style={{
-        minHeight: "100vh",
-        padding: "32px",
-        fontFamily: "system-ui, sans-serif",
-        background: "#0f172a",
-        color: "#e5e7eb",
-      }}
-    >
-      <h1>Phone ↔ Desktop Link</h1>
+.desktopQrLabel {
+  color: var(--muted);
+  font-size: 14px;
+  margin-bottom: 10px;
+}
 
-      <p>
-        <strong>Session:</strong> {sessionId}
-      </p>
+.desktopQrWrap {
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  padding: 10px;
+}
 
-      <p>
-        <strong>Socket:</strong> {connected ? "connected ✅" : "disconnected ❌"}
-      </p>
+.desktopSession {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
 
-      <p>Status: {connected ? "Warte auf Handy…" : "Keine Verbindung"}</p>
-    </div>
-  );
+.desktopSession code {
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.desktopMain {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.desktopGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.photoCard {
+  display: block;
+  border-radius: 18px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--card2);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.photoCard:hover {
+  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.photoImg {
+  display: block;
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+}
+
+.emptyState {
+  margin-top: 18px;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+}
+
+.emptyTitle {
+  color: var(--text);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 1024px) {
+  .desktopHeader {
+    grid-template-columns: 1fr;
+  }
+  .desktopGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .desktopGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Mobile */
+.mobileRoot {
+  height: 100%;
+  background: #000;
+  position: relative;
+}
+
+.sessionPill {
+  position: fixed;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--milk);
+  color: var(--milkText);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  z-index: 30;
+  max-width: calc(100% - 28px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tapToStart {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0 22px;
+  background: radial-gradient(800px 600px at 50% 10%, #1b2753 0%, #050710 70%);
+  color: var(--text);
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 8px;
+}
+
+.tapTitle {
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.tapSub {
+  font-size: 14px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.tapError {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255, 120, 120, 0.95);
+  text-align: center;
+}
+
+.cameraStage {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+
+.cameraVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cameraTopFade,
+.cameraBottomFade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.cameraTopFade {
+  top: 0;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0));
+}
+
+.cameraBottomFade {
+  bottom: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
+}
+
+.cameraControls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 18px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  z-index: 20;
+  padding: 0 18px;
+}
+
+.qualityWrap {
+  justify-self: start;
+}
+
+.qualitySelect {
+  appearance: none;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.shutter {
+  justify-self: center;
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.1);
+  display: grid;
+  place-items: center;
+}
+
+.shutterInner {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.stopBtn {
+  justify-self: end;
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.35);
+  color: rgba(255, 255, 255, 0.92);
+  font-size: 28px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
 }
