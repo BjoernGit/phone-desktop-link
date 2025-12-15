@@ -243,13 +243,70 @@ export default function App() {
     canvas.height = targetH;
 
     const ctx = canvas.getContext("2d", { alpha: false });
-    ctx.drawImage(v, sx, sy, sW, sH, 0, 0, targetW, targetH);
 
-    const imageDataUrl = canvas.toDataURL("image/jpeg", jpeg);
-    socket.emit("photo", { sessionId, imageDataUrl });
+    // If the frame looks black, retry a few times (helps on some phones where the first frames are dark)
+    const maxTries = 3;
+    let tries = 0;
+    let sent = false;
+
+    while (tries < maxTries && !sent) {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(v, sx, sy, sW, sH, 0, 0, targetW, targetH);
+
+      // sample a small central area to detect mostly-dark frames
+      try {
+        const sampleW = Math.min(20, canvas.width);
+        const sampleH = Math.min(20, canvas.height);
+        const sxp = Math.floor((canvas.width - sampleW) / 2);
+        const syp = Math.floor((canvas.height - sampleH) / 2);
+        const img = ctx.getImageData(sxp, syp, sampleW, sampleH).data;
+        let sum = 0;
+        for (let i = 0; i < img.length; i += 4) {
+          // luminance approximation
+          sum += 0.2126 * img[i] + 0.7152 * img[i + 1] + 0.0722 * img[i + 2];
+        }
+        const avg = sum / (sampleW * sampleH);
+        if (avg < 12 && tries < maxTries - 1) {
+          // too dark, wait a bit and retry
+          await new Promise((res) => setTimeout(res, 220));
+          tries += 1;
+          continue;
+        }
+      } catch (e) {
+        // if getImageData fails (CORS/webgl oddities) proceed to send once
+      }
+
+      const imageDataUrl = canvas.toDataURL("image/jpeg", jpeg);
+      socket.emit("photo", { sessionId, imageDataUrl });
+      sent = true;
+    }
 
     if (navigator.vibrate) navigator.vibrate(20);
   }
+
+  // small debug state visible on mobile while developing
+  const [dbg, setDbg] = useState({ readyState: 0, vw: 0, vh: 0, tracks: 0, lastSend: "-" });
+
+  useEffect(() => {
+    let rafId;
+    const t = () => {
+      const v = videoRef.current;
+      const s = streamRef.current;
+      if (v) {
+        setDbg({
+          readyState: v.readyState,
+          vw: v.videoWidth || 0,
+          vh: v.videoHeight || 0,
+          tracks: s ? s.getTracks().length : 0,
+          lastSend: dbg.lastSend,
+        });
+      }
+      rafId = requestAnimationFrame(t);
+    };
+    rafId = requestAnimationFrame(t);
+    return () => cancelAnimationFrame(rafId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!isMobile) {
     const url = sessionId
@@ -320,9 +377,16 @@ export default function App() {
         </button>
       ) : (
         <div className="cameraStage">
-          <video ref={videoRef} className="cameraVideo" playsInline muted autoPlay />
+            <video ref={videoRef} className="cameraVideo" playsInline muted autoPlay />
           <div className="cameraTopFade" />
           <div className="cameraBottomFade" />
+
+            <div className="mobileDebug" aria-hidden>
+              <div>ready: {dbg.readyState}</div>
+              <div>
+                {dbg.vw}×{dbg.vh} · tracks: {dbg.tracks}
+              </div>
+            </div>
 
           <div className="cameraControls">
             <div className="qualityWrap">
