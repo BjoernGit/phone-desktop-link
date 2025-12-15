@@ -431,97 +431,21 @@ export default function App() {
     );
   }
 
+  // Minimal mobile UI: full-screen video only. First tap starts camera; subsequent taps take a photo.
   return (
-    <div className="mobileRoot">
-      <div className="mobileDebugAlways" aria-hidden>
-        <div>cameraReady: {String(cameraReady)}</div>
-        <div>error: {cameraError || "-"}</div>
-        <div>
-          video: {videoRef.current ? `${videoRef.current.videoWidth}×${videoRef.current.videoHeight}` : "-"}
-        </div>
-        <div>tracks: {streamRef.current ? streamRef.current.getTracks().length : 0}</div>
-      </div>
-      <div className="sessionPill" aria-label="Session ID">
-        {sessionId ? `Session ${sessionId}` : "No session"}
-      </div>
-
-      {!cameraReady ? (
-        <button
-          type="button"
-          className="tapToStart"
-          onClick={startCamera}
-          disabled={!sessionId}
-          aria-label="Tap to start camera"
-        >
-          <div className="tapInner">
-            <div className="tapTitle">Tippe hier für Unlock</div>
-            <div className="tapSub">
-              {sessionId ? "Session ist gekoppelt" : "Bitte QR-Code vom Desktop scannen"}
-            </div>
-          </div>
-          {cameraError && <div className="tapError">{cameraError}</div>}
-        </button>
-      ) : (
-        <div className="cameraStage">
-            <video ref={videoRef} className="cameraVideo" playsInline muted autoPlay />
-          <div className="cameraTopFade" />
-          <div className="cameraBottomFade" />
-
-            <div className="mobileDebug" aria-hidden>
-              <div>ready: {dbg.readyState}</div>
-              <div>
-                {dbg.vw}×{dbg.vh} · tracks: {dbg.tracks}
-              </div>
-            </div>
-          {dbg.vw === 0 && (
-            <div className="noFrameOverlay">
-              <div>No video frame yet</div>
-              <div className="noFrameActions">
-                <button
-                  type="button"
-                  className="retryBtn"
-                  onClick={async () => {
-                    setCameraError("");
-                    stopCamera();
-                    await startCamera();
-                  }}
-                >
-                  Retry camera
-                </button>
-              </div>
-            </div>
-          )}
-
-          <div className="cameraControls">
-            <div className="qualityWrap">
-              <select
-                className="qualitySelect"
-                value={quality}
-                onChange={(e) => setQuality(e.target.value)}
-                aria-label="Image size"
-              >
-                <option value="small">Klein</option>
-                <option value="medium">Mittel</option>
-                <option value="large">Gross</option>
-                <option value="xlarge">Sehr gross</option>
-              </select>
-            </div>
-
-            <button
-              type="button"
-              className="shutter"
-              onClick={takePhotoAndSend}
-              aria-label="Take photo"
-            >
-              <span className="shutterInner" />
-            </button>
-
-            <button type="button" className="stopBtn" onClick={stopCamera} aria-label="Stop camera">
-              ×
-            </button>
-          </div>
-        </div>
-      )}
+    <div
+      className="mobileSimpleRoot"
+      onClick={async () => {
+        if (!sessionId) return; // require pairing
+        if (!cameraReady) {
+          setCameraError("");
+          await startCamera();
+        } else {
+          takePhotoAndSend();
+        }
+      }}
+    >
+      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
     </div>
   );
 }
