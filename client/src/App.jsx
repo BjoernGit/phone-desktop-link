@@ -264,7 +264,14 @@ export default function App() {
       return;
     }
 
-    const { width: targetW, height: targetH, jpeg } = getCaptureTarget();
+    // Default target from quality, but if phone is portrait prefer portrait output
+    let { width: targetW, height: targetH, jpeg } = getCaptureTarget();
+    const isPortrait = v.videoHeight > v.videoWidth || window.innerHeight > window.innerWidth;
+    if (isPortrait) {
+      // enforce portrait 720x1280 as requested
+      targetW = 720;
+      targetH = 1280;
+    }
 
     // Wait briefly for the video to have frame data to avoid capturing a black frame
     if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || v.videoWidth === 0) {
@@ -446,6 +453,12 @@ export default function App() {
       }}
     >
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+
+      {!cameraReady && (
+        <div className="mobileSimpleHint" aria-hidden>
+          Tippe, um die Kamera freizugeben
+        </div>
+      )}
     </div>
   );
 }
