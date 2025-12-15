@@ -231,7 +231,6 @@ export default function App() {
       return;
     }
 
-    const v = videoRef.current;
     const { width: targetW, height: targetH, jpeg } = getCaptureTarget();
 
     // Wait briefly for the video to have frame data to avoid capturing a black frame
