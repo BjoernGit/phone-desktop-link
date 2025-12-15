@@ -154,25 +154,66 @@ export default function App() {
     }
   }
 
-  function takePhotoAndSend() {
+  async function takePhotoAndSend() {
     if (!cameraReady || !videoRef.current || !sessionId) return;
 
     const v = videoRef.current;
-    const { width, height, jpeg } = getCaptureTarget();
+    const { width: targetW, height: targetH, jpeg } = getCaptureTarget();
 
-    const vw = v.videoWidth || width;
-    const vh = v.videoHeight || height;
+    // Wait briefly for the video to have frame data to avoid capturing a black frame
+    if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || v.videoWidth === 0) {
+      await new Promise((res) => {
+        let settled = false;
+        const onLoaded = () => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            res();
+          }
+        };
+        const cleanup = () => {
+          v.removeEventListener("loadeddata", onLoaded);
+          clearTimeout(timeout);
+        };
+        v.addEventListener("loadeddata", onLoaded);
+        const timeout = setTimeout(() => {
+          if (!settled) {
+            settled = true;
+            cleanup();
+            res();
+          }
+        }, 500);
+      });
+    }
 
-    const scale = Math.min(width / vw, height / vh, 1);
-    const outW = Math.floor(vw * scale);
-    const outH = Math.floor(vh * scale);
+    const vw = v.videoWidth || targetW;
+    const vh = v.videoHeight || targetH;
+
+    // Compute source crop so the resulting image matches the requested aspect ratio
+    const srcAspect = vw / vh;
+    const targetAspect = targetW / targetH;
+
+    let sx = 0,
+      sy = 0,
+      sW = vw,
+      sH = vh;
+
+    if (srcAspect > targetAspect) {
+      // video is wider than target — crop sides
+      sW = Math.round(vh * targetAspect);
+      sx = Math.round((vw - sW) / 2);
+    } else if (srcAspect < targetAspect) {
+      // video is taller than target — crop top/bottom
+      sH = Math.round(vw / targetAspect);
+      sy = Math.round((vh - sH) / 2);
+    }
 
     const canvas = document.createElement("canvas");
-    canvas.width = outW;
-    canvas.height = outH;
+    canvas.width = targetW;
+    canvas.height = targetH;
 
     const ctx = canvas.getContext("2d", { alpha: false });
-    ctx.drawImage(v, 0, 0, outW, outH);
+    ctx.drawImage(v, sx, sy, sW, sH, 0, 0, targetW, targetH);
 
     const imageDataUrl = canvas.toDataURL("image/jpeg", jpeg);
     socket.emit("photo", { sessionId, imageDataUrl });
