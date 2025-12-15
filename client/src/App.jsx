@@ -151,10 +151,10 @@ export default function App() {
         } catch (e) {
           // ignore — user gesture may be required but we started from one
         }
-
         await new Promise((res) => {
-          if ((v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth > 0)) return res();
+          if (v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth > 0) return res();
           let settled = false;
+
           const onLoaded = () => {
             if (!settled) {
               settled = true;
@@ -162,18 +162,55 @@ export default function App() {
               res();
             }
           };
+
+          const onFrame = () => {
+            if (!settled && v.videoWidth > 0) {
+              settled = true;
+              cleanup();
+              res();
+            }
+          };
+
           const cleanup = () => {
             v.removeEventListener("loadeddata", onLoaded);
+            if (v.cancelVideoFrameCallback && vfId != null) v.cancelVideoFrameCallback(vfId);
             clearTimeout(timeout);
+            if (track) {
+              track.removeEventListener("unmute", onFrame);
+              track.removeEventListener("mute", onFrame);
+            }
           };
+
           v.addEventListener("loadeddata", onLoaded);
+
+          // prefer requestVideoFrameCallback when available
+          let vfId = null;
+          if (v.requestVideoFrameCallback) {
+            const loop = () => {
+              if (settled) return;
+              if (v.videoWidth > 0) {
+                onFrame();
+                return;
+              }
+              vfId = v.requestVideoFrameCallback(loop);
+            };
+            vfId = v.requestVideoFrameCallback(loop);
+          }
+
+          // listen for track unmute as an additional signal
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            track.addEventListener("unmute", onFrame);
+            track.addEventListener("mute", onFrame);
+          }
+
           const timeout = setTimeout(() => {
             if (!settled) {
               settled = true;
               cleanup();
               res();
             }
-          }, 600);
+          }, 3000);
         });
       }
 
@@ -186,6 +223,13 @@ export default function App() {
 
   async function takePhotoAndSend() {
     if (!cameraReady || !videoRef.current || !sessionId) return;
+
+    const v = videoRef.current;
+    // if no intrinsic video size yet, refuse to send — advise retry
+    if (!v.videoWidth || !v.videoHeight) {
+      setCameraError("No video frame yet — versuche erneut");
+      return;
+    }
 
     const v = videoRef.current;
     const { width: targetW, height: targetH, jpeg } = getCaptureTarget();
@@ -369,7 +413,7 @@ export default function App() {
           disabled={!sessionId}
           aria-label="Tap to start camera"
         >
-          <div className="tapTitle">Tippe, um die Kamera zu starten</div>
+          <div className="tapTitle">Tippe hier für Unlock</div>
           <div className="tapSub">
             {sessionId ? "Session ist gekoppelt" : "Bitte QR-Code vom Desktop scannen"}
           </div>
@@ -387,6 +431,24 @@ export default function App() {
                 {dbg.vw}×{dbg.vh} · tracks: {dbg.tracks}
               </div>
             </div>
+          {dbg.vw === 0 && (
+            <div className="noFrameOverlay">
+              <div>No video frame yet</div>
+              <div className="noFrameActions">
+                <button
+                  type="button"
+                  className="retryBtn"
+                  onClick={async () => {
+                    setCameraError("");
+                    stopCamera();
+                    await startCamera();
+                  }}
+                >
+                  Retry camera
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="cameraControls">
             <div className="qualityWrap">
