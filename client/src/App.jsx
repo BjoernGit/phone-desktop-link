@@ -107,6 +107,30 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Stop camera when page/tab becomes inactive so the OS/browser releases the camera
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) {
+        stopCamera();
+      }
+    };
+
+    const onBeforeUnload = () => stopCamera();
+
+    window.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", stopCamera);
+    window.addEventListener("blur", stopCamera);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      window.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", stopCamera);
+      window.removeEventListener("blur", stopCamera);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function stopCamera() {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
