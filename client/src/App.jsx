@@ -143,8 +143,38 @@ export default function App() {
       streamRef.current = stream;
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const v = videoRef.current;
+        v.srcObject = stream;
+        // try to play; some browsers resolve play() before first frame — wait for 'loadeddata'
+        try {
+          await v.play();
+        } catch (e) {
+          // ignore — user gesture may be required but we started from one
+        }
+
+        await new Promise((res) => {
+          if ((v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth > 0)) return res();
+          let settled = false;
+          const onLoaded = () => {
+            if (!settled) {
+              settled = true;
+              cleanup();
+              res();
+            }
+          };
+          const cleanup = () => {
+            v.removeEventListener("loadeddata", onLoaded);
+            clearTimeout(timeout);
+          };
+          v.addEventListener("loadeddata", onLoaded);
+          const timeout = setTimeout(() => {
+            if (!settled) {
+              settled = true;
+              cleanup();
+              res();
+            }
+          }, 600);
+        });
       }
 
       setCameraReady(true);
