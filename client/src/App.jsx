@@ -39,6 +39,7 @@ export default function App() {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [quality, setQuality] = useState("medium");
+  const [trackSettings, setTrackSettings] = useState(null);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -141,6 +142,15 @@ export default function App() {
       });
 
       streamRef.current = stream;
+      const t0 = stream.getVideoTracks()[0];
+      if (t0) {
+        try {
+          const s = t0.getSettings ? t0.getSettings() : null;
+          setTrackSettings(s);
+        } catch (e) {
+          // ignore
+        }
+      }
 
       if (videoRef.current) {
         const v = videoRef.current;
@@ -199,6 +209,29 @@ export default function App() {
 
           // listen for track unmute as an additional signal
           const track = stream.getVideoTracks()[0];
+          if (track && 'ImageCapture' in window) {
+            // try to grab a frame via ImageCapture as a fallback to get dims
+            const imgCap = new ImageCapture(track);
+            let grabbed = false;
+            const tryGrab = async () => {
+              try {
+                const bmp = await imgCap.grabFrame();
+                if (bmp && bmp.width && bmp.height) {
+                  grabbed = true;
+                  // update video element via setting a blob URL to ensure dimension availability
+                  const off = document.createElement('canvas');
+                  off.width = bmp.width;
+                  off.height = bmp.height;
+                  const ctx = off.getContext('2d');
+                  ctx.drawImage(bmp, 0, 0);
+                }
+              } catch (e) {
+                // ignore
+              }
+              return grabbed;
+            };
+            tryGrab();
+          }
           if (track) {
             track.addEventListener("unmute", onFrame);
             track.addEventListener("mute", onFrame);
@@ -420,9 +453,11 @@ export default function App() {
           disabled={!sessionId}
           aria-label="Tap to start camera"
         >
-          <div className="tapTitle">Tippe hier für Unlock</div>
-          <div className="tapSub">
-            {sessionId ? "Session ist gekoppelt" : "Bitte QR-Code vom Desktop scannen"}
+          <div className="tapInner">
+            <div className="tapTitle">Tippe hier für Unlock</div>
+            <div className="tapSub">
+              {sessionId ? "Session ist gekoppelt" : "Bitte QR-Code vom Desktop scannen"}
+            </div>
           </div>
           {cameraError && <div className="tapError">{cameraError}</div>}
         </button>
