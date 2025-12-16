@@ -33,7 +33,7 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
-  const [peerConnected, setPeerConnected] = useState(false);
+  const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
 
   const [cameraReady, setCameraReady] = useState(false);
@@ -61,7 +61,7 @@ export default function App() {
     socket.on("connect", () => setSocketConnected(true));
     socket.on("disconnect", () => {
       setSocketConnected(false);
-      setPeerConnected(false);
+      setPeers([]);
     });
 
     return () => {
@@ -76,12 +76,19 @@ export default function App() {
     const role = isMobile ? "mobile" : "desktop";
     socket.emit("join-session", { sessionId, role });
 
-    const onPeerJoined = ({ role: joinedRole }) => {
-      if (joinedRole === (isMobile ? "desktop" : "mobile")) setPeerConnected(true);
+    const onPeerJoined = ({ role: joinedRole, clientId }) => {
+      if (joinedRole === (isMobile ? "desktop" : "mobile")) {
+        setPeers((prev) => {
+          if (prev.some((p) => p.id === clientId)) return prev;
+          return [...prev, { id: clientId, role: joinedRole }];
+        });
+      }
     };
 
-    const onPeerLeft = ({ role: leftRole }) => {
-      if (leftRole === (isMobile ? "desktop" : "mobile")) setPeerConnected(false);
+    const onPeerLeft = ({ role: leftRole, clientId }) => {
+      if (leftRole === (isMobile ? "desktop" : "mobile")) {
+        setPeers((prev) => prev.filter((p) => p.id !== clientId));
+      }
     };
 
     const onPhoto = ({ imageDataUrl }) => {
@@ -406,7 +413,8 @@ export default function App() {
       ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
       : window.location.href;
 
-    const qrDocked = peerConnected || photos.length > 0;
+    const peerCount = peers.length;
+    const qrDocked = peerCount > 0 || photos.length > 0;
 
     return (
       <div className="desktopShell">
@@ -415,18 +423,23 @@ export default function App() {
             <div className="heroTitle">SpeedLink</div>
             <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell, kabellos, simpel.</div>
             <div className="heroMeta">
-              <span className={`pill ${socketConnected ? "ok" : "wait"}`}>
+              <span className={`pill ${peerCount > 0 ? "ok" : "wait"}`}>
                 <span className="dot" />
-                Socket {socketConnected ? "verbunden" : "wartet"}
-              </span>
-              <span className={`pill ${peerConnected ? "ok" : "wait"}`}>
-                <span className="dot" />
-                Geraet {peerConnected ? "gepaired" : "wartet"}
+                {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Gerät wartet"}
               </span>
               <span className="pill info">
                 Session <code>{sessionId}</code>
               </span>
             </div>
+            {peerCount > 0 && (
+              <div className="peerList">
+                {peers.map((p) => (
+                  <span key={p.id} className="peerTag">
+                    {p.role}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
@@ -488,4 +501,3 @@ export default function App() {
     </div>
   );
 }
-

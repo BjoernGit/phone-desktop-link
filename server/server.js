@@ -29,7 +29,7 @@ io.on("connection", (socket) => {
     socket.data.sessionId = sessionId;
     socket.data.role = role;
 
-    socket.to(room).emit("peer-joined", { role });
+    socket.to(room).emit("peer-joined", { role, clientId: socket.id });
   });
 
   socket.on("photo", ({ sessionId, imageDataUrl }) => {
@@ -42,7 +42,7 @@ io.on("connection", (socket) => {
     const role = socket.data.role;
     if (!sessionId || !role) return;
 
-    socket.to(roomName(sessionId)).emit("peer-left", { role });
+    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id });
   });
 });
 

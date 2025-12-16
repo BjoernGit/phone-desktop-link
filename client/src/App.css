@@ -76,6 +76,22 @@ body {
 .desktopHero.isCentered .heroCopy { align-items: center; }
 .desktopHero.isCentered .heroMeta { justify-content: center; }
 
+.peerList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.peerTag {
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--line);
+}
+
 .pill {
   display: inline-flex;
   align-items: center;
