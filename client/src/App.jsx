@@ -622,7 +622,7 @@ export default function App() {
       <div className="desktopShell">
         <header className="desktopHero">
           <div className="heroCopy">
-            <div className="heroTitle">SpeedLink</div>
+            <div className="heroTitle">SpeedSnap</div>
             <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell und sicher.</div>
           </div>
         </header>
