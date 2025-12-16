@@ -21,15 +21,16 @@ function roomName(sessionId) {
 }
 
 io.on("connection", (socket) => {
-  socket.on("join-session", ({ sessionId, role }) => {
+  socket.on("join-session", ({ sessionId, role, deviceName }) => {
     if (!sessionId) return;
 
     const room = roomName(sessionId);
     socket.join(room);
     socket.data.sessionId = sessionId;
     socket.data.role = role;
+    socket.data.deviceName = deviceName;
 
-    socket.to(room).emit("peer-joined", { role, clientId: socket.id });
+    socket.to(room).emit("peer-joined", { role, clientId: socket.id, deviceName });
   });
 
   socket.on("photo", ({ sessionId, imageDataUrl }) => {
@@ -40,9 +41,10 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     const sessionId = socket.data.sessionId;
     const role = socket.data.role;
+    const deviceName = socket.data.deviceName;
     if (!sessionId || !role) return;
 
-    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id });
+    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id, deviceName });
   });
 });
 

@@ -44,6 +44,19 @@ export default function App() {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
 
+  const deviceName = useMemo(() => {
+    const uaData = navigator.userAgentData;
+    if (uaData?.platform) return uaData.platform;
+    if (navigator.platform) return navigator.platform;
+    const ua = navigator.userAgent || "";
+    if (ua.includes("Android")) return "Android";
+    if (ua.includes("iPhone")) return "iPhone";
+    if (ua.includes("iPad")) return "iPad";
+    if (ua.includes("Mac")) return "Mac";
+    if (ua.includes("Win")) return "Windows";
+    return "Unbekanntes Gerät";
+  }, []);
+
   const socket = useMemo(() => {
     const host = window.location.hostname;
     const isLocal = host === "localhost" || host === "127.0.0.1";
@@ -74,13 +87,13 @@ export default function App() {
     if (!sessionId) return;
 
     const role = isMobile ? "mobile" : "desktop";
-    socket.emit("join-session", { sessionId, role });
+    socket.emit("join-session", { sessionId, role, deviceName });
 
-    const onPeerJoined = ({ role: joinedRole, clientId }) => {
+    const onPeerJoined = ({ role: joinedRole, clientId, deviceName: joinedName }) => {
       if (joinedRole === (isMobile ? "desktop" : "mobile")) {
         setPeers((prev) => {
           if (prev.some((p) => p.id === clientId)) return prev;
-          return [...prev, { id: clientId, role: joinedRole }];
+          return [...prev, { id: clientId, role: joinedRole, name: joinedName || "Gerät" }];
         });
       }
     };
@@ -105,6 +118,13 @@ export default function App() {
       socket.off("photo", onPhoto);
     };
   }, [socket, sessionId, isMobile]);
+
+  // Re-emit join on reconnect so peers repopulate after a drop
+  useEffect(() => {
+    if (!socketConnected || !sessionId) return;
+    const role = isMobile ? "mobile" : "desktop";
+    socket.emit("join-session", { sessionId, role, deviceName });
+  }, [socketConnected, sessionId, isMobile, socket, deviceName]);
 
   useEffect(() => {
     return () => {
@@ -427,15 +447,12 @@ export default function App() {
                 <span className="dot" />
                 {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Gerät wartet"}
               </span>
-              <span className="pill info">
-                Session <code>{sessionId}</code>
-              </span>
             </div>
             {peerCount > 0 && (
               <div className="peerList">
                 {peers.map((p) => (
                   <span key={p.id} className="peerTag">
-                    {p.role}
+                    {p.name || p.role}
                   </span>
                 ))}
               </div>
@@ -446,9 +463,6 @@ export default function App() {
             <div className="qrLabel">{qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}</div>
             <div className="qrWrap">
               <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
-            </div>
-            <div className="qrSession">
-              Session: <code>{sessionId}</code>
             </div>
           </div>
         </header>
