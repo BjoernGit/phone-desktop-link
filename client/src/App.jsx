@@ -37,6 +37,7 @@ export default function App() {
   const [photos, setPhotos] = useState([]);
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
+  const [debugDataUrl, setDebugDataUrl] = useState("");
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -442,28 +443,171 @@ export default function App() {
     return new Blob([u8arr], { type: mime });
   }
 
+  async function blobToJpeg(blob) {
+    if (blob.type === "image/jpeg") return blob;
+
+    const drawWithBitmap = async () => {
+      const bmp = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      canvas.getContext("2d", { alpha: false }).drawImage(bmp, 0, 0);
+      const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+      if (bmp.close) bmp.close();
+      return jpegBlob || blob;
+    };
+
+    if (window.createImageBitmap) {
+      try {
+        return await drawWithBitmap();
+      } catch (e) {
+        // fallback below
+      }
+    }
+
+    // Fallback via Image element
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext("2d", { alpha: false }).drawImage(img, 0, 0);
+    const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+    URL.revokeObjectURL(url);
+    return jpegBlob || blob;
+  }
+
+  async function blobToPng(blob) {
+    if (blob.type === "image/png") return blob;
+    const drawWithBitmap = async () => {
+      const bmp = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = bmp.width;
+      canvas.height = bmp.height;
+      canvas.getContext("2d", { alpha: false }).drawImage(bmp, 0, 0);
+      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (bmp.close) bmp.close();
+      return pngBlob || blob;
+    };
+    if (window.createImageBitmap) {
+      try {
+        return await drawWithBitmap();
+      } catch (e) {
+        // fallback below
+      }
+    }
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.src = url;
+    await new Promise((res, rej) => {
+      img.onload = res;
+      img.onerror = rej;
+    });
+    const canvas = document.createElement("canvas");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    canvas.getContext("2d", { alpha: false }).drawImage(img, 0, 0);
+    const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+    URL.revokeObjectURL(url);
+    return pngBlob || blob;
+  }
+
+  async function toBlob(src, prefer = "jpeg") {
+    let blob = null;
+    if (src.startsWith("data:")) {
+      blob = dataUrlToBlob(src);
+    } else {
+      const res = await fetch(src);
+      blob = await res.blob();
+    }
+    if (!blob) return null;
+    if (prefer === "jpeg") return await blobToJpeg(blob);
+    if (prefer === "png") return await blobToPng(blob);
+    return blob;
+  }
+
   async function copyImageToClipboard(src) {
+    const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
     try {
-      if (navigator.clipboard && navigator.clipboard.write) {
-        const blob = src.startsWith("data:") ? dataUrlToBlob(src) : await (await fetch(src)).blob();
-        if (!blob) throw new Error("Kein Bild");
-        const item = new ClipboardItem({ [blob.type]: blob });
-        await navigator.clipboard.write([item]);
-        setCopyStatus("Kopiert");
-        setTimeout(() => setCopyStatus(""), 1500);
-        return;
+      if (supportsImageClipboard) {
+        const tryWrite = async (blob, label) => {
+          if (!blob) throw new Error("Kein Bild");
+          const type = blob.type || "image/jpeg";
+          const item = new ClipboardItem({ [type]: blob });
+          await navigator.clipboard.write([item]);
+          setCopyStatus(`${label} kopiert`);
+          setTimeout(() => setCopyStatus(""), 1500);
+        };
+
+        try {
+          const jpeg = await toBlob(src, "jpeg");
+          await tryWrite(jpeg, "JPEG");
+          return;
+        } catch (errJpeg) {
+          console.warn("JPEG-Clipboard fehlgeschlagen, versuche PNG:", errJpeg);
+          const png = await toBlob(src, "png");
+          await tryWrite(png, "PNG");
+          return;
+        }
       }
     } catch (e) {
       // fallback below
+      console.warn("Bild-Clipboard fehlgeschlagen, falle zurück auf Text:", e);
     }
     try {
       await navigator.clipboard.writeText(src);
-      setCopyStatus("Link kopiert");
+      setCopyStatus(
+        supportsImageClipboard ? "Link kopiert (Bild-Clipboard blockiert)" : "Link kopiert (Bild-Clipboard nicht unterstützt)"
+      );
       setTimeout(() => setCopyStatus(""), 1500);
     } catch (e) {
       setCopyStatus("Kopieren nicht möglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
+  }
+
+  async function saveImage(src) {
+    try {
+      let blob = null;
+      try {
+        blob = await toBlob(src, "jpeg");
+      } catch {
+        blob = await toBlob(src, "png");
+      }
+      if (!blob) throw new Error("Kein Bild");
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      const ext = blob.type === "image/png" ? "png" : "jpg";
+      a.href = url;
+      a.download = `photo-${Date.now()}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.warn("Speichern fehlgeschlagen:", e);
+      setCopyStatus("Speichern nicht möglich");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }
+
+  function injectDebugPhoto() {
+    if (!debugDataUrl.trim()) return;
+    const src = debugDataUrl.trim();
+    // simple sanity: only accept data URLs or http(s)
+    const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
+    if (!looksOkay) {
+      setCopyStatus("Ungültige Quelle");
+      setTimeout(() => setCopyStatus(""), 1200);
+      return;
+    }
+    setPhotos((prev) => [src, ...prev]);
+    setDebugDataUrl("");
   }
 
     if (!isMobile) {
@@ -514,6 +658,25 @@ export default function App() {
         </section>
 
         <main className="desktopCanvas">
+          <div className="debugPanel">
+            <label className="debugLabel" htmlFor="debugDataUrl">
+              Debug Data-URL einfügen
+            </label>
+            <div className="debugControls">
+              <textarea
+                id="debugDataUrl"
+                className="debugInput"
+                placeholder="data:image/jpeg;base64,..."
+                value={debugDataUrl}
+                onChange={(e) => setDebugDataUrl(e.target.value)}
+              />
+              <button type="button" className="debugBtn" onClick={injectDebugPhoto}>
+                Add
+              </button>
+            </div>
+            {copyStatus && <div className="debugStatus">{copyStatus}</div>}
+          </div>
+
           {photos.length === 0 ? (
             <div className="emptyInvite">
               <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
@@ -537,17 +700,30 @@ export default function App() {
                   aria-label={`Foto ${idx + 1} ansehen`}
                 >
                   <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-                  <button
-                    type="button"
-                    className="copyBtn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      copyImageToClipboard(src);
-                    }}
-                    aria-label="In Zwischenablage kopieren"
-                  >
-                    Copy
-                  </button>
+                  <div className="cardOverlay">
+                    <button
+                      type="button"
+                      className="overlayBtn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        copyImageToClipboard(src);
+                      }}
+                      aria-label="In Zwischenablage kopieren"
+                    >
+                      Copy
+                    </button>
+                    <button
+                      type="button"
+                      className="overlayBtn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        saveImage(src);
+                      }}
+                      aria-label="Speichern"
+                    >
+                      Save
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -557,16 +733,28 @@ export default function App() {
         {lightboxSrc && (
           <div className="lightbox" onClick={() => setLightboxSrc(null)}>
             <img className="lightboxImg" src={lightboxSrc} alt="Vergrössertes Foto" />
-            <button
-              type="button"
-              className="copyBtn lightboxCopy"
-              onClick={(e) => {
-                e.stopPropagation();
-                copyImageToClipboard(lightboxSrc);
-              }}
-            >
-              Copy
-            </button>
+            <div className="lightboxActions">
+              <button
+                type="button"
+                className="overlayBtn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyImageToClipboard(lightboxSrc);
+                }}
+              >
+                Copy
+              </button>
+              <button
+                type="button"
+                className="overlayBtn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  saveImage(lightboxSrc);
+                }}
+              >
+                Save
+              </button>
+            </div>
           </div>
         )}
       </div>
