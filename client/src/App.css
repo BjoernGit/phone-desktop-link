@@ -35,22 +35,17 @@ body {
 }
 
 .desktopHero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) auto;
-  gap: 24px;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  margin-bottom: 28px;
-  padding: 20px 24px;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 22px 24px 18px;
   border-radius: 18px;
   background: linear-gradient(120deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   border: 1px solid var(--line);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
-}
-
-.desktopHero.isCentered {
-  grid-template-columns: 1fr;
-  justify-items: center;
-  text-align: center;
 }
 
 .heroCopy {
@@ -81,9 +76,6 @@ body {
   justify-content: center;
 }
 
-.desktopHero.isCentered .heroCopy { align-items: center; }
-.desktopHero.isCentered .heroMeta { justify-content: center; }
-
 .peerList {
   display: flex;
   flex-wrap: wrap;
@@ -99,6 +91,48 @@ body {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
   font-weight: 700;
+}
+
+.pairingRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: start;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.peerPanel {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+}
+
+.panelTitle {
+  font-weight: 800;
+  margin-bottom: 8px;
+  letter-spacing: 0.01em;
+  font-size: 15px;
+}
+
+.panelMeta {
+  margin-bottom: 10px;
+}
+
+.peerEmpty {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .pairingRow {
+    grid-template-columns: 1fr;
+  }
+  .qrPanel {
+    justify-self: center;
+  }
 }
 
 .pill {
@@ -126,8 +160,8 @@ body {
 .pill.info { background: rgba(255, 255, 255, 0.08); }
 
 .qrPanel {
-  background: var(--card);
-  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 18px;
   padding: 16px;
   backdrop-filter: blur(10px);
@@ -160,14 +194,15 @@ body {
 
 .qrLabel {
   color: var(--muted);
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 800;
   margin-bottom: 8px;
 }
 
 .qrWrap {
   display: grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 14px;
   padding: 10px;
 }

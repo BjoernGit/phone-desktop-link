@@ -428,7 +428,7 @@ export default function App() {
     setCameraError("");
   }
 
-  if (!isMobile) {
+    if (!isMobile) {
     const url = sessionId
       ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
       : window.location.href;
@@ -438,17 +438,23 @@ export default function App() {
 
     return (
       <div className="desktopShell">
-        <header className={`desktopHero ${qrDocked ? "isDocked" : "isCentered"}`}>
+        <header className="desktopHero">
           <div className="heroCopy">
             <div className="heroTitle">SpeedLink</div>
             <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell, kabellos, simpel.</div>
-            <div className="heroMeta">
+          </div>
+        </header>
+
+        <section className="pairingRow">
+          <div className="peerPanel">
+            <div className="panelTitle">Verbundene Geräte</div>
+            <div className="panelMeta">
               <span className={`pill ${peerCount > 0 ? "ok" : "wait"}`}>
                 <span className="dot" />
-                {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Gerät wartet"}
+                {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
               </span>
             </div>
-            {peerCount > 0 && (
+            {peerCount > 0 ? (
               <div className="peerList">
                 {peers.map((p) => (
                   <span key={p.id} className="peerTag">
@@ -456,6 +462,8 @@ export default function App() {
                   </span>
                 ))}
               </div>
+            ) : (
+              <div className="peerEmpty">Scanne den QR-Code, um ein Gerät zu koppeln.</div>
             )}
           </div>
 
@@ -465,7 +473,7 @@ export default function App() {
               <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
             </div>
           </div>
-        </header>
+        </section>
 
         <main className="desktopCanvas">
           {photos.length === 0 ? (
@@ -486,8 +494,7 @@ export default function App() {
       </div>
     );
   }
-
-  // Minimal mobile UI: full-screen video only. First tap starts camera; subsequent taps take a photo.
+// Minimal mobile UI: full-screen video only. First tap starts camera; subsequent taps take a photo.
   return (
     <div className="mobileSimpleRoot">
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
@@ -515,3 +522,4 @@ export default function App() {
     </div>
   );
 }
+
