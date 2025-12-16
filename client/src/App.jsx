@@ -40,6 +40,7 @@ export default function App() {
   const [cameraError, setCameraError] = useState("");
   const [quality, setQuality] = useState("medium");
   const [trackSettings, setTrackSettings] = useState(null);
+  const [isStartingCamera, setIsStartingCamera] = useState(false);
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
@@ -391,6 +392,27 @@ export default function App() {
     if (navigator.vibrate) navigator.vibrate(20);
   }
 
+  async function handleStartCamera(e) {
+    e?.stopPropagation?.();
+    if (!sessionId || isStartingCamera) return;
+    setCameraError("");
+    setIsStartingCamera(true);
+    await startCamera();
+    setIsStartingCamera(false);
+  }
+
+  async function handleShutter(e) {
+    e?.stopPropagation?.();
+    await takePhotoAndSend();
+    setDbg((prev) => ({ ...prev, lastSend: new Date().toLocaleTimeString() }));
+  }
+
+  function handleStopCamera(e) {
+    e?.stopPropagation?.();
+    stopCamera();
+    setCameraError("");
+  }
+
   // small debug state visible on mobile while developing
   const [dbg, setDbg] = useState({ readyState: 0, vw: 0, vh: 0, tracks: 0, lastSend: "-" });
 
@@ -464,25 +486,46 @@ export default function App() {
 
   // Minimal mobile UI: full-screen video only. First tap starts camera; subsequent taps take a photo.
   return (
-    <div
-      className="mobileSimpleRoot"
-      onClick={async () => {
-        if (!sessionId) return; // require pairing
-        if (!cameraReady) {
-          setCameraError("");
-          await startCamera();
-        } else {
-          takePhotoAndSend();
-        }
-      }}
-    >
-      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+    <div className="mobileRoot">
+      <div className="cameraStage">
+        <video ref={videoRef} className="cameraVideo" playsInline muted autoPlay />
 
-      {!cameraReady && (
-        <div className="mobileSimpleHint" aria-hidden>
-          Tippe, um die Kamera freizugeben
-        </div>
-      )}
+        <div className="cameraTopFade" aria-hidden />
+        <div className="cameraBottomFade" aria-hidden />
+
+        {!cameraReady && (
+          <button type="button" className="tapToStart" onClick={handleStartCamera} disabled={isStartingCamera}>
+            <div className="tapInner">
+              <div className="tapTitle">{isStartingCamera ? "Kamera wird gestartet..." : "Kamera starten"}</div>
+              <div className="tapSub">
+                {sessionId ? "Tippe, um die Kamera freizugeben" : "Verbinde zuerst, indem du den QR-Code scannst"}
+              </div>
+              {cameraError && <div className="tapError">{cameraError}</div>}
+            </div>
+          </button>
+        )}
+
+        {cameraReady && (
+          <div className="cameraControls">
+            <div className="qualityWrap">
+              <select className="qualitySelect" value={quality} onChange={(e) => setQuality(e.target.value)}>
+                <option value="small">Klein</option>
+                <option value="medium">Mittel</option>
+                <option value="large">Groß</option>
+                <option value="xlarge">Extra</option>
+              </select>
+            </div>
+
+            <button type="button" className="shutter" onClick={handleShutter} aria-label="Foto aufnehmen">
+              <span className="shutterInner" aria-hidden />
+            </button>
+
+            <button type="button" className="stopBtn" onClick={handleStopCamera} aria-label="Kamera stoppen">
+              ×
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
