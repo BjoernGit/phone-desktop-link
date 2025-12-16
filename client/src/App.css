@@ -151,12 +151,6 @@ body {
 }
 
 /* Mobile */
-.mobileRoot {
-  height: 100%;
-  background: #000;
-  position: relative;
-}
-
 /* Minimal mobile fullscreen video */
 .mobileSimpleRoot {
   position: absolute;
@@ -187,87 +181,6 @@ body {
   z-index: 60;
 }
 
-.sessionPill {
-  position: fixed;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--milk);
-  color: var(--milkText);
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  z-index: 30;
-  max-width: calc(100% - 28px);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tapToStart {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  min-height: 100vh;
-  border: 0;
-  padding: 0 22px;
-  background: radial-gradient(800px 600px at 50% 10%, #1b2753 0%, #050710 70%);
-  color: var(--text);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  gap: 8px;
-}
-
-.tapToStart > * {
-  max-width: 92%;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.tapInner {
-  width: 100%;
-  max-width: 520px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-}
-
-.tapInner .tapTitle { line-height: 1.05; }
-.tapInner .tapSub { opacity: 0.95; }
-
-.tapToStart {
-  outline: 2px dashed rgba(255,255,255,0.06);
-}
-
-.tapTitle {
-  width: 100%;
-  display: block;
-  text-align: center;
-}
-
-.tapSub {
-  width: 100%;
-  display: block;
-  text-align: center;
-}
-
-.tapTitle {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.tapSub {
-  font-size: 14px;
-  color: var(--muted);
-  text-align: center;
-}
-
 .tapError {
   margin-top: 10px;
   font-size: 13px;
@@ -275,126 +188,14 @@ body {
   text-align: center;
 }
 
-.cameraStage {
-  position: absolute;
-  inset: 0;
-  background: #000;
-}
-
-.cameraVideo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: center center;
-  background: #000;
-  z-index: 1;
-}
-
-.cameraTopFade,
-.cameraBottomFade {
+.mobileControls {
   position: absolute;
   left: 0;
   right: 0;
-  height: 120px;
-  z-index: 10;
-  pointer-events: none;
-}
-
-.noFrameOverlay {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  z-index: 50;
-  pointer-events: none;
-}
-
-.noFrameOverlay > div {
-  pointer-events: auto;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 12px 16px;
-  border-radius: 12px;
-  text-align: center;
-}
-
-.noFrameActions { margin-top: 8px; }
-
-.retryBtn {
-  appearance: none;
-  border: 0;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.92);
-  color: var(--bg0);
-  font-weight: 700;
-}
-
-.cameraTopFade {
-  top: 0;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.42), rgba(0, 0, 0, 0));
-}
-
-.cameraBottomFade {
-  bottom: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0));
-}
-
-.cameraControls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 18px;
+  bottom: 26px;
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 18px;
-  z-index: 20;
-  padding: 0 18px calc(env(safe-area-inset-bottom, 18px) + 18px);
-}
-
-.mobileDebug {
-  position: fixed;
-  left: 12px;
-  bottom: 96px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  z-index: 40;
-  backdrop-filter: blur(6px);
-}
-
-.mobileDebugAlways {
-  position: fixed;
-  right: 12px;
-  top: 86px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  z-index: 60;
-  backdrop-filter: blur(6px);
-  text-align: right;
-}
-
-.qualityWrap {
-  margin-right: auto;
-}
-
-.qualitySelect {
-  appearance: none;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.92);
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 13px;
+  z-index: 30;
 }
 
 .shutter {
@@ -409,32 +210,26 @@ body {
   transition: transform 0.08s ease;
 }
 
-.shutterInner {
-  width: 44px;
-  height: 44px;
-  border-radius: 999px;
-  background: var(--bg0);
-  border: 2px solid rgba(255,255,255,0.95);
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
 .shutter:active {
   transform: scale(0.96);
 }
 
-.stopBtn {
-  margin-left: auto;
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(0, 0, 0, 0.35);
-  color: rgba(255, 255, 255, 0.92);
-  font-size: 28px;
-  line-height: 1;
-  display: grid;
-  place-items: center;
+.singleShutter {
+  border: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(255, 255, 255, 0.18) inset;
+}
+
+.startBtn {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 800;
+  font-size: 16px;
+  color: #050505;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
