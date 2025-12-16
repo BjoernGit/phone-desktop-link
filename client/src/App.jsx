@@ -35,6 +35,7 @@ export default function App() {
   const [socketConnected, setSocketConnected] = useState(false);
   const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const [lightboxSrc, setLightboxSrc] = useState(null);
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -441,7 +442,7 @@ export default function App() {
         <header className="desktopHero">
           <div className="heroCopy">
             <div className="heroTitle">SpeedLink</div>
-            <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell, kabellos, simpel.</div>
+            <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell und sicher.</div>
           </div>
         </header>
 
@@ -484,13 +485,25 @@ export default function App() {
           ) : (
             <div className="photoGrid">
               {photos.map((src, idx) => (
-                <a key={idx} className="photoCard" href={src} target="_blank" rel="noreferrer">
+                <button
+                  key={idx}
+                  type="button"
+                  className="photoCard"
+                  onClick={() => setLightboxSrc(src)}
+                  aria-label={`Foto ${idx + 1} ansehen`}
+                >
                   <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-                </a>
+                </button>
               ))}
             </div>
           )}
         </main>
+
+        {lightboxSrc && (
+          <div className="lightbox" onClick={() => setLightboxSrc(null)}>
+            <img className="lightboxImg" src={lightboxSrc} alt="Vergrössertes Foto" />
+          </div>
+        )}
       </div>
     );
   }
@@ -522,4 +535,3 @@ export default function App() {
     </div>
   );
 }
-
