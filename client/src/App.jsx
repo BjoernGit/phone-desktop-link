@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
@@ -169,11 +169,11 @@ export default function App() {
       if (videoRef.current) {
         const v = videoRef.current;
         v.srcObject = stream;
-        // try to play; some browsers resolve play() before first frame — wait for 'loadeddata'
+        // try to play; some browsers resolve play() before first frame - wait for 'loadeddata'
         try {
           await v.play();
         } catch (e) {
-          // ignore — user gesture may be required but we started from one
+          // ignore - user gesture may be required but we started from one
         }
         await new Promise((res) => {
           if (v.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && v.videoWidth > 0) return res();
@@ -272,9 +272,9 @@ export default function App() {
     if (!cameraReady || !videoRef.current || !sessionId) return;
 
     const v = videoRef.current;
-    // if no intrinsic video size yet, refuse to send — advise retry
+    // if no intrinsic video size yet, refuse to send - advise retry
     if (!v.videoWidth || !v.videoHeight) {
-      setCameraError("No video frame yet — versuche erneut");
+      setCameraError("No video frame yet - versuche erneut");
       return;
     }
 
@@ -326,11 +326,11 @@ export default function App() {
       sH = vh;
 
     if (srcAspect > targetAspect) {
-      // video is wider than target — crop sides
+      // video is wider than target - crop sides
       sW = Math.round(vh * targetAspect);
       sx = Math.round((vw - sW) / 2);
     } else if (srcAspect < targetAspect) {
-      // video is taller than target — crop top/bottom
+      // video is taller than target - crop top/bottom
       sH = Math.round(vw / targetAspect);
       sy = Math.round((vh - sH) / 2);
     }
@@ -406,41 +406,53 @@ export default function App() {
       ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
       : window.location.href;
 
+    const qrDocked = peerConnected || photos.length > 0;
+
     return (
-      <div className="desktopPage">
-        <header className="desktopHeader">
-          <div className="brand">
-            <div className="brandTitle">Phone ↔ Desktop Link</div>
-            <div className="brandSub">
-              Socket: <strong>{socketConnected ? "connected" : "disconnected"}</strong> · Device:{" "}
-              <strong>{peerConnected ? "paired" : "waiting"}</strong>
+      <div className="desktopShell">
+        <header className={`desktopHero ${qrDocked ? "isDocked" : "isCentered"}`}>
+          <div className="heroCopy">
+            <div className="heroTitle">SpeedLink</div>
+            <div className="heroSub">Fotos vom Handy direkt auf deinen Desktop. Schnell, kabellos, simpel.</div>
+            <div className="heroMeta">
+              <span className={`pill ${socketConnected ? "ok" : "wait"}`}>
+                <span className="dot" />
+                Socket {socketConnected ? "verbunden" : "wartet"}
+              </span>
+              <span className={`pill ${peerConnected ? "ok" : "wait"}`}>
+                <span className="dot" />
+                Geraet {peerConnected ? "gepaired" : "wartet"}
+              </span>
+              <span className="pill info">
+                Session <code>{sessionId}</code>
+              </span>
             </div>
           </div>
 
-          <div className="desktopQrCard">
-            <div className="desktopQrLabel">Scan QR to pair</div>
-            <div className="desktopQrWrap">
-              <QRCodeSVG value={url} size={220} />
+          <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
+            <div className="qrLabel">{qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}</div>
+            <div className="qrWrap">
+              <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
             </div>
-            <div className="desktopSession">
+            <div className="qrSession">
               Session: <code>{sessionId}</code>
             </div>
           </div>
         </header>
 
-        <main className="desktopMain">
-          <div className="desktopGrid">
-            {photos.map((src, idx) => (
-              <a key={idx} className="photoCard" href={src} target="_blank" rel="noreferrer">
-                <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-              </a>
-            ))}
-          </div>
-
-          {photos.length === 0 && (
-            <div className="emptyState">
-              <div className="emptyTitle">Noch keine Bilder</div>
-              <div className="emptyText">Öffne den QR-Code auf dem Handy und drück den Shutter.</div>
+        <main className="desktopCanvas">
+          {photos.length === 0 ? (
+            <div className="emptyInvite">
+              <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
+              <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
+            </div>
+          ) : (
+            <div className="photoGrid">
+              {photos.map((src, idx) => (
+                <a key={idx} className="photoCard" href={src} target="_blank" rel="noreferrer">
+                  <img className="photoImg" src={src} alt={`Photo ${idx}`} />
+                </a>
+              ))}
             </div>
           )}
         </main>
@@ -476,3 +488,4 @@ export default function App() {
     </div>
   );
 }
+
