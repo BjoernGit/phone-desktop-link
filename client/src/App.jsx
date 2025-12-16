@@ -36,6 +36,7 @@ export default function App() {
   const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
   const [lightboxSrc, setLightboxSrc] = useState(null);
+  const [copyStatus, setCopyStatus] = useState("");
 
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
@@ -429,6 +430,42 @@ export default function App() {
     setCameraError("");
   }
 
+  function dataUrlToBlob(dataUrl) {
+    const arr = dataUrl.split(",");
+    if (arr.length < 2) return null;
+    const mimeMatch = arr[0].match(/data:(.*?);base64/);
+    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
+    const bstr = atob(arr[1]);
+    const n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
+    return new Blob([u8arr], { type: mime });
+  }
+
+  async function copyImageToClipboard(src) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.write) {
+        const blob = src.startsWith("data:") ? dataUrlToBlob(src) : await (await fetch(src)).blob();
+        if (!blob) throw new Error("Kein Bild");
+        const item = new ClipboardItem({ [blob.type]: blob });
+        await navigator.clipboard.write([item]);
+        setCopyStatus("Kopiert");
+        setTimeout(() => setCopyStatus(""), 1500);
+        return;
+      }
+    } catch (e) {
+      // fallback below
+    }
+    try {
+      await navigator.clipboard.writeText(src);
+      setCopyStatus("Link kopiert");
+      setTimeout(() => setCopyStatus(""), 1500);
+    } catch (e) {
+      setCopyStatus("Kopieren nicht möglich");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }
+
     if (!isMobile) {
     const url = sessionId
       ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
@@ -485,15 +522,33 @@ export default function App() {
           ) : (
             <div className="photoGrid">
               {photos.map((src, idx) => (
-                <button
+                <div
                   key={idx}
-                  type="button"
                   className="photoCard"
+                  role="button"
+                  tabIndex={0}
                   onClick={() => setLightboxSrc(src)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setLightboxSrc(src);
+                    }
+                  }}
                   aria-label={`Foto ${idx + 1} ansehen`}
                 >
                   <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-                </button>
+                  <button
+                    type="button"
+                    className="copyBtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      copyImageToClipboard(src);
+                    }}
+                    aria-label="In Zwischenablage kopieren"
+                  >
+                    Copy
+                  </button>
+                </div>
               ))}
             </div>
           )}
@@ -502,6 +557,16 @@ export default function App() {
         {lightboxSrc && (
           <div className="lightbox" onClick={() => setLightboxSrc(null)}>
             <img className="lightboxImg" src={lightboxSrc} alt="Vergrössertes Foto" />
+            <button
+              type="button"
+              className="copyBtn lightboxCopy"
+              onClick={(e) => {
+                e.stopPropagation();
+                copyImageToClipboard(lightboxSrc);
+              }}
+            >
+              Copy
+            </button>
           </div>
         )}
       </div>

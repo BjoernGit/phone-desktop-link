@@ -235,6 +235,7 @@ body {
   appearance: none;
   display: block;
   width: 240px;
+  position: relative;
   border-radius: 18px;
   overflow: hidden;
   border: 1px solid var(--line);
@@ -256,6 +257,34 @@ body {
   object-fit: cover;
 }
 
+.copyBtn {
+  position: absolute;
+  left: 50%;
+  bottom: 10px;
+  transform: translateX(-50%) translateY(8px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.photoCard:hover .copyBtn,
+.photoCard:focus-within .copyBtn {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+  pointer-events: auto;
+}
+
+.copyBtn:active {
+  transform: translateX(-50%) translateY(1px);
+}
+
 .lightbox {
   position: fixed;
   inset: 0;
@@ -272,6 +301,15 @@ body {
   border-radius: 18px;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
   animation: lightboxPop 160ms ease;
+}
+
+.lightboxCopy {
+  position: absolute;
+  bottom: 26px;
+  left: 50%;
+  transform: translateX(-50%);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 @keyframes lightboxPop {
