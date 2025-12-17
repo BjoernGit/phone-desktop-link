@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+
 :root {
   --bg0: #070a12;
   --bg1: #0b1224;
@@ -24,7 +26,7 @@ body {
   margin: 0;
   color: var(--text);
   background: radial-gradient(1200px 800px at 20% 0%, #1d2a55 0%, var(--bg0) 60%);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* Desktop */
