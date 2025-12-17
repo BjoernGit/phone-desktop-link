@@ -106,17 +106,24 @@ body {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 18px;
-  align-items: start;
+  align-items: stretch;
   width: 100%;
   margin-bottom: 24px;
+  --qr-size: 240px;
+  --qr-card-h: 230px;
 }
 
 .peerPanel {
   background: var(--card);
-  
   border-radius: 18px;
   padding: 16px;
   backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  min-height: 0;
+  height: var(--qr-card-h);
+  overflow: auto;
 }
 
 .panelTitle {
@@ -181,6 +188,8 @@ body {
   gap: 8px;
   width: auto;
   transition: transform 0.35s ease, box-shadow 0.35s ease;
+  min-height: var(--qr-card-h);
+  height: var(--qr-card-h);
 }
 
 .qrPanel.centered {
@@ -192,7 +201,7 @@ body {
 
 .qrPanel.docked {
   justify-self: end;
-  align-self: flex-start;
+  align-self: stretch;
   transform: translateY(-12px) scale(0.94);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }

@@ -627,7 +627,7 @@ export default function App() {
         <div className="pageContent">
           <header className="desktopHero">
             <div className="heroCopy">
-              <div className="heroTitle">SpeedSnap</div>
+              <div className="heroTitle">Snap2Desk</div>
               <div className="heroSub">
                 Fotos vom Handy direkt auf deinen Desktop. Schnell, sicher und ohne Account.
               </div>
@@ -657,7 +657,7 @@ export default function App() {
 
           {!hasActiveUI && (
             <div className="qrHeroWrap">
-              <div className="qrPanel heroCenter" style={{ "--qr-size": "240px" }}>
+              <div className="qrPanel heroCenter">
                 <div className="qrLabel">Scanne den QR-Code</div>
                 <div className="qrWrap">
                   <QRCodeSVG value={url} size={240} />
@@ -668,7 +668,10 @@ export default function App() {
 
           {hasActiveUI && (
             <>
-              <section className="pairingRow">
+              <section
+                className="pairingRow"
+                style={{ "--qr-size": qrDocked ? "180px" : "240px" }}
+              >
                 <div className="peerPanel">
                   <div className="panelTitle">Verbundene Geräte</div>
                   <div className="panelMeta">
@@ -690,10 +693,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div
-                  className={`qrPanel ${qrDocked ? "docked" : "centered"}`}
-                  style={{ "--qr-size": qrDocked ? "180px" : "240px" }}
-                >
+                <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
                   <div className="qrLabel">{qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}</div>
                   <div className="qrWrap">
                     <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
@@ -788,7 +788,7 @@ export default function App() {
 
         <footer className="footer">
             <div className="footerInner">
-              <div className="footerMeta">© 2025 SpeedSnap. Alle Rechte vorbehalten.</div>
+              <div className="footerMeta">© 2025 Snap2Desk. Alle Rechte vorbehalten.</div>
               <div className="footerLinks">
                 <button type="button" className="footerLinkBtn" onClick={() => setShowDebug((v) => !v)}>
                   Debug
