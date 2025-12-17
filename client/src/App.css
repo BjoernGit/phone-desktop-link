@@ -29,9 +29,18 @@ body {
 
 /* Desktop */
 .desktopShell {
-  min-height: 100%;
+  min-height: 100vh;
   padding: 32px 32px 48px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.pageContent {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .desktopHero {
@@ -339,6 +348,61 @@ body {
 @keyframes lightboxPop {
   from { transform: scale(0.96); opacity: 0; }
   to { transform: scale(1); opacity: 1; }
+}
+
+.footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin: 40px -32px 0 0;
+  padding: 16px 32px 24px;
+  color: var(--muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.footerInner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.footerLinks {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.footerLinks a {
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.footerLinks span {
+  color: var(--muted);
+}
+
+.footerLinkBtn {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--text);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.footerLocale {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .footerInner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 .emptyInvite {
