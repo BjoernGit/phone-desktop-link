@@ -39,10 +39,10 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: 100%;
-  margin-bottom: 20px;
-  padding: 22px 24px 18px;
-  border-radius: 18px;
+  width: auto;
+  margin: 0 -32px 20px;
+  padding: 24px 32px 20px;
+  border-radius: 0 0 18px 18px;
   background: linear-gradient(120deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
   border: 1px solid var(--line);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
@@ -160,12 +160,17 @@ body {
 .pill.info { background: rgba(255, 255, 255, 0.08); }
 
 .qrPanel {
-  background: rgba(255, 255, 255, 0.12);
+  --qr-size: 240px;
+  background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 18px;
-  padding: 16px;
+  padding: 8px 10px 12px;
   backdrop-filter: blur(10px);
-  width: min(340px, 80vw);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: auto;
   transition: transform 0.35s ease, box-shadow 0.35s ease;
 }
 
@@ -173,6 +178,7 @@ body {
   justify-self: center;
   transform: translateY(0);
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+  place-self: center;
 }
 
 .qrPanel.docked {
@@ -189,8 +195,8 @@ body {
 }
 
 .qrPanel.heroCenter {
-  transform: scale(1.04);
-  width: min(400px, 85vw);
+  width: auto;
+  max-width: calc(var(--qr-size) + 40px);
   animation: swooshUp 280ms ease;
 }
 
@@ -202,21 +208,26 @@ body {
 
 .qrPanel.docked {
   animation: swooshUp 320ms ease;
+  max-width: calc(var(--qr-size) + 36px);
 }
 
 .qrLabel {
   color: var(--muted);
   font-size: 15px;
   font-weight: 800;
-  margin-bottom: 8px;
+  margin: 0;
+  text-align: center;
+  max-width: calc(var(--qr-size) + 8px);
+  white-space: normal;
 }
 
 .qrWrap {
-  display: grid;
+  display: inline-grid;
   place-items: center;
-  background: rgba(255, 255, 255, 0.12);
+  justify-self: center;
+  background: #fff;
   border-radius: 14px;
-  padding: 10px;
+  padding: 12px;
 }
 
 .qrSession {

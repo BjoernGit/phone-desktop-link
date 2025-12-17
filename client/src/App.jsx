@@ -616,8 +616,10 @@ export default function App() {
       : window.location.href;
 
     const peerCount = peers.length;
+    const hasPhotos = photos.length > 0;
     const hasConnection = peerCount > 0;
-    const qrDocked = hasConnection || photos.length > 0;
+    const hasActiveUI = hasConnection || hasPhotos;
+    const qrDocked = hasActiveUI;
 
     return (
       <div className="desktopShell">
@@ -628,9 +630,9 @@ export default function App() {
           </div>
         </header>
 
-        {!hasConnection && (
+        {!hasActiveUI && (
           <div className="qrHeroWrap">
-            <div className="qrPanel heroCenter">
+            <div className="qrPanel heroCenter" style={{ "--qr-size": "240px" }}>
               <div className="qrLabel">Scanne den QR-Code</div>
               <div className="qrWrap">
                 <QRCodeSVG value={url} size={240} />
@@ -639,18 +641,18 @@ export default function App() {
           </div>
         )}
 
-        {hasConnection && (
+        {hasActiveUI && (
           <>
             <section className="pairingRow">
               <div className="peerPanel">
                 <div className="panelTitle">Verbundene Geräte</div>
                 <div className="panelMeta">
-                  <span className={`pill ${peerCount > 0 ? "ok" : "wait"}`}>
+                  <span className={`pill ${hasConnection ? "ok" : "wait"}`}>
                     <span className="dot" />
-                    {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
+                    {hasConnection ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
                   </span>
                 </div>
-                {peerCount > 0 ? (
+                {hasConnection ? (
                   <div className="peerList">
                     {peers.map((p) => (
                       <span key={p.id} className="peerTag">
@@ -659,11 +661,14 @@ export default function App() {
                     ))}
                   </div>
                 ) : (
-                  <div className="peerEmpty">Scanne den QR-Code, um ein Gerät zu koppeln.</div>
+                  <div className="peerEmpty">Verbinde ein Gerät, um neue Fotos zu senden.</div>
                 )}
               </div>
 
-              <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
+              <div
+                className={`qrPanel ${qrDocked ? "docked" : "centered"}`}
+                style={{ "--qr-size": qrDocked ? "180px" : "240px" }}
+              >
                 <div className="qrLabel">{qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}</div>
                 <div className="qrWrap">
                   <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
