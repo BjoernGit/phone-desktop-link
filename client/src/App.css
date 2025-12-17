@@ -42,9 +42,9 @@ body {
   width: auto;
   margin: 0 -32px 20px;
   padding: 24px 32px 20px;
-  border-radius: 0 0 18px 18px;
-  background: linear-gradient(120deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-  border: 1px solid var(--line);
+  border-radius: 0;
+  background: linear-gradient(120deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  backdrop-filter: blur(16px);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.25);
 }
 
@@ -89,7 +89,7 @@ body {
   padding: 6px 10px;
   border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--line);
+  
   font-weight: 700;
 }
 
@@ -104,7 +104,7 @@ body {
 
 .peerPanel {
   background: var(--card);
-  border: 1px solid var(--line);
+  
   border-radius: 18px;
   padding: 16px;
   backdrop-filter: blur(8px);
@@ -142,7 +142,7 @@ body {
   padding: 8px 12px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--line);
+  
   color: var(--text);
   font-weight: 700;
   font-size: 13px;
@@ -162,10 +162,10 @@ body {
 .qrPanel {
   --qr-size: 240px;
   background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  
   border-radius: 18px;
   padding: 8px 10px 12px;
-  backdrop-filter: blur(10px);
+  backdrop-filter: blur(16px);
   display: inline-flex;
   flex-direction: column;
   align-items: center;
@@ -261,7 +261,7 @@ body {
   position: relative;
   border-radius: 18px;
   overflow: hidden;
-  border: 1px solid var(--line);
+  
   background: var(--card2);
   transition: transform 0.15s ease, border-color 0.15s ease;
   padding: 0;
@@ -295,7 +295,6 @@ body {
 .overlayBtn {
   padding: 8px 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
   font-weight: 700;
@@ -346,7 +345,7 @@ body {
   margin-top: 40px;
   padding: 26px;
   border-radius: 18px;
-  border: 1px solid var(--line);
+  
   background: var(--card);
   color: var(--muted);
   text-align: center;
@@ -368,7 +367,7 @@ body {
   margin-bottom: 18px;
   padding: 14px;
   border-radius: 12px;
-  border: 1px dashed rgba(255, 255, 255, 0.2);
+  
   background: rgba(255, 255, 255, 0.04);
 }
 
@@ -389,7 +388,7 @@ body {
   width: 100%;
   min-height: 60px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  
   background: rgba(0, 0, 0, 0.35);
   color: var(--text);
   padding: 8px 10px;
@@ -398,7 +397,6 @@ body {
 }
 
 .debugBtn {
-  border: 1px solid rgba(255, 255, 255, 0.25);
   background: rgba(255, 255, 255, 0.1);
   color: var(--text);
   border-radius: 10px;
