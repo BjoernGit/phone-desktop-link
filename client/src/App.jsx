@@ -2,6 +2,7 @@
 import { io } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
+import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 
 function getSessionIdFromUrl() {
   const params = new URLSearchParams(window.location.search);
@@ -627,9 +628,9 @@ export default function App() {
         <div className="pageContent">
           <header className="desktopHero">
             <div className="heroCopy">
-              <div className="heroTitle">Snap2Desk</div>
+              <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
               <div className="heroSub">
-                Fotos vom Handy direkt auf deinen Desktop. Schnell, sicher und ohne Account.
+                Pics from your phone straight to your desktop. Fast, simple, safe, without an account.
               </div>
             </div>
           </header>
@@ -637,7 +638,7 @@ export default function App() {
           {showDebug && (
             <div className="debugPanel">
               <label className="debugLabel" htmlFor="debugDataUrl">
-                Debug Data-URL einfügen
+                Debug Data-URL einfuegen
               </label>
               <div className="debugControls">
                 <textarea
@@ -838,3 +839,12 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
