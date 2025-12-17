@@ -616,7 +616,8 @@ export default function App() {
       : window.location.href;
 
     const peerCount = peers.length;
-    const qrDocked = peerCount > 0 || photos.length > 0;
+    const hasConnection = peerCount > 0;
+    const qrDocked = hasConnection || photos.length > 0;
 
     return (
       <div className="desktopShell">
@@ -627,108 +628,123 @@ export default function App() {
           </div>
         </header>
 
-        <section className="pairingRow">
-          <div className="peerPanel">
-            <div className="panelTitle">Verbundene Geräte</div>
-            <div className="panelMeta">
-              <span className={`pill ${peerCount > 0 ? "ok" : "wait"}`}>
-                <span className="dot" />
-                {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
-              </span>
-            </div>
-            {peerCount > 0 ? (
-              <div className="peerList">
-                {peers.map((p) => (
-                  <span key={p.id} className="peerTag">
-                    {p.name || p.role}
-                  </span>
-                ))}
+        {!hasConnection && (
+          <div className="qrHeroWrap">
+            <div className="qrPanel heroCenter">
+              <div className="qrLabel">Scanne den QR-Code</div>
+              <div className="qrWrap">
+                <QRCodeSVG value={url} size={240} />
               </div>
-            ) : (
-              <div className="peerEmpty">Scanne den QR-Code, um ein Gerät zu koppeln.</div>
-            )}
-          </div>
-
-          <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
-            <div className="qrLabel">{qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}</div>
-            <div className="qrWrap">
-              <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
             </div>
           </div>
-        </section>
+        )}
 
-        <main className="desktopCanvas">
-          <div className="debugPanel">
-            <label className="debugLabel" htmlFor="debugDataUrl">
-              Debug Data-URL einfügen
-            </label>
-            <div className="debugControls">
-              <textarea
-                id="debugDataUrl"
-                className="debugInput"
-                placeholder="data:image/jpeg;base64,..."
-                value={debugDataUrl}
-                onChange={(e) => setDebugDataUrl(e.target.value)}
-              />
-              <button type="button" className="debugBtn" onClick={injectDebugPhoto}>
-                Add
-              </button>
-            </div>
-            {copyStatus && <div className="debugStatus">{copyStatus}</div>}
-          </div>
-
-          {photos.length === 0 ? (
-            <div className="emptyInvite">
-              <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
-              <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
-            </div>
-          ) : (
-            <div className="photoGrid">
-              {photos.map((src, idx) => (
-                <div
-                  key={idx}
-                  className="photoCard"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => setLightboxSrc(src)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setLightboxSrc(src);
-                    }
-                  }}
-                  aria-label={`Foto ${idx + 1} ansehen`}
-                >
-                  <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-                  <div className="cardOverlay">
-                    <button
-                      type="button"
-                      className="overlayBtn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        copyImageToClipboard(src);
-                      }}
-                      aria-label="In Zwischenablage kopieren"
-                    >
-                      Copy
-                    </button>
-                    <button
-                      type="button"
-                      className="overlayBtn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        saveImage(src);
-                      }}
-                      aria-label="Speichern"
-                    >
-                      Save
-                    </button>
-                  </div>
+        {hasConnection && (
+          <>
+            <section className="pairingRow">
+              <div className="peerPanel">
+                <div className="panelTitle">Verbundene Geräte</div>
+                <div className="panelMeta">
+                  <span className={`pill ${peerCount > 0 ? "ok" : "wait"}`}>
+                    <span className="dot" />
+                    {peerCount > 0 ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
+                  </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </main>
+                {peerCount > 0 ? (
+                  <div className="peerList">
+                    {peers.map((p) => (
+                      <span key={p.id} className="peerTag">
+                        {p.name || p.role}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="peerEmpty">Scanne den QR-Code, um ein Gerät zu koppeln.</div>
+                )}
+              </div>
+
+              <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
+                <div className="qrLabel">{qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}</div>
+                <div className="qrWrap">
+                  <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
+                </div>
+              </div>
+            </section>
+
+            <main className="desktopCanvas">
+              <div className="debugPanel">
+                <label className="debugLabel" htmlFor="debugDataUrl">
+                  Debug Data-URL einfügen
+                </label>
+                <div className="debugControls">
+                  <textarea
+                    id="debugDataUrl"
+                    className="debugInput"
+                    placeholder="data:image/jpeg;base64,..."
+                    value={debugDataUrl}
+                    onChange={(e) => setDebugDataUrl(e.target.value)}
+                  />
+                  <button type="button" className="debugBtn" onClick={injectDebugPhoto}>
+                    Add
+                  </button>
+                </div>
+                {copyStatus && <div className="debugStatus">{copyStatus}</div>}
+              </div>
+
+              {photos.length === 0 ? (
+                <div className="emptyInvite">
+                  <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
+                  <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
+                </div>
+              ) : (
+                <div className="photoGrid">
+                  {photos.map((src, idx) => (
+                    <div
+                      key={idx}
+                      className="photoCard"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setLightboxSrc(src)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setLightboxSrc(src);
+                        }
+                      }}
+                      aria-label={`Foto ${idx + 1} ansehen`}
+                    >
+                      <img className="photoImg" src={src} alt={`Photo ${idx}`} />
+                      <div className="cardOverlay">
+                        <button
+                          type="button"
+                          className="overlayBtn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyImageToClipboard(src);
+                          }}
+                          aria-label="In Zwischenablage kopieren"
+                        >
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          className="overlayBtn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            saveImage(src);
+                          }}
+                          aria-label="Speichern"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </main>
+          </>
+        )}
 
         {lightboxSrc && (
           <div className="lightbox" onClick={() => setLightboxSrc(null)}>

@@ -182,6 +182,18 @@ body {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }
 
+.qrHeroWrap {
+  display: grid;
+  place-items: center;
+  margin: 40px 0;
+}
+
+.qrPanel.heroCenter {
+  transform: scale(1.04);
+  width: min(400px, 85vw);
+  animation: swooshUp 280ms ease;
+}
+
 @keyframes swooshUp {
   0% { transform: translateY(28px); opacity: 0; }
   60% { transform: translateY(-12px) scale(0.98); opacity: 1; }
