@@ -253,9 +253,15 @@ export default function App() {
   }
 
   if (!isMobile) {
-    const url = sessionId
-      ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
-      : window.location.href;
+    const buildUrl = () => {
+      if (!sessionId) return window.location.href;
+      const params = new URLSearchParams(window.location.search);
+      params.set("session", sessionId);
+      if (sessionKeyB64) params.set("key", sessionKeyB64);
+      return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+    };
+
+    const url = buildUrl();
     const qrBaseSize = 240;
     const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;
 
