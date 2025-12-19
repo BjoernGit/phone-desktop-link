@@ -3,32 +3,8 @@ import { io } from "socket.io-client";
 import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
-
-function getSessionIdFromUrl() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("session");
-}
-
-function ensureDesktopSessionId() {
-  const params = new URLSearchParams(window.location.search);
-  let sessionId = params.get("session");
-
-  if (!sessionId) {
-    sessionId = (crypto.randomUUID?.() ?? `sess_${Date.now().toString(16)}`).slice(0, 8);
-    params.set("session", sessionId);
-    const newUrl = `${window.location.pathname}?${params.toString()}`;
-    window.history.replaceState({}, "", newUrl);
-  }
-
-  return sessionId;
-}
-
-function isMobileDevice() {
-  return (
-    (navigator.userAgentData && navigator.userAgentData.mobile) ||
-    /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
-  );
-}
+import { getSessionIdFromUrl, ensureDesktopSessionId, isMobileDevice } from "./utils/session";
+import { toBlob } from "./utils/image";
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(false);
@@ -433,106 +409,6 @@ export default function App() {
     setCameraError("");
   }
 
-  function dataUrlToBlob(dataUrl) {
-    const arr = dataUrl.split(",");
-    if (arr.length < 2) return null;
-    const mimeMatch = arr[0].match(/data:(.*?);base64/);
-    const mime = mimeMatch ? mimeMatch[1] : "image/jpeg";
-    const bstr = atob(arr[1]);
-    const n = bstr.length;
-    const u8arr = new Uint8Array(n);
-    for (let i = 0; i < n; i++) u8arr[i] = bstr.charCodeAt(i);
-    return new Blob([u8arr], { type: mime });
-  }
-
-  async function blobToJpeg(blob) {
-    if (blob.type === "image/jpeg") return blob;
-
-    const drawWithBitmap = async () => {
-      const bmp = await createImageBitmap(blob);
-      const canvas = document.createElement("canvas");
-      canvas.width = bmp.width;
-      canvas.height = bmp.height;
-      canvas.getContext("2d", { alpha: false }).drawImage(bmp, 0, 0);
-      const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-      if (bmp.close) bmp.close();
-      return jpegBlob || blob;
-    };
-
-    if (window.createImageBitmap) {
-      try {
-        return await drawWithBitmap();
-      } catch (e) {
-        // fallback below
-      }
-    }
-
-    // Fallback via Image element
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = url;
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    canvas.getContext("2d", { alpha: false }).drawImage(img, 0, 0);
-    const jpegBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
-    URL.revokeObjectURL(url);
-    return jpegBlob || blob;
-  }
-
-  async function blobToPng(blob) {
-    if (blob.type === "image/png") return blob;
-    const drawWithBitmap = async () => {
-      const bmp = await createImageBitmap(blob);
-      const canvas = document.createElement("canvas");
-      canvas.width = bmp.width;
-      canvas.height = bmp.height;
-      canvas.getContext("2d", { alpha: false }).drawImage(bmp, 0, 0);
-      const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-      if (bmp.close) bmp.close();
-      return pngBlob || blob;
-    };
-    if (window.createImageBitmap) {
-      try {
-        return await drawWithBitmap();
-      } catch (e) {
-        // fallback below
-      }
-    }
-    const url = URL.createObjectURL(blob);
-    const img = new Image();
-    img.src = url;
-    await new Promise((res, rej) => {
-      img.onload = res;
-      img.onerror = rej;
-    });
-    const canvas = document.createElement("canvas");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    canvas.getContext("2d", { alpha: false }).drawImage(img, 0, 0);
-    const pngBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
-    URL.revokeObjectURL(url);
-    return pngBlob || blob;
-  }
-
-  async function toBlob(src, prefer = "jpeg") {
-    let blob = null;
-    if (src.startsWith("data:")) {
-      blob = dataUrlToBlob(src);
-    } else {
-      const res = await fetch(src);
-      blob = await res.blob();
-    }
-    if (!blob) return null;
-    if (prefer === "jpeg") return await blobToJpeg(blob);
-    if (prefer === "png") return await blobToPng(blob);
-    return blob;
-  }
-
   async function copyImageToClipboard(src) {
     const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
     try {
@@ -839,12 +715,3 @@ export default function App() {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
