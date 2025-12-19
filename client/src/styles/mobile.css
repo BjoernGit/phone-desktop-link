@@ -1,0 +1,107 @@
+/* Minimal mobile fullscreen video */
+.mobileSimpleRoot {
+  position: absolute;
+  inset: 0;
+  background: #000;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.mobileSimpleVideo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center center;
+  background: #000;
+  z-index: 1;
+}
+
+.mobileSimpleHint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.tapError {
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(255, 120, 120, 0.95);
+  text-align: center;
+}
+
+.shutter {
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.18) inset;
+  display: grid;
+  place-items: center;
+  position: relative;
+  transition: transform 0.08s ease;
+}
+
+.shutter:active {
+  transform: scale(0.96);
+}
+
+.singleShutter {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 30;
+  border: none;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35), 0 0 0 6px rgba(255, 255, 255, 0.18) inset;
+  touch-action: manipulation;
+}
+
+.singleShutter:active {
+  transform: translateX(-50%) scale(0.96);
+}
+
+.singleShutter::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.9);
+  left: 50%;
+  top: 50%;
+  animation: shutterPulse 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes shutterPulse {
+  0% { opacity: 0.45; transform: translate(-50%, -50%) scale(0.9); }
+  70% { opacity: 0; transform: translate(-50%, -50%) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(1.35); }
+}
+
+.startBtn {
+  position: absolute;
+  left: 50%;
+  bottom: 30px;
+  transform: translateX(-50%);
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 800;
+  font-size: 16px;
+  color: #050505;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  z-index: 70;
+}
