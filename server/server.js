@@ -33,9 +33,12 @@ io.on("connection", (socket) => {
     socket.to(room).emit("peer-joined", { role, clientId: socket.id, deviceName });
   });
 
-  socket.on("photo", ({ sessionId, imageDataUrl }) => {
-    if (!sessionId || !imageDataUrl) return;
-    io.to(roomName(sessionId)).emit("photo", { imageDataUrl });
+  socket.on("photo", ({ sessionId, imageDataUrl, iv, ciphertext, mime }) => {
+    if (!sessionId) return;
+    const hasEncrypted = iv && ciphertext;
+    const hasPlain = !!imageDataUrl;
+    if (!hasEncrypted && !hasPlain) return;
+    io.to(roomName(sessionId)).emit("photo", { imageDataUrl, iv, ciphertext, mime });
   });
 
   socket.on("disconnect", () => {
