@@ -1,4 +1,4 @@
-export function PhotoGrid({ photos, onSelect, onCopy, onSave }) {
+export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted }) {
   if (!photos || photos.length === 0) return null;
 
   return (
@@ -42,6 +42,30 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave }) {
             >
               Save
             </button>
+            {showDebug && (
+              <>
+                <button
+                  type="button"
+                  className="overlayBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyPlain?.(src);
+                  }}
+                >
+                  Copy URL
+                </button>
+                <button
+                  type="button"
+                  className="overlayBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyEncrypted?.(src);
+                  }}
+                >
+                  Copy Enc
+                </button>
+              </>
+            )}
           </div>
         </div>
       ))}

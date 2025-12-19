@@ -1,4 +1,4 @@
-export function Lightbox({ src, onClose, onCopy, onSave }) {
+export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted }) {
   if (!src) return null;
   return (
     <div className="lightbox" onClick={onClose}>
@@ -24,6 +24,30 @@ export function Lightbox({ src, onClose, onCopy, onSave }) {
         >
           Save
         </button>
+        {showDebug && (
+          <>
+            <button
+              type="button"
+              className="overlayBtn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopyPlain?.(src);
+              }}
+            >
+              Copy URL
+            </button>
+            <button
+              type="button"
+              className="overlayBtn"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCopyEncrypted?.(src);
+              }}
+            >
+              Copy Enc
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
