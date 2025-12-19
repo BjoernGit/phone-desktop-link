@@ -8,7 +8,7 @@ function getSocketUrl() {
   return isLocal ? "http://localhost:3000" : window.location.origin;
 }
 
-export function useSessionSockets({ isMobile, deviceName }) {
+export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [peers, setPeers] = useState([]);
@@ -58,8 +58,21 @@ export function useSessionSockets({ isMobile, deviceName }) {
       }
     };
 
-    const onPhoto = ({ imageDataUrl }) => {
-      setPhotos((prev) => [imageDataUrl, ...prev]);
+    const onPhoto = async (payload) => {
+      if (payload?.ciphertext && onDecryptPhoto) {
+        try {
+          const decrypted = await onDecryptPhoto(payload);
+          if (decrypted) {
+            setPhotos((prev) => [decrypted, ...prev]);
+          }
+          return;
+        } catch (e) {
+          console.warn("Decrypt failed", e);
+        }
+      }
+      if (payload?.imageDataUrl) {
+        setPhotos((prev) => [payload.imageDataUrl, ...prev]);
+      }
     };
 
     socket.on("peer-joined", onPeerJoined);
@@ -71,7 +84,7 @@ export function useSessionSockets({ isMobile, deviceName }) {
       socket.off("peer-left", onPeerLeft);
       socket.off("photo", onPhoto);
     };
-  }, [deviceName, isMobile, sessionId, socket]);
+  }, [deviceName, isMobile, sessionId, socket, onDecryptPhoto]);
 
   // re-emit join on reconnect so peers repopulate after a drop
   useEffect(() => {
@@ -84,9 +97,9 @@ export function useSessionSockets({ isMobile, deviceName }) {
   useEffect(() => () => socket.close(), [socket]);
 
   const sendPhoto = useCallback(
-    (imageDataUrl) => {
-      if (!sessionId || !imageDataUrl) return;
-      socket.emit("photo", { sessionId, imageDataUrl });
+    (payload) => {
+      if (!sessionId || !payload) return;
+      socket.emit("photo", { sessionId, ...payload });
     },
     [sessionId, socket]
   );

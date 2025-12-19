@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import "./App.css";
 import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 import { isMobileDevice } from "./utils/session";
@@ -11,6 +11,13 @@ import { PhotoGrid } from "./components/PhotoGrid";
 import { Lightbox } from "./components/Lightbox";
 import { DebugPanel } from "./components/DebugPanel";
 import { FooterBar } from "./components/FooterBar";
+import {
+  decryptToDataUrl,
+  encryptDataUrl,
+  exportAesKey,
+  generateAesKey,
+  importAesKey,
+} from "./utils/crypto";
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(false);
@@ -19,6 +26,8 @@ export default function App() {
   const [debugDataUrl, setDebugDataUrl] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
+  const [sessionKey, setSessionKey] = useState(null);
+  const [sessionKeyB64, setSessionKeyB64] = useState("");
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
@@ -40,10 +49,38 @@ export default function App() {
     setIsMobile(isMobileDevice());
   }, []);
 
+  const decryptPhoto = useCallback(
+    async (payload) => {
+      if (payload?.ciphertext && sessionKey) {
+        return decryptToDataUrl(payload, sessionKey);
+      }
+      return payload?.imageDataUrl || null;
+    },
+    [sessionKey]
+  );
+
   const { sessionId, peers, photos, sendPhoto, addLocalPhoto } = useSessionSockets({
     isMobile,
     deviceName,
+    onDecryptPhoto: decryptPhoto,
   });
+
+  const sendPhotoSecure = useCallback(
+    async (imageDataUrl) => {
+      if (!sessionId || !imageDataUrl) return;
+      if (sessionKey) {
+        try {
+          const encrypted = await encryptDataUrl(imageDataUrl, sessionKey);
+          sendPhoto(encrypted);
+          return;
+        } catch (e) {
+          console.warn("Encrypt failed, sending plain", e);
+        }
+      }
+      sendPhoto({ imageDataUrl });
+    },
+    [sessionId, sessionKey, sendPhoto]
+  );
 
   const {
     videoRef,
@@ -52,7 +89,7 @@ export default function App() {
     isStartingCamera,
     handleStartCamera,
     handleShutter,
-  } = useCameraCapture({ sessionId, onSendPhoto: sendPhoto });
+  } = useCameraCapture({ sessionId, onSendPhoto: sendPhotoSecure });
 
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -92,6 +129,49 @@ export default function App() {
       if (!roSupport) window.removeEventListener("resize", measure);
     };
   }, [qrPanelRef, peerPanelRef, isMobile, hasActiveUI]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const keyFromUrl = params.get("key");
+
+    const importKey = async (keyStr) => {
+      try {
+        const k = await importAesKey(keyStr);
+        setSessionKey(k);
+        setSessionKeyB64(keyStr);
+      } catch (e) {
+        console.warn("Key import failed", e);
+        setSessionKey(null);
+        setSessionKeyB64("");
+      }
+    };
+
+    const setup = async () => {
+      if (!window.isSecureContext || !crypto?.subtle) {
+        console.warn("WebCrypto not available, falling back to unencrypted mode");
+        setSessionKey(null);
+        setSessionKeyB64("");
+        return;
+      }
+      if (isMobile) {
+        if (keyFromUrl) await importKey(keyFromUrl);
+        return;
+      }
+      if (keyFromUrl) {
+        await importKey(keyFromUrl);
+        return;
+      }
+      const newKey = await generateAesKey();
+      const exported = await exportAesKey(newKey);
+      params.set("key", exported);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, "", newUrl);
+      setSessionKey(newKey);
+      setSessionKeyB64(exported);
+    };
+
+    setup();
+  }, [isMobile]);
 
   async function copyImageToClipboard(src) {
     const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
