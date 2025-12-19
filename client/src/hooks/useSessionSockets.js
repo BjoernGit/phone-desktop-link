@@ -70,9 +70,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
           console.warn("Decrypt failed", e);
         }
       }
-      if (payload?.imageDataUrl) {
-        setPhotos((prev) => [payload.imageDataUrl, ...prev]);
-      }
+      // Plaine Payloads werden bewusst ignoriert, um Klartext zu verhindern
     };
 
     socket.on("peer-joined", onPeerJoined);
