@@ -27,6 +27,7 @@ export default function App() {
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
   const [sessionKey, setSessionKey] = useState(null);
   const [sessionKeyB64, setSessionKeyB64] = useState("");
+  const [encStatus, setEncStatus] = useState("idle");
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
@@ -53,13 +54,24 @@ export default function App() {
     async (payload) => {
       if (payload?.ciphertext && sessionKey) {
         try {
-          return await decryptToDataUrl(payload, sessionKey);
+          const result = await decryptToDataUrl(payload, sessionKey);
+          setEncStatus("decrypt-ok");
+          return result;
         } catch (e) {
-          console.warn("Decrypt failed, fallback to plain if present", e);
-          return payload?.imageDataUrl || null;
+          console.warn("Decrypt failed", e);
+          setEncStatus("decrypt-fail");
+          return null;
         }
       }
-      return payload?.imageDataUrl || null;
+      if (payload?.ciphertext && !sessionKey) {
+        setEncStatus("decrypt-missing-key");
+        return null;
+      }
+      // plain payloads werden ignoriert, um Verschluesselung zu erzwingen
+      if (payload?.imageDataUrl) {
+        setEncStatus("plain-ignored");
+      }
+      return null;
     },
     [sessionKey]
   );
@@ -73,16 +85,20 @@ export default function App() {
   const sendPhotoSecure = useCallback(
     async (imageDataUrl) => {
       if (!sessionId || !imageDataUrl) return;
-      if (sessionKey) {
-        try {
-          const encrypted = await encryptDataUrl(imageDataUrl, sessionKey);
-          sendPhoto({ ...encrypted, imageDataUrl });
-          return;
-        } catch (e) {
-          console.warn("Encrypt failed, sending plain", e);
-        }
+      if (!sessionKey) {
+        setEncStatus("no-key");
+        setCopyStatus("Kein Key - Foto nicht gesendet");
+        setTimeout(() => setCopyStatus(""), 1500);
+        return;
       }
-      sendPhoto({ imageDataUrl });
+      try {
+        const encrypted = await encryptDataUrl(imageDataUrl, sessionKey);
+        sendPhoto({ ...encrypted });
+        setEncStatus("sent-encrypted");
+      } catch (e) {
+        console.warn("Encrypt failed", e);
+        setEncStatus("encrypt-fail");
+      }
     },
     [sessionId, sessionKey, sendPhoto]
   );
@@ -285,7 +301,7 @@ export default function App() {
               status={copyStatus}
               metrics={`qr: ${
                 panelHeights.qr ? `${Math.round(panelHeights.qr)}px` : "n/a"
-              } • peer: ${panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"}`}
+              } • peer: ${panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"} • enc: ${encStatus}`}
             />
           )}
 
@@ -354,6 +370,7 @@ export default function App() {
       <div className="mobileDebugPill">
         <div className="pillLine">Session: {sessionId || "n/a"}</div>
         <div className="pillLine">Key: {displayKeyShort || "n/a"}</div>
+        <div className="pillLine">ENC: {encStatus}</div>
       </div>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
