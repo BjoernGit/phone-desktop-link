@@ -1,7 +1,9 @@
-export function PeerPanel({ peers, hasConnection }) {
+import { forwardRef } from "react";
+
+export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, style }, ref) {
   const peerCount = peers.length;
   return (
-    <div className="peerPanel">
+    <div className="peerPanel" ref={ref} style={style}>
       <div className="panelTitle">Verbundene Geraete</div>
       <div className="panelMeta">
         <span className={`pill ${hasConnection ? "ok" : "wait"}`}>
@@ -22,4 +24,4 @@ export function PeerPanel({ peers, hasConnection }) {
       )}
     </div>
   );
-}
+});

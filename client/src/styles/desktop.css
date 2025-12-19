@@ -82,25 +82,28 @@
 .pairingRow {
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 18px;
-  align-items: stretch;
+  gap: 14px;
+  align-items: start;
   width: 100%;
   margin-bottom: 24px;
   --qr-size: 240px;
-  --qr-card-h: 230px;
 }
 
 .peerPanel {
   background: var(--card);
   border-radius: 18px;
-  padding: 16px;
+  padding: 12px;
   backdrop-filter: blur(8px);
   display: flex;
   flex-direction: column;
   height: auto;
   min-height: 0;
-  height: var(--qr-card-h);
   overflow: auto;
+}
+
+.pairingRow .peerPanel {
+  align-self: start;
+  height: auto;
 }
 
 .panelTitle {
@@ -111,7 +114,7 @@
 }
 
 .panelMeta {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .peerEmpty {
@@ -155,7 +158,7 @@
   --qr-size: 240px;
   background: rgba(255, 255, 255, 0.08);
   border-radius: 18px;
-  padding: 8px 10px 12px;
+  padding: 12px 12px 8px;
   backdrop-filter: blur(16px);
   display: inline-flex;
   flex-direction: column;
@@ -163,8 +166,11 @@
   gap: 8px;
   width: auto;
   transition: transform 0.35s ease, box-shadow 0.35s ease;
-  min-height: var(--qr-card-h);
-  height: var(--qr-card-h);
+  height: auto;
+}
+
+.pairingRow .qrPanel {
+  height: auto;
 }
 
 .qrPanel.centered {
@@ -176,8 +182,7 @@
 
 .qrPanel.docked {
   justify-self: end;
-  align-self: stretch;
-  transform: translateY(-12px) scale(0.94);
+  transform: none;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.25);
 }
 
@@ -190,17 +195,9 @@
 .qrPanel.heroCenter {
   width: auto;
   max-width: calc(var(--qr-size) + 40px);
-  animation: swooshUp 280ms ease;
-}
-
-@keyframes swooshUp {
-  0% { transform: translateY(28px); opacity: 0; }
-  60% { transform: translateY(-12px) scale(0.98); opacity: 1; }
-  100% { transform: translateY(-12px) scale(0.94); }
 }
 
 .qrPanel.docked {
-  animation: swooshUp 320ms ease;
   max-width: calc(var(--qr-size) + 36px);
 }
 
@@ -220,7 +217,7 @@
   justify-self: center;
   background: #fff;
   border-radius: 14px;
-  padding: 12px;
+  padding: 10px;
 }
 
 .qrSession {

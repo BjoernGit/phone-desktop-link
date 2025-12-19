@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 import { isMobileDevice } from "./utils/session";
@@ -18,6 +18,10 @@ export default function App() {
   const [copyStatus, setCopyStatus] = useState("");
   const [debugDataUrl, setDebugDataUrl] = useState("");
   const [showDebug, setShowDebug] = useState(false);
+  const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
+
+  const qrPanelRef = useRef(null);
+  const peerPanelRef = useRef(null);
 
   const deviceName = useMemo(() => {
     const uaData = navigator.userAgentData;
@@ -49,6 +53,45 @@ export default function App() {
     handleStartCamera,
     handleShutter,
   } = useCameraCapture({ sessionId, onSendPhoto: sendPhoto });
+
+  const peerCount = peers.length;
+  const hasPhotos = photos.length > 0;
+  const hasConnection = peerCount > 0;
+  const hasActiveUI = hasConnection || hasPhotos;
+  const qrDocked = hasActiveUI;
+
+  useLayoutEffect(() => {
+    const measure = () => {
+      const qr = qrPanelRef.current?.getBoundingClientRect().height ?? 0;
+      const peer = peerPanelRef.current?.getBoundingClientRect().height ?? 0;
+      setPanelHeights((prev) => (prev.qr === qr && prev.peer === peer ? prev : { qr, peer }));
+    };
+
+    const raf = requestAnimationFrame(measure);
+
+    const roSupport = typeof ResizeObserver !== "undefined";
+    const observers = [];
+    if (roSupport) {
+      if (qrPanelRef.current) {
+        const ro = new ResizeObserver(measure);
+        ro.observe(qrPanelRef.current);
+        observers.push(ro);
+      }
+      if (peerPanelRef.current) {
+        const ro = new ResizeObserver(measure);
+        ro.observe(peerPanelRef.current);
+        observers.push(ro);
+      }
+    } else {
+      window.addEventListener("resize", measure);
+    }
+
+    return () => {
+      cancelAnimationFrame(raf);
+      observers.forEach((ro) => ro.disconnect());
+      if (!roSupport) window.removeEventListener("resize", measure);
+    };
+  }, [qrPanelRef, peerPanelRef, isMobile, hasActiveUI]);
 
   async function copyImageToClipboard(src) {
     const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
@@ -133,12 +176,8 @@ export default function App() {
     const url = sessionId
       ? `${window.location.origin}${window.location.pathname}?session=${encodeURIComponent(sessionId)}`
       : window.location.href;
-
-    const peerCount = peers.length;
-    const hasPhotos = photos.length > 0;
-    const hasConnection = peerCount > 0;
-    const hasActiveUI = hasConnection || hasPhotos;
-    const qrDocked = hasActiveUI;
+    const qrBaseSize = 240;
+    const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;
 
     return (
       <div className="desktopShell">
@@ -158,12 +197,15 @@ export default function App() {
               onChange={setDebugDataUrl}
               onAdd={injectDebugPhoto}
               status={copyStatus}
+              metrics={`qr: ${
+                panelHeights.qr ? `${Math.round(panelHeights.qr)}px` : "n/a"
+              } • peer: ${panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"}`}
             />
           )}
 
           {!hasActiveUI && (
             <div className="qrHeroWrap">
-              <QrPanel value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
+              <QrPanel ref={qrPanelRef} value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
             </div>
           )}
 
@@ -171,12 +213,20 @@ export default function App() {
             <>
               <section
                 className="pairingRow"
-                style={{ "--qr-size": qrDocked ? "180px" : "240px" }}
+                style={{
+                  "--qr-size": `${qrSize}px`,
+                }}
               >
-                <PeerPanel peers={peers} hasConnection={hasConnection} />
+                <PeerPanel
+                  ref={peerPanelRef}
+                  peers={peers}
+                  hasConnection={hasConnection}
+                  style={panelHeights.qr ? { height: `${panelHeights.qr}px` } : undefined}
+                />
                 <QrPanel
+                  ref={qrPanelRef}
                   value={url}
-                  size={qrDocked ? 180 : 240}
+                  size={qrSize}
                   label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
                   className={qrDocked ? "docked" : "centered"}
                 />

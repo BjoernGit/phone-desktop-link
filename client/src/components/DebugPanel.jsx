@@ -1,4 +1,4 @@
-export function DebugPanel({ value, onChange, onAdd, status }) {
+export function DebugPanel({ value, onChange, onAdd, status, metrics }) {
   return (
     <div className="debugPanel">
       <label className="debugLabel" htmlFor="debugDataUrl">
@@ -16,7 +16,13 @@ export function DebugPanel({ value, onChange, onAdd, status }) {
           Add
         </button>
       </div>
-      {status && <div className="debugStatus">{status}</div>}
+      {(status || metrics) && (
+        <div className="debugStatus">
+          {status}
+          {status && metrics ? " • " : ""}
+          {metrics}
+        </div>
+      )}
     </div>
   );
 }
