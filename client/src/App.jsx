@@ -14,9 +14,8 @@ import { FooterBar } from "./components/FooterBar";
 import {
   decryptToDataUrl,
   encryptDataUrl,
-  exportAesKey,
-  generateAesKey,
-  importAesKey,
+  deriveAesKeyFromToken,
+  generateTokenBase64Url,
 } from "./utils/crypto";
 
 export default function App() {
@@ -31,7 +30,7 @@ export default function App() {
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
-  const displayKeyShort = sessionKeyB64 ? sessionKeyB64.slice(0, Math.ceil(sessionKeyB64.length / 2)) : "";
+  const displayKeyShort = sessionKeyB64 || "";
 
   const deviceName = useMemo(() => {
     const uaData = navigator.userAgentData;
@@ -135,18 +134,6 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const keyFromUrl = params.get("key");
 
-    const importKey = async (keyStr) => {
-      try {
-        const k = await importAesKey(keyStr);
-        setSessionKey(k);
-        setSessionKeyB64(keyStr);
-      } catch (e) {
-        console.warn("Key import failed", e);
-        setSessionKey(null);
-        setSessionKeyB64("");
-      }
-    };
-
     const setup = async () => {
       if (!window.isSecureContext || !crypto?.subtle) {
         console.warn("WebCrypto not available, falling back to unencrypted mode");
@@ -154,21 +141,28 @@ export default function App() {
         setSessionKeyB64("");
         return;
       }
-      if (isMobile) {
-        if (keyFromUrl) await importKey(keyFromUrl);
-        return;
-      }
+      const useToken = async (token) => {
+        try {
+          const k = await deriveAesKeyFromToken(token);
+          setSessionKey(k);
+          setSessionKeyB64(token);
+        } catch (e) {
+          console.warn("Key derive/import failed", e);
+          setSessionKey(null);
+          setSessionKeyB64("");
+        }
+      };
+
       if (keyFromUrl) {
-        await importKey(keyFromUrl);
+        await useToken(keyFromUrl);
         return;
       }
-      const newKey = await generateAesKey();
-      const exported = await exportAesKey(newKey);
-      params.set("key", exported);
+
+      const token = generateTokenBase64Url(4); // 32-bit token for debug
+      params.set("key", token);
       const newUrl = `${window.location.pathname}?${params.toString()}`;
       window.history.replaceState({}, "", newUrl);
-      setSessionKey(newKey);
-      setSessionKeyB64(exported);
+      await useToken(token);
     };
 
     setup();

@@ -25,18 +25,19 @@ export function base64UrlDecode(str) {
   return fromBase64(padded);
 }
 
-export async function generateAesKey() {
-  return crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+export function generateTokenBase64Url(lenBytes = 4) {
+  const bytes = crypto.getRandomValues(new Uint8Array(lenBytes));
+  return base64UrlEncode(bytes);
 }
 
-export async function importAesKey(base64Url) {
-  const raw = base64UrlDecode(base64Url);
-  return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
-}
-
-export async function exportAesKey(key) {
-  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", key));
-  return base64UrlEncode(raw);
+export async function deriveAesKeyFromToken(base64UrlToken) {
+  const raw = base64UrlDecode(base64UrlToken);
+  // Expand short token to 16 bytes for AES-128 by repeating
+  const expanded = new Uint8Array(16);
+  for (let i = 0; i < expanded.length; i++) {
+    expanded[i] = raw[i % raw.length];
+  }
+  return crypto.subtle.importKey("raw", expanded, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
 function dataUrlToBytes(dataUrl) {
