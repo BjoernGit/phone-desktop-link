@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { QRCodeSVG } from "qrcode.react";
 import "./App.css";
 import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 import { isMobileDevice } from "./utils/session";
 import { toBlob } from "./utils/image";
 import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
+import { QrPanel } from "./components/QrPanel";
+import { PeerPanel } from "./components/PeerPanel";
+import { PhotoGrid } from "./components/PhotoGrid";
+import { Lightbox } from "./components/Lightbox";
+import { DebugPanel } from "./components/DebugPanel";
+import { FooterBar } from "./components/FooterBar";
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(false);
@@ -24,14 +29,14 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Gerät";
+    return "Unbekanntes Geraet";
   }, []);
 
   useEffect(() => {
     setIsMobile(isMobileDevice());
   }, []);
 
-  const { sessionId, socketConnected, peers, photos, sendPhoto, addLocalPhoto } = useSessionSockets({
+  const { sessionId, peers, photos, sendPhoto, addLocalPhoto } = useSessionSockets({
     isMobile,
     deviceName,
   });
@@ -70,19 +75,18 @@ export default function App() {
         }
       }
     } catch (e) {
-      // fallback below
-      console.warn("Bild-Clipboard fehlgeschlagen, falle zurück auf Text:", e);
+      console.warn("Bild-Clipboard fehlgeschlagen, falle zurueck auf Text:", e);
     }
     try {
       await navigator.clipboard.writeText(src);
       setCopyStatus(
         supportsImageClipboard
           ? "Link kopiert (Bild-Clipboard blockiert)"
-          : "Link kopiert (Bild-Clipboard nicht unterstützt)"
+          : "Link kopiert (Bild-Clipboard nicht unterstuetzt)"
       );
       setTimeout(() => setCopyStatus(""), 1500);
     } catch (e) {
-      setCopyStatus("Kopieren nicht möglich");
+      setCopyStatus("Kopieren nicht moeglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
@@ -107,7 +111,7 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.warn("Speichern fehlgeschlagen:", e);
-      setCopyStatus("Speichern nicht möglich");
+      setCopyStatus("Speichern nicht moeglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
@@ -117,7 +121,7 @@ export default function App() {
     const src = debugDataUrl.trim();
     const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
     if (!looksOkay) {
-      setCopyStatus("Ungültige Quelle");
+      setCopyStatus("Ungueltige Quelle");
       setTimeout(() => setCopyStatus(""), 1200);
       return;
     }
@@ -149,34 +153,17 @@ export default function App() {
           </header>
 
           {showDebug && (
-            <div className="debugPanel">
-              <label className="debugLabel" htmlFor="debugDataUrl">
-                Debug Data-URL einfuegen
-              </label>
-              <div className="debugControls">
-                <textarea
-                  id="debugDataUrl"
-                  className="debugInput"
-                  placeholder="data:image/jpeg;base64,..."
-                  value={debugDataUrl}
-                  onChange={(e) => setDebugDataUrl(e.target.value)}
-                />
-                <button type="button" className="debugBtn" onClick={injectDebugPhoto}>
-                  Add
-                </button>
-              </div>
-              {copyStatus && <div className="debugStatus">{copyStatus}</div>}
-            </div>
+            <DebugPanel
+              value={debugDataUrl}
+              onChange={setDebugDataUrl}
+              onAdd={injectDebugPhoto}
+              status={copyStatus}
+            />
           )}
 
           {!hasActiveUI && (
             <div className="qrHeroWrap">
-              <div className="qrPanel heroCenter">
-                <div className="qrLabel">Scanne den QR-Code</div>
-                <div className="qrWrap">
-                  <QRCodeSVG value={url} size={240} />
-                </div>
-              </div>
+              <QrPanel value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
             </div>
           )}
 
@@ -186,141 +173,42 @@ export default function App() {
                 className="pairingRow"
                 style={{ "--qr-size": qrDocked ? "180px" : "240px" }}
               >
-                <div className="peerPanel">
-                  <div className="panelTitle">Verbundene Geräte</div>
-                  <div className="panelMeta">
-                    <span className={`pill ${hasConnection ? "ok" : "wait"}`}>
-                      <span className="dot" />
-                      {hasConnection ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
-                    </span>
-                  </div>
-                  {hasConnection ? (
-                    <div className="peerList">
-                      {peers.map((p) => (
-                        <span key={p.id} className="peerTag">
-                          {p.name || p.role}
-                        </span>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="peerEmpty">Verbinde ein Gerät, um neue Fotos zu senden.</div>
-                  )}
-                </div>
-
-                <div className={`qrPanel ${qrDocked ? "docked" : "centered"}`}>
-                  <div className="qrLabel">{qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}</div>
-                  <div className="qrWrap">
-                    <QRCodeSVG value={url} size={qrDocked ? 180 : 240} />
-                  </div>
-                </div>
+                <PeerPanel peers={peers} hasConnection={hasConnection} />
+                <QrPanel
+                  value={url}
+                  size={qrDocked ? 180 : 240}
+                  label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
+                  className={qrDocked ? "docked" : "centered"}
+                />
               </section>
 
               <main className="desktopCanvas">
                 {photos.length === 0 ? (
                   <div className="emptyInvite">
                     <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
-                    <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Auslöser.</div>
+                    <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
                   </div>
                 ) : (
-                  <div className="photoGrid">
-                    {photos.map((src, idx) => (
-                      <div
-                        key={idx}
-                        className="photoCard"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setLightboxSrc(src)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            setLightboxSrc(src);
-                          }
-                        }}
-                        aria-label={`Foto ${idx + 1} ansehen`}
-                      >
-                        <img className="photoImg" src={src} alt={`Photo ${idx}`} />
-                        <div className="cardOverlay">
-                          <button
-                            type="button"
-                            className="overlayBtn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              copyImageToClipboard(src);
-                            }}
-                            aria-label="In Zwischenablage kopieren"
-                          >
-                            Copy
-                          </button>
-                          <button
-                            type="button"
-                            className="overlayBtn"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              saveImage(src);
-                            }}
-                            aria-label="Speichern"
-                          >
-                            Save
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  <PhotoGrid
+                    photos={photos}
+                    onSelect={setLightboxSrc}
+                    onCopy={copyImageToClipboard}
+                    onSave={saveImage}
+                  />
                 )}
               </main>
             </>
           )}
         </div>
 
-        {lightboxSrc && (
-          <div className="lightbox" onClick={() => setLightboxSrc(null)}>
-            <img className="lightboxImg" src={lightboxSrc} alt="Vergrößertes Foto" />
-            <div className="lightboxActions">
-              <button
-                type="button"
-                className="overlayBtn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  copyImageToClipboard(lightboxSrc);
-                }}
-              >
-                Copy
-              </button>
-              <button
-                type="button"
-                className="overlayBtn"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  saveImage(lightboxSrc);
-                }}
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        )}
+        <Lightbox
+          src={lightboxSrc}
+          onClose={() => setLightboxSrc(null)}
+          onCopy={copyImageToClipboard}
+          onSave={saveImage}
+        />
 
-        <footer className="footer">
-          <div className="footerInner">
-            <div className="footerMeta">© 2025 Snap2Desk. Alle Rechte vorbehalten.</div>
-            <div className="footerLinks">
-              <button type="button" className="footerLinkBtn" onClick={() => setShowDebug((v) => !v)}>
-                Debug
-              </button>
-              <span>•</span>
-              <a href="#" aria-label="Datenschutz">Datenschutz</a>
-              <span>•</span>
-              <a href="#" aria-label="Cookies">Cookies</a>
-              <span>•</span>
-              <a href="#" aria-label="Nutzungsbedingungen">Nutzungsbedingungen</a>
-              <span>•</span>
-              <a href="#" aria-label="Impressum">Impressum</a>
-              <span>•</span>
-              <a href="#" aria-label="Support">Support</a>
-            </div>
-            <div className="footerLocale">Schweiz</div>
-          </div>
-        </footer>
+        <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
       </div>
     );
   }
