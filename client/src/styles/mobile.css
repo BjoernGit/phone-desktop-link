@@ -8,6 +8,27 @@
   overflow: hidden;
 }
 
+.mobileDebugPill {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  z-index: 80;
+  text-align: center;
+  line-height: 1.3;
+  backdrop-filter: blur(6px);
+}
+
+.mobileDebugPill .pillLine {
+  white-space: nowrap;
+}
+
 .mobileSimpleVideo {
   position: absolute;
   inset: 0;

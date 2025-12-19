@@ -31,6 +31,7 @@ export default function App() {
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
+  const displayKeyShort = sessionKeyB64 ? sessionKeyB64.slice(0, Math.ceil(sessionKeyB64.length / 2)) : "";
 
   const deviceName = useMemo(() => {
     const uaData = navigator.userAgentData;
@@ -351,6 +352,10 @@ export default function App() {
 
   return (
     <div className="mobileSimpleRoot">
+      <div className="mobileDebugPill">
+        <div className="pillLine">Session: {sessionId || "n/a"}</div>
+        <div className="pillLine">Key: {displayKeyShort || "n/a"}</div>
+      </div>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
       {!cameraReady && (
