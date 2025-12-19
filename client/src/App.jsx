@@ -392,9 +392,9 @@ export default function App() {
               onChange={setDebugDataUrl}
               onAdd={injectDebugPhoto}
               status={copyStatus}
-              metrics={`qr: ${panelHeights.qr ? `${Math.round(panelHeights.qr)}px` : "n/a"} | peer: ${
-                panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"
-              } | seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
+              metrics={`seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
+              seedValue={sessionSeed}
+              onSeedChange={handleSeedInput}
             />
           )}
 

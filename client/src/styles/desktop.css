@@ -421,6 +421,28 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
+.debugSeedRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.debugSeedInput {
+  flex: 1;
+  min-width: 160px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.debugSeedInput:focus {
+  outline: 1px solid rgba(255, 255, 255, 0.25);
+}
+
 .debugLabel {
   display: block;
   font-weight: 700;
