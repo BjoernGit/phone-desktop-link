@@ -52,7 +52,12 @@ export default function App() {
   const decryptPhoto = useCallback(
     async (payload) => {
       if (payload?.ciphertext && sessionKey) {
-        return decryptToDataUrl(payload, sessionKey);
+        try {
+          return await decryptToDataUrl(payload, sessionKey);
+        } catch (e) {
+          console.warn("Decrypt failed, fallback to plain if present", e);
+          return payload?.imageDataUrl || null;
+        }
       }
       return payload?.imageDataUrl || null;
     },
@@ -71,7 +76,7 @@ export default function App() {
       if (sessionKey) {
         try {
           const encrypted = await encryptDataUrl(imageDataUrl, sessionKey);
-          sendPhoto(encrypted);
+          sendPhoto({ ...encrypted, imageDataUrl });
           return;
         } catch (e) {
           console.warn("Encrypt failed, sending plain", e);
