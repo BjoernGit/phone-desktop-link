@@ -14,8 +14,9 @@ import { FooterBar } from "./components/FooterBar";
 import {
   decryptToDataUrl,
   encryptDataUrl,
-  deriveAesKeyFromToken,
-  generateTokenBase64Url,
+  deriveAesKeyFromSeed,
+  generateSeedBase64Url,
+  exportAesKeyBase64Url,
 } from "./utils/crypto";
 
 export default function App() {
@@ -26,12 +27,13 @@ export default function App() {
   const [showDebug, setShowDebug] = useState(false);
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
   const [sessionKey, setSessionKey] = useState(null);
+  const [sessionSeed, setSessionSeed] = useState("");
   const [sessionKeyB64, setSessionKeyB64] = useState("");
   const [encStatus, setEncStatus] = useState("idle");
+  const [seedInitialized, setSeedInitialized] = useState(false);
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
-  const displayKeyShort = sessionKeyB64 || "";
 
   const deviceName = useMemo(() => {
     const uaData = navigator.userAgentData;
@@ -81,6 +83,31 @@ export default function App() {
     deviceName,
     onDecryptPhoto: decryptPhoto,
   });
+
+  const applySeed = useCallback(
+    async (seed) => {
+      setSessionSeed(seed);
+      if (!seed || !sessionId) {
+        setSessionKey(null);
+        setSessionKeyB64("");
+        setEncStatus("missing-seed");
+        return;
+      }
+      try {
+        const key = await deriveAesKeyFromSeed(seed, sessionId);
+        const keyB64 = await exportAesKeyBase64Url(key);
+        setSessionKey(key);
+        setSessionKeyB64(keyB64);
+        setEncStatus("key-ready");
+      } catch (e) {
+        console.warn("Key derive/import failed", e);
+        setSessionKey(null);
+        setSessionKeyB64("");
+        setEncStatus("key-error");
+      }
+    },
+    [sessionId]
+  );
 
   const sendPhotoSecure = useCallback(
     async (imageDataUrl) => {
@@ -152,42 +179,51 @@ export default function App() {
   }, [qrPanelRef, peerPanelRef, isMobile, hasActiveUI]);
 
   useEffect(() => {
+    if (!sessionId || seedInitialized) return;
+
     const params = new URLSearchParams(window.location.search);
-    const keyFromUrl = params.get("key");
+    if (params.has("key")) {
+      params.delete("key");
+      const search = params.toString();
+      const newUrl = search
+        ? `${window.location.pathname}?${search}${window.location.hash || ""}`
+        : `${window.location.pathname}${window.location.hash || ""}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    const seedFromHash = hashParams.get("seed") || "";
 
     const setup = async () => {
       if (!window.isSecureContext || !crypto?.subtle) {
         console.warn("WebCrypto not available, falling back to unencrypted mode");
         setSessionKey(null);
         setSessionKeyB64("");
-        return;
-      }
-      const useToken = async (token) => {
-        try {
-          const k = await deriveAesKeyFromToken(token);
-          setSessionKey(k);
-          setSessionKeyB64(token);
-        } catch (e) {
-          console.warn("Key derive/import failed", e);
-          setSessionKey(null);
-          setSessionKeyB64("");
-        }
-      };
-
-      if (keyFromUrl) {
-        await useToken(keyFromUrl);
+        setSeedInitialized(true);
         return;
       }
 
-      const token = generateTokenBase64Url(4); // 32-bit token for debug
-      params.set("key", token);
-      const newUrl = `${window.location.pathname}?${params.toString()}`;
-      window.history.replaceState({}, "", newUrl);
-      await useToken(token);
+      const seed = isMobile ? seedFromHash : sessionSeed || seedFromHash || generateSeedBase64Url(16);
+      if (!seed) {
+        setEncStatus("no-seed");
+        setSeedInitialized(true);
+        return;
+      }
+
+      await applySeed(seed);
+      setSeedInitialized(true);
     };
 
     setup();
-  }, [isMobile]);
+  }, [applySeed, isMobile, seedInitialized, sessionId, sessionSeed]);
+
+  const handleSeedInput = useCallback(
+    (value) => {
+      const trimmed = value.trim();
+      applySeed(trimmed);
+    },
+    [applySeed]
+  );
 
   async function copyImageToClipboard(src) {
     const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
@@ -230,6 +266,36 @@ export default function App() {
     }
   }
 
+  async function copyPlainUrl(src) {
+    try {
+      await navigator.clipboard.writeText(src);
+      setCopyStatus("Data-URL kopiert");
+      setTimeout(() => setCopyStatus(""), 1500);
+    } catch (e) {
+      console.warn("Plain copy failed", e);
+      setCopyStatus("Kopieren nicht moeglich");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }
+
+  async function copyEncrypted(src) {
+    if (!sessionKey) {
+      setCopyStatus("Kein Key - verschluesselt nicht kopiert");
+      setTimeout(() => setCopyStatus(""), 1500);
+      return;
+    }
+    try {
+      const payload = await encryptDataUrl(src, sessionKey);
+      await navigator.clipboard.writeText(JSON.stringify(payload));
+      setCopyStatus("Verschluesselt kopiert");
+      setTimeout(() => setCopyStatus(""), 1500);
+    } catch (e) {
+      console.warn("Encrypted copy failed", e);
+      setCopyStatus("Verschluesseltes Kopieren fehlgeschlagen");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }
+
   async function saveImage(src) {
     try {
       let blob = null;
@@ -255,9 +321,35 @@ export default function App() {
     }
   }
 
-  function injectDebugPhoto() {
+  async function injectDebugPhoto() {
     if (!debugDataUrl.trim()) return;
     const src = debugDataUrl.trim();
+
+    try {
+      const parsed = JSON.parse(src);
+      if (parsed?.ciphertext) {
+        if (!sessionKey) {
+          setCopyStatus("Kein Key zum Entschluesseln");
+          setTimeout(() => setCopyStatus(""), 1500);
+          return;
+        }
+        try {
+          const decrypted = await decryptToDataUrl(parsed, sessionKey);
+          addLocalPhoto(decrypted);
+          setCopyStatus("Entschluesselt importiert");
+          setTimeout(() => setCopyStatus(""), 1500);
+        } catch (e) {
+          console.warn("Decrypt debug import failed", e);
+          setCopyStatus("Decrypt fehlgeschlagen");
+          setTimeout(() => setCopyStatus(""), 1500);
+        }
+        setDebugDataUrl("");
+        return;
+      }
+    } catch (e) {
+      // Not JSON, fall through
+    }
+
     const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
     if (!looksOkay) {
       setCopyStatus("Ungueltige Quelle");
@@ -272,9 +364,10 @@ export default function App() {
     const buildUrl = () => {
       if (!sessionId) return window.location.href;
       const params = new URLSearchParams(window.location.search);
+      params.delete("key");
       params.set("session", sessionId);
-      if (sessionKeyB64) params.set("key", sessionKeyB64);
-      return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+      const hash = sessionSeed ? `#seed=${sessionSeed}` : "";
+      return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash}`;
     };
 
     const url = buildUrl();
@@ -299,9 +392,9 @@ export default function App() {
               onChange={setDebugDataUrl}
               onAdd={injectDebugPhoto}
               status={copyStatus}
-              metrics={`qr: ${
-                panelHeights.qr ? `${Math.round(panelHeights.qr)}px` : "n/a"
-              } • peer: ${panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"} • enc: ${encStatus}`}
+              metrics={`qr: ${panelHeights.qr ? `${Math.round(panelHeights.qr)}px` : "n/a"} | peer: ${
+                panelHeights.peer ? `${Math.round(panelHeights.peer)}px` : "n/a"
+              } | seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
             />
           )}
 
@@ -346,6 +439,9 @@ export default function App() {
                     onSelect={setLightboxSrc}
                     onCopy={copyImageToClipboard}
                     onSave={saveImage}
+                    showDebug={showDebug}
+                    onCopyPlain={copyPlainUrl}
+                    onCopyEncrypted={copyEncrypted}
                   />
                 )}
               </main>
@@ -358,6 +454,9 @@ export default function App() {
           onClose={() => setLightboxSrc(null)}
           onCopy={copyImageToClipboard}
           onSave={saveImage}
+          showDebug={showDebug}
+          onCopyPlain={copyPlainUrl}
+          onCopyEncrypted={copyEncrypted}
         />
 
         <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
@@ -369,7 +468,16 @@ export default function App() {
     <div className="mobileSimpleRoot">
       <div className="mobileDebugPill">
         <div className="pillLine">Session: {sessionId || "n/a"}</div>
-        <div className="pillLine">Key: {displayKeyShort || "n/a"}</div>
+        <label className="pillLine pillLabel">
+          Seed:
+          <input
+            className="pillInput"
+            value={sessionSeed || ""}
+            placeholder="seed"
+            onChange={(e) => handleSeedInput(e.target.value)}
+          />
+        </label>
+        <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
         <div className="pillLine">ENC: {encStatus}</div>
       </div>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />

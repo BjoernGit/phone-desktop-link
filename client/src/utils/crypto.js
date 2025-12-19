@@ -25,19 +25,29 @@ export function base64UrlDecode(str) {
   return fromBase64(padded);
 }
 
-export function generateTokenBase64Url(lenBytes = 4) {
+export function generateSeedBase64Url(lenBytes = 16) {
   const bytes = crypto.getRandomValues(new Uint8Array(lenBytes));
   return base64UrlEncode(bytes);
 }
 
-export async function deriveAesKeyFromToken(base64UrlToken) {
-  const raw = base64UrlDecode(base64UrlToken);
-  // Expand short token to 16 bytes for AES-128 by repeating
-  const expanded = new Uint8Array(16);
-  for (let i = 0; i < expanded.length; i++) {
-    expanded[i] = raw[i % raw.length];
-  }
-  return crypto.subtle.importKey("raw", expanded, "AES-GCM", false, ["encrypt", "decrypt"]);
+export async function deriveAesKeyFromSeed(seedBase64Url, sessionId = "") {
+  const seedBytes = base64UrlDecode(seedBase64Url);
+  const encoder = new TextEncoder();
+  const info = encoder.encode(sessionId || "");
+  const salt = new Uint8Array(16); // zero salt for now (sessionId in info)
+  const hkdfKey = await crypto.subtle.importKey("raw", seedBytes, "HKDF", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    { name: "HKDF", hash: "SHA-256", salt, info },
+    hkdfKey,
+    { name: "AES-GCM", length: 128 },
+    true, // allow export for debug/telemetry display
+    ["encrypt", "decrypt"]
+  );
+}
+
+export async function exportAesKeyBase64Url(key) {
+  const raw = new Uint8Array(await crypto.subtle.exportKey("raw", key));
+  return base64UrlEncode(raw);
 }
 
 function dataUrlToBytes(dataUrl) {
