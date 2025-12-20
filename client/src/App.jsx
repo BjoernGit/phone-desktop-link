@@ -45,7 +45,7 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Geraet";
+    return "Unbekanntes Ger&auml;t";
   }, []);
 
   useEffect(() => {
@@ -381,7 +381,7 @@ export default function App() {
             <div className="heroCopy">
               <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
               <div className="heroSub">
-                Pics from your phone straight to your desktop. Fast, simple, safe, without an account.
+                Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher – ganz ohne Account.
               </div>
             </div>
           </header>
