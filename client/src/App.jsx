@@ -510,53 +510,52 @@ export default function App() {
           <p>
             Website:{" "}
             <a className="mobileLink" href="https://snap2desk.com" target="_blank" rel="noreferrer">
-              snap2desk.com
-            </a>
-          </p>
-          <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
-        </div>
-      ) : (
-        <>
-      <div className="mobileSimpleRoot">
+            snap2desk.com
+          </a>
+        </p>
+        <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
+      </div>
+    ) : (
+      <>
         <div className="mobileDebugPill">
           <div className="pillLine">Session: {sessionId || "n/a"}</div>
           <label className="pillLine pillLabel">
             Seed:
-          <input
-            className="pillInput"
-            value={sessionSeed || ""}
-            placeholder="seed"
-            onChange={(e) => handleSeedInput(e.target.value)}
+            <input
+              className="pillInput"
+              value={sessionSeed || ""}
+              placeholder="seed"
+              onChange={(e) => handleSeedInput(e.target.value)}
+            />
+          </label>
+          <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
+          <div className="pillLine">ENC: {encStatus}</div>
+        </div>
+        <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+
+        {!cameraReady && (
+          <>
+            <div className="mobileSimpleHint" aria-hidden>
+              Tippe, um die Kamera freizugeben
+            </div>
+            <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
+              {isStartingCamera ? "Startet..." : "Kamera starten"}
+            </button>
+            {cameraError && <div className="tapError">{cameraError}</div>}
+          </>
+        )}
+
+        {cameraReady && (
+          <button
+            type="button"
+            className="shutter singleShutter"
+            onClick={handleShutter}
+            aria-label="Foto aufnehmen und senden"
           />
-        </label>
-        <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
-        <div className="pillLine">ENC: {encStatus}</div>
-      </div>
-      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
-
-      {!cameraReady && (
-        <>
-          <div className="mobileSimpleHint" aria-hidden>
-            Tippe, um die Kamera freizugeben
-          </div>
-          <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
-            {isStartingCamera ? "Startet..." : "Kamera starten"}
-          </button>
-          {cameraError && <div className="tapError">{cameraError}</div>}
-        </>
-      )}
-
-      {cameraReady && (
-        <button
-          type="button"
-          className="shutter singleShutter"
-          onClick={handleShutter}
-          aria-label="Foto aufnehmen und senden"
-        />
-      )}
-    </div>
-      )}
-    </div>
+        )}
+      </>
+    )}
+  </div>
   );
 }
 
