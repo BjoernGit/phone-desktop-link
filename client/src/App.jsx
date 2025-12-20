@@ -25,7 +25,7 @@ import { TermsContent } from "./pages/TermsPage";
 import { ImpressumContent } from "./pages/ImpressumPage";
 
 export default function App() {
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => isMobileDevice());
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const [copyStatus, setCopyStatus] = useState("");
   const [debugDataUrl, setDebugDataUrl] = useState("");
