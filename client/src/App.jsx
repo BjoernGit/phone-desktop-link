@@ -151,6 +151,7 @@ export default function App() {
   const hasConnection = peerCount > 0;
   const hasActiveUI = hasConnection || hasPhotos;
   const qrDocked = hasActiveUI;
+  const missingSeed = isMobile && (!sessionId || !sessionSeed);
   const legalContentMap = useMemo(
     () => ({
       "/datenschutz": <PrivacyContent />,
@@ -441,7 +442,7 @@ export default function App() {
                     ref={qrPanelRef}
                     value={url}
                     size={qrSize}
-                    label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
+                    label={qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}
                     className={qrDocked ? "docked" : "centered"}
                   />
                 </section>
@@ -502,10 +503,25 @@ export default function App() {
 
   return (
     <div className="mobileSimpleRoot">
-      <div className="mobileDebugPill">
-        <div className="pillLine">Session: {sessionId || "n/a"}</div>
-        <label className="pillLine pillLabel">
-          Seed:
+      {missingSeed ? (
+        <div className="mobileBlocked">
+          <h2>QR-Code scannen</h2>
+          <p>Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.</p>
+          <p>
+            Website:{" "}
+            <a className="mobileLink" href="https://snap2desk.com" target="_blank" rel="noreferrer">
+              snap2desk.com
+            </a>
+          </p>
+          <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
+        </div>
+      ) : (
+        <>
+      <div className="mobileSimpleRoot">
+        <div className="mobileDebugPill">
+          <div className="pillLine">Session: {sessionId || "n/a"}</div>
+          <label className="pillLine pillLabel">
+            Seed:
           <input
             className="pillInput"
             value={sessionSeed || ""}
@@ -537,6 +553,8 @@ export default function App() {
           onClick={handleShutter}
           aria-label="Foto aufnehmen und senden"
         />
+      )}
+    </div>
       )}
     </div>
   );

@@ -148,3 +148,23 @@
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
   z-index: 70;
 }
+
+.mobileBlocked {
+  color: #fff;
+  padding: 24px;
+  text-align: center;
+  max-width: 480px;
+}
+
+.mobileBlocked h2 {
+  margin: 0 0 12px;
+}
+
+.mobileBlocked p {
+  margin: 8px 0;
+  line-height: 1.5;
+}
+
+.mobileLink {
+  color: #71c1ff;
+}
