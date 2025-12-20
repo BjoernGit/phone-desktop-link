@@ -1,4 +1,6 @@
-export function FooterBar({ onToggleDebug }) {
+import { Link } from "react-router-dom";
+
+export function FooterBar({ onToggleDebug = () => {} }) {
   return (
     <footer className="footer">
       <div className="footerInner">
@@ -8,15 +10,25 @@ export function FooterBar({ onToggleDebug }) {
             Debug
           </button>
           <span>-</span>
-          <a href="#" aria-label="Datenschutz">Datenschutz</a>
+          <Link to="/" aria-label="Home">
+            Home
+          </Link>
           <span>-</span>
-          <a href="#" aria-label="Cookies">Cookies</a>
+          <Link to="/datenschutz" aria-label="Datenschutz">
+            Datenschutz
+          </Link>
           <span>-</span>
-          <a href="#" aria-label="Nutzungsbedingungen">Nutzungsbedingungen</a>
+          <Link to="/cookies" aria-label="Cookies">
+            Cookies
+          </Link>
           <span>-</span>
-          <a href="#" aria-label="Impressum">Impressum</a>
+          <Link to="/agb" aria-label="Nutzungsbedingungen">
+            Nutzungsbedingungen
+          </Link>
           <span>-</span>
-          <a href="#" aria-label="Support">Support</a>
+          <Link to="/impressum" aria-label="Impressum">
+            Impressum
+          </Link>
         </div>
         <div className="footerLocale">Schweiz</div>
       </div>
