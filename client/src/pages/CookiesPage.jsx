@@ -1,8 +1,8 @@
 import { PageShell } from "./PrivacyPage";
 
-export default function CookiesPage() {
+export function CookiesContent() {
   return (
-    <PageShell title="Cookies">
+    <>
       <h2>1. Allgemeines</h2>
       <p>Diese Website verwendet derzeit <strong>keine Cookies</strong>.</p>
       <p>
@@ -36,6 +36,14 @@ export default function CookiesPage() {
         <br />
         <strong>E-Mail:</strong> <a href="mailto:kontakt@snap2desk.com">kontakt@snap2desk.com</a>
       </p>
+    </>
+  );
+}
+
+export default function CookiesPage() {
+  return (
+    <PageShell title="Cookies">
+      <CookiesContent />
     </PageShell>
   );
 }

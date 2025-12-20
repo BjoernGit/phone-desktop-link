@@ -503,6 +503,45 @@
   margin-top: auto;
 }
 
+.legalModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.legalModalCard {
+  max-width: 960px;
+  width: 90%;
+  max-height: 90vh;
+  background: #0f131d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  overflow: auto;
+}
+
+.legalModalBody {
+  color: var(--text);
+  padding-top: 8px;
+}
+
+.legalClose {
+  position: sticky;
+  top: 0;
+  float: right;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font-size: 24px;
+  cursor: pointer;
+}
+
 .legalContent {
   max-width: 820px;
   width: 100%;

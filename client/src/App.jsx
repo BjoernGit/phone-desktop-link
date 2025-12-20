@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
 import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 import { isMobileDevice } from "./utils/session";
@@ -18,6 +19,10 @@ import {
   generateSeedBase64Url,
   exportAesKeyBase64Url,
 } from "./utils/crypto";
+import { CookiesContent } from "./pages/CookiesPage";
+import { PrivacyContent } from "./pages/PrivacyPage";
+import { TermsContent } from "./pages/TermsPage";
+import { ImpressumContent } from "./pages/ImpressumPage";
 
 export default function App() {
   const [isMobile, setIsMobile] = useState(false);
@@ -31,6 +36,8 @@ export default function App() {
   const [sessionKeyB64, setSessionKeyB64] = useState("");
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
@@ -144,6 +151,17 @@ export default function App() {
   const hasConnection = peerCount > 0;
   const hasActiveUI = hasConnection || hasPhotos;
   const qrDocked = hasActiveUI;
+  const legalContentMap = useMemo(
+    () => ({
+      "/datenschutz": <PrivacyContent />,
+      "/cookies": <CookiesContent />,
+      "/agb": <TermsContent />,
+      "/impressum": <ImpressumContent />,
+    }),
+    []
+  );
+  const legalContent = legalContentMap[location.pathname];
+  const legalOpen = !!legalContent && location.pathname !== "/";
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -461,6 +479,17 @@ export default function App() {
 
         <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
       </div>
+
+      {legalOpen && (
+        <div className="legalModal">
+          <div className="legalModalCard">
+            <button type="button" className="legalClose" onClick={() => navigate("/")}>
+              ×
+            </button>
+            <div className="legalModalBody">{legalContent}</div>
+          </div>
+        </div>
+      )}
     );
   }
 

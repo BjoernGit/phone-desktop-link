@@ -1,8 +1,8 @@
 import { PageShell } from "./PrivacyPage";
 
-export default function TermsPage() {
+export function TermsContent() {
   return (
-    <PageShell title="Nutzungsbedingungen">
+    <>
       <h2>1. Geltungsbereich</h2>
       <p>
         Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>Snap2Desk</strong> und der dar&uuml;ber bereitgestellten
@@ -60,6 +60,14 @@ export default function TermsPage() {
 
       <h2>7. Anwendbares Recht</h2>
       <p>Es gilt das <strong>Schweizer Recht</strong>.</p>
+    </>
+  );
+}
+
+export default function TermsPage() {
+  return (
+    <PageShell title="Nutzungsbedingungen">
+      <TermsContent />
     </PageShell>
   );
 }

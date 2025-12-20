@@ -1,8 +1,8 @@
 import { PageShell } from "./PrivacyPage";
 
-export default function ImpressumPage() {
+export function ImpressumContent() {
   return (
-    <PageShell title="Impressum">
+    <>
       <h2>Betreiber der Website</h2>
       <p>
         Bj&ouml;rn Glienke<br />
@@ -32,6 +32,14 @@ export default function ImpressumPage() {
         Inhalte wird keine Gew&auml;hr &uuml;bernommen. F&uuml;r die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder
         Betreiber der Seiten verantwortlich.
       </p>
+    </>
+  );
+}
+
+export default function ImpressumPage() {
+  return (
+    <PageShell title="Impressum">
+      <ImpressumContent />
     </PageShell>
   );
 }

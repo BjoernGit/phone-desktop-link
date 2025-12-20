@@ -1,31 +1,9 @@
 import { FooterBar } from "../components/FooterBar";
 import heroLogo from "../assets/Snap2Desk_Text_Logo.png";
 
-export function PageShell({ title, children }) {
+export function PrivacyContent() {
   return (
-    <div className="desktopShell legalPage">
-      <header className="desktopHero legalHero">
-        <div className="heroCopy">
-          <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
-          <div className="heroSub">
-            Pics from your phone straight to your desktop. Fast, simple, safe, without an account.
-          </div>
-        </div>
-      </header>
-
-      <div className="legalContent">
-        <h1>{title}</h1>
-        <div className="legalText">{children}</div>
-      </div>
-
-      <FooterBar onToggleDebug={() => {}} />
-    </div>
-  );
-}
-
-export default function PrivacyPage() {
-  return (
-    <PageShell title="Datenschutz">
+    <>
       <h2>1. Allgemeines</h2>
       <p>
         Der Schutz Ihrer pers&ouml;nlichen Daten ist dem Betreiber dieser Website ein wichtiges Anliegen.
@@ -61,6 +39,36 @@ export default function PrivacyPage() {
         <li>Es erfolgt <strong>keine Weitergabe an Dritte</strong> (au&szlig;er an die von Ihnen verbundene Gegenstelle).</li>
         <li>Die &Uuml;bertragung erfolgt <strong>Ende-zu-Ende-verschl&uuml;sselt</strong>; der Server sieht nur chiffrierte Nutzlasten.</li>
       </ul>
+    </>
+  );
+}
+
+export function PageShell({ title, children }) {
+  return (
+    <div className="desktopShell legalPage">
+      <header className="desktopHero legalHero">
+        <div className="heroCopy">
+          <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
+          <div className="heroSub">
+            Pics from your phone straight to your desktop. Fast, simple, safe, without an account.
+          </div>
+        </div>
+      </header>
+
+      <div className="legalContent">
+        <h1>{title}</h1>
+        <div className="legalText">{children}</div>
+      </div>
+
+      <FooterBar onToggleDebug={() => {}} />
+    </div>
+  );
+}
+
+export default function PrivacyPage() {
+  return (
+    <PageShell title="Datenschutz">
+      <PrivacyContent />
     </PageShell>
   );
 }
