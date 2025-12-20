@@ -151,7 +151,8 @@ export default function App() {
   const hasConnection = peerCount > 0;
   const hasActiveUI = hasConnection || hasPhotos;
   const qrDocked = hasActiveUI;
-  const missingSeed = isMobile && (!sessionId || !sessionSeed);
+  const isTouch = useMemo(() => (navigator?.maxTouchPoints || 0) > 1, []);
+  const missingSeed = (!sessionId || !sessionSeed) && (isMobile || isTouch);
   const legalContentMap = useMemo(
     () => ({
       "/datenschutz": <PrivacyContent />,
@@ -501,61 +502,63 @@ export default function App() {
     );
   }
 
-  return (
-    <div className="mobileSimpleRoot">
-      {missingSeed ? (
+  if (missingSeed) {
+    return (
+      <div className="mobileSimpleRoot">
         <div className="mobileBlocked">
           <h2>QR-Code scannen</h2>
           <p>Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.</p>
           <p>
             Website:{" "}
             <a className="mobileLink" href="https://snap2desk.com" target="_blank" rel="noreferrer">
-            snap2desk.com
-          </a>
-        </p>
-        <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
-      </div>
-    ) : (
-      <>
-        <div className="mobileDebugPill">
-          <div className="pillLine">Session: {sessionId || "n/a"}</div>
-          <label className="pillLine pillLabel">
-            Seed:
-            <input
-              className="pillInput"
-              value={sessionSeed || ""}
-              placeholder="seed"
-              onChange={(e) => handleSeedInput(e.target.value)}
-            />
-          </label>
-          <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
-          <div className="pillLine">ENC: {encStatus}</div>
+              snap2desk.com
+            </a>
+          </p>
+          <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
         </div>
-        <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+      </div>
+    );
+  }
 
-        {!cameraReady && (
-          <>
-            <div className="mobileSimpleHint" aria-hidden>
-              Tippe, um die Kamera freizugeben
-            </div>
-            <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
-              {isStartingCamera ? "Startet..." : "Kamera starten"}
-            </button>
-            {cameraError && <div className="tapError">{cameraError}</div>}
-          </>
-        )}
-
-        {cameraReady && (
-          <button
-            type="button"
-            className="shutter singleShutter"
-            onClick={handleShutter}
-            aria-label="Foto aufnehmen und senden"
+  return (
+    <div className="mobileSimpleRoot">
+      <div className="mobileDebugPill">
+        <div className="pillLine">Session: {sessionId || "n/a"}</div>
+        <label className="pillLine pillLabel">
+          Seed:
+          <input
+            className="pillInput"
+            value={sessionSeed || ""}
+            placeholder="seed"
+            onChange={(e) => handleSeedInput(e.target.value)}
           />
-        )}
-      </>
-    )}
-  </div>
+        </label>
+        <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
+        <div className="pillLine">ENC: {encStatus}</div>
+      </div>
+      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+
+      {!cameraReady && (
+        <>
+          <div className="mobileSimpleHint" aria-hidden>
+            Tippe, um die Kamera freizugeben
+          </div>
+          <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
+            {isStartingCamera ? "Startet..." : "Kamera starten"}
+          </button>
+          {cameraError && <div className="tapError">{cameraError}</div>}
+        </>
+      )}
+
+      {cameraReady && (
+        <button
+          type="button"
+          className="shutter singleShutter"
+          onClick={handleShutter}
+          aria-label="Foto aufnehmen und senden"
+        />
+      )}
+    </div>
   );
 }
 
