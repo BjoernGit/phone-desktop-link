@@ -393,103 +393,110 @@ export default function App() {
     const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;
 
     return (
-      <div className="desktopShell">
-        <div className="pageContent">
-          <header className="desktopHero">
-            <div className="heroCopy">
-              <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
-              <div className="heroSub">
-                Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher – ganz ohne Account.
+      <>
+        <div className="desktopShell">
+          <div className="pageContent">
+            <header className="desktopHero">
+              <div className="heroCopy">
+                <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
+                <div className="heroSub">
+                  Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher - ganz ohne Account.
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
 
-          {showDebug && (
-            <DebugPanel
-              value={debugDataUrl}
-              onChange={setDebugDataUrl}
-              onAdd={injectDebugPhoto}
-              status={copyStatus}
-              metrics={`seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
-              seedValue={sessionSeed}
-              onSeedChange={handleSeedInput}
-            />
-          )}
+            {showDebug && (
+              <DebugPanel
+                value={debugDataUrl}
+                onChange={setDebugDataUrl}
+                onAdd={injectDebugPhoto}
+                status={copyStatus}
+                metrics={`seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
+                seedValue={sessionSeed}
+                onSeedChange={handleSeedInput}
+              />
+            )}
 
-          {!hasActiveUI && (
-            <div className="qrHeroWrap">
-              <QrPanel ref={qrPanelRef} value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
-            </div>
-          )}
+            {!hasActiveUI && (
+              <div className="qrHeroWrap">
+                <QrPanel ref={qrPanelRef} value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
+              </div>
+            )}
 
-          {hasActiveUI && (
-            <>
-              <section
-                className="pairingRow"
-                style={{
-                  "--qr-size": `${qrSize}px`,
-                }}
-              >
-                <PeerPanel
-                  ref={peerPanelRef}
-                  peers={peers}
-                  hasConnection={hasConnection}
-                  style={panelHeights.qr ? { height: `${panelHeights.qr}px` } : undefined}
-                />
-                <QrPanel
-                  ref={qrPanelRef}
-                  value={url}
-                  size={qrSize}
-                  label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
-                  className={qrDocked ? "docked" : "centered"}
-                />
-              </section>
-
-              <main className="desktopCanvas">
-                {photos.length === 0 ? (
-                  <div className="emptyInvite">
-                    <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
-                    <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
-                  </div>
-                ) : (
-                  <PhotoGrid
-                    photos={photos}
-                    onSelect={setLightboxSrc}
-                    onCopy={copyImageToClipboard}
-                    onSave={saveImage}
-                    showDebug={showDebug}
-                    onCopyPlain={copyPlainUrl}
-                    onCopyEncrypted={copyEncrypted}
+            {hasActiveUI && (
+              <>
+                <section
+                  className="pairingRow"
+                  style={{
+                    "--qr-size": `${qrSize}px`,
+                  }}
+                >
+                  <PeerPanel
+                    ref={peerPanelRef}
+                    peers={peers}
+                    hasConnection={hasConnection}
+                    style={panelHeights.qr ? { height: `${panelHeights.qr}px` } : undefined}
                   />
-                )}
-              </main>
-            </>
-          )}
-        </div>
+                  <QrPanel
+                    ref={qrPanelRef}
+                    value={url}
+                    size={qrSize}
+                    label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
+                    className={qrDocked ? "docked" : "centered"}
+                  />
+                </section>
 
-        <Lightbox
-          src={lightboxSrc}
-          onClose={() => setLightboxSrc(null)}
-          onCopy={copyImageToClipboard}
-          onSave={saveImage}
-          showDebug={showDebug}
-          onCopyPlain={copyPlainUrl}
-          onCopyEncrypted={copyEncrypted}
-        />
-
-        <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
-      </div>
-
-      {legalOpen && (
-        <div className="legalModal">
-          <div className="legalModalCard">
-            <button type="button" className="legalClose" onClick={() => navigate("/")}>
-              ×
-            </button>
-            <div className="legalModalBody">{legalContent}</div>
+                <main className="desktopCanvas">
+                  {photos.length === 0 ? (
+                    <div className="emptyInvite">
+                      <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
+                      <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Ausloeser.</div>
+                    </div>
+                  ) : (
+                    <PhotoGrid
+                      photos={photos}
+                      onSelect={setLightboxSrc}
+                      onCopy={copyImageToClipboard}
+                      onSave={saveImage}
+                      showDebug={showDebug}
+                      onCopyPlain={copyPlainUrl}
+                      onCopyEncrypted={copyEncrypted}
+                    />
+                  )}
+                </main>
+              </>
+            )}
           </div>
+
+          <Lightbox
+            src={lightboxSrc}
+            onClose={() => setLightboxSrc(null)}
+            onCopy={copyImageToClipboard}
+            onSave={saveImage}
+            showDebug={showDebug}
+            onCopyPlain={copyPlainUrl}
+            onCopyEncrypted={copyEncrypted}
+          />
+
+          <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
         </div>
-      )}
+
+        {legalOpen && (
+          <div className="legalModal" onClick={() => navigate("/")}>
+            <div
+              className="legalModalCard"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <button type="button" className="legalClose" onClick={() => navigate("/")}>
+                &times;
+              </button>
+              <div className="legalModalBody">{legalContent}</div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -534,3 +541,4 @@ export default function App() {
     </div>
   );
 }
+

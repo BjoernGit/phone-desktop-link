@@ -10,10 +10,6 @@ export function FooterBar({ onToggleDebug = () => {} }) {
             Debug
           </button>
           <span>-</span>
-          <Link to="/" aria-label="Home">
-            Home
-          </Link>
-          <span>-</span>
           <Link to="/datenschutz" aria-label="Datenschutz">
             Datenschutz
           </Link>
