@@ -2,13 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 function getCaptureTarget(quality) {
   switch (quality) {
-    case "small":
+    case "S":
       return { width: 640, height: 360, jpeg: 0.65 };
-    case "medium":
+    case "M":
       return { width: 1280, height: 720, jpeg: 0.75 };
-    case "large":
+    case "L":
       return { width: 1920, height: 1080, jpeg: 0.8 };
-    case "xlarge":
+    case "XL":
       return { width: 2560, height: 1440, jpeg: 0.82 };
     default:
       return { width: 1280, height: 720, jpeg: 0.75 };
@@ -18,7 +18,7 @@ function getCaptureTarget(quality) {
 export function useCameraCapture({ sessionId, onSendPhoto }) {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
-  const [quality, setQuality] = useState("medium");
+  const [quality, setQuality] = useState("M");
   const [isStartingCamera, setIsStartingCamera] = useState(false);
 
   const videoRef = useRef(null);
@@ -148,9 +148,9 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
 
     let { width: targetW, height: targetH, jpeg } = getCaptureTarget(quality);
     const isPortrait = v.videoHeight > v.videoWidth || window.innerHeight > window.innerWidth;
-    if (isPortrait) {
-      targetW = 720;
-      targetH = 1280;
+    if (isPortrait && targetW > targetH) {
+      // flip to portrait if the target is defined landscape
+      [targetW, targetH] = [targetH, targetW];
     }
 
     if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || v.videoWidth === 0) {

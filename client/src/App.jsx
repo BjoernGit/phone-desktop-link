@@ -145,9 +145,8 @@ export default function App() {
     isStartingCamera,
     handleStartCamera,
     handleShutter,
-    quality,
-    setQuality,
   } = useCameraCapture({ sessionId, onSendPhoto: sendPhotoSecure });
+  const [quality, setQuality] = useState("M");
 
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -562,41 +561,48 @@ export default function App() {
           />
         )}
 
-      <div className="qualityPickerWrap">
-        <button
-          type="button"
-          className="qualityToggle"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowQualityPicker((v) => !v);
-          }}
-        >
-          Auflösung: {quality}
-        </button>
-        {showQualityPicker && (
-          <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
-            {[
-              { id: "small", label: "Klein (640 x 360)" },
-              { id: "medium", label: "Mittel (1280 x 720)" },
-              { id: "large", label: "Gross (1920 x 1080)" },
-              { id: "xlarge", label: "Sehr gross (2560 x 1440)" },
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                className={`qualityItem ${quality === opt.id ? "active" : ""}`}
-                onClick={() => {
-                  setQuality(opt.id);
-                  setShowQualityPicker(false);
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+      {cameraReady && (
+        <div className="qualityPickerWrap">
+          <button
+            type="button"
+            className="qualityToggle"
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowQualityPicker((v) => !v);
+            }}
+          >
+            Auflösung: {quality}
+          </button>
+          {showQualityPicker && (
+            <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
+              {[
+                { id: "S", label: "S (640 x 360)" },
+                { id: "M", label: "M (1280 x 720)" },
+                { id: "L", label: "L (1920 x 1080)" },
+                { id: "XL", label: "XL (2560 x 1440)" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={`qualityItem ${quality === opt.id ? "active" : ""}`}
+                  onClick={() => {
+                    setQuality(opt.id);
+                    setShowQualityPicker(false);
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
+  useEffect(() => {
+    if (!cameraReady && showQualityPicker) {
+      setShowQualityPicker(false);
+    }
+  }, [cameraReady, showQualityPicker]);
