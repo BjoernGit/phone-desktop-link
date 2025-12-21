@@ -166,6 +166,11 @@ export default function App() {
   );
   const legalContent = legalContentMap[location.pathname];
   const legalOpen = !!legalContent && location.pathname !== "/";
+  useEffect(() => {
+    if (!cameraReady && showQualityPicker) {
+      setShowQualityPicker(false);
+    }
+  }, [cameraReady, showQualityPicker]);
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -600,9 +605,3 @@ export default function App() {
     </div>
   );
 }
-
-  useEffect(() => {
-    if (!cameraReady && showQualityPicker) {
-      setShowQualityPicker(false);
-    }
-  }, [cameraReady, showQualityPicker]);

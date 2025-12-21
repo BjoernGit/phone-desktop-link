@@ -1,2 +1,5 @@
 node_modules/
 .env
+quickinfos
+QuickInfos.txt
+start-dev.bat
