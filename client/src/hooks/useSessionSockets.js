@@ -3,18 +3,36 @@ import { io } from "socket.io-client";
 import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
 
 function getSocketUrl() {
-  const host = window.location.hostname;
-  const isLocal = host === "localhost" || host === "127.0.0.1";
-  return isLocal ? "http://localhost:3000" : window.location.origin;
+  return window.location.origin;
 }
 
 export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
+  const [socketStatus, setSocketStatus] = useState("disconnected");
   const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
 
-  const socket = useMemo(() => io(getSocketUrl(), { transports: ["websocket"] }), []);
+  const socket = useMemo(() => {
+    const isSecure = window.location.protocol === "https:";
+    const url = getSocketUrl();
+    const s = io(url, {
+      path: "/socket.io",
+      transports: ["websocket", "polling"],
+      secure: isSecure,
+      withCredentials: true,
+    });
+
+    s.on("connect_error", (err) => {
+      console.warn("Socket connect_error", err?.message || err);
+      setSocketStatus(`connect_error: ${err?.message || err}`);
+    });
+
+    s.on("reconnect_attempt", () => setSocketStatus("reconnect_attempt"));
+    s.on("reconnect_failed", () => setSocketStatus("reconnect_failed"));
+
+    return s;
+  }, []);
 
   // determine session id based on role
   useEffect(() => {
@@ -107,12 +125,13 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
     setPhotos((prev) => [src, ...prev]);
   }, []);
 
-  return {
-    sessionId,
-    socketConnected,
-    peers,
-    photos,
-    sendPhoto,
-    addLocalPhoto,
-  };
+    return {
+      sessionId,
+      socketConnected,
+      socketStatus,
+      peers,
+      photos,
+      sendPhoto,
+      addLocalPhoto,
+    };
 }

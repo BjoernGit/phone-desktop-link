@@ -86,7 +86,7 @@ export default function App() {
     [sessionKey]
   );
 
-  const { sessionId, peers, photos, sendPhoto, addLocalPhoto } = useSessionSockets({
+  const { sessionId, peers, photos, sendPhoto, addLocalPhoto, socketStatus } = useSessionSockets({
     isMobile,
     deviceName,
     onDecryptPhoto: decryptPhoto,
@@ -145,8 +145,9 @@ export default function App() {
     isStartingCamera,
     handleStartCamera,
     handleShutter,
+    quality,
+    setQuality,
   } = useCameraCapture({ sessionId, onSendPhoto: sendPhotoSecure });
-  const [quality, setQuality] = useState("M");
 
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -529,11 +530,11 @@ export default function App() {
 
   return (
     <div className="mobileSimpleRoot">
-      <div className="mobileDebugPill">
-        <div className="pillLine">Session: {sessionId || "n/a"}</div>
-        <label className="pillLine pillLabel">
-          Seed:
-          <input
+        <div className="mobileDebugPill">
+          <div className="pillLine">Session: {sessionId || "n/a"}</div>
+          <label className="pillLine pillLabel">
+            Seed:
+            <input
             className="pillInput"
             value={sessionSeed || ""}
             placeholder="seed"
@@ -542,6 +543,7 @@ export default function App() {
         </label>
         <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
         <div className="pillLine">ENC: {encStatus}</div>
+        <div className="pillLine">Socket: {socketStatus}</div>
       </div>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
