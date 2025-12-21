@@ -297,6 +297,7 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
     setCameraError,
     setIsStartingCamera,
     setCameraReady,
+    quality,
     setQuality,
   };
 }

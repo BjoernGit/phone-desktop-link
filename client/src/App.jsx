@@ -36,6 +36,7 @@ export default function App() {
   const [sessionKeyB64, setSessionKeyB64] = useState("");
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -144,6 +145,8 @@ export default function App() {
     isStartingCamera,
     handleStartCamera,
     handleShutter,
+    quality,
+    setQuality,
   } = useCameraCapture({ sessionId, onSendPhoto: sendPhotoSecure });
 
   const peerCount = peers.length;
@@ -550,14 +553,49 @@ export default function App() {
         </>
       )}
 
-      {cameraReady && (
+        {cameraReady && (
+          <button
+            type="button"
+            className="shutter singleShutter"
+            onClick={handleShutter}
+            aria-label="Foto aufnehmen und senden"
+          />
+        )}
+
+      <div className="qualityPickerWrap">
         <button
           type="button"
-          className="shutter singleShutter"
-          onClick={handleShutter}
-          aria-label="Foto aufnehmen und senden"
-        />
-      )}
+          className="qualityToggle"
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowQualityPicker((v) => !v);
+          }}
+        >
+          Auflösung: {quality}
+        </button>
+        {showQualityPicker && (
+          <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
+            {[
+              { id: "small", label: "Klein (640 x 360)" },
+              { id: "medium", label: "Mittel (1280 x 720)" },
+              { id: "large", label: "Gross (1920 x 1080)" },
+              { id: "xlarge", label: "Sehr gross (2560 x 1440)" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className={`qualityItem ${quality === opt.id ? "active" : ""}`}
+                onClick={() => {
+                  setQuality(opt.id);
+                  setShowQualityPicker(false);
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

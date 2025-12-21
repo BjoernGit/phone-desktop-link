@@ -168,3 +168,47 @@
 .mobileLink {
   color: #71c1ff;
 }
+
+.qualityPickerWrap {
+  position: absolute;
+  right: 16px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  z-index: 90;
+}
+
+.qualityToggle {
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+}
+
+.qualityMenu {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qualityItem {
+  background: none;
+  color: #fff;
+  border: 0;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.qualityItem.active {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-weight: 800;
+}
