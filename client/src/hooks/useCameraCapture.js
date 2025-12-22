@@ -3,24 +3,19 @@ import { useCallback, useEffect, useRef, useState } from "react";
 function getCaptureTarget(quality) {
   switch (quality) {
     case "S":
-      return { width: 640, height: 360, jpeg: 0.75 };
+      return { width: 360, height: 640, jpeg: 0.75 };
     case "M":
-      return { width: 1280, height: 720, jpeg: 0.82 };
+      return { width: 720, height: 1280, jpeg: 0.82 };
     case "L":
-      return { width: 1920, height: 1080, jpeg: 0.88 };
+      return { width: 1080, height: 1920, jpeg: 0.88 };
     case "XL":
-      return { width: 2560, height: 1440, jpeg: 0.9 };
+      return { width: 1440, height: 2560, jpeg: 0.9 };
     default:
-      return { width: 1280, height: 720, jpeg: 0.82 };
+      return { width: 720, height: 1280, jpeg: 0.82 };
   }
 }
 
 function drawScaled(source, srcW, srcH, targetW, targetH, jpegQuality) {
-  // Wenn Portrait, Ziel auch drehen
-  if (srcH > srcW && targetW > targetH) {
-    [targetW, targetH] = [targetH, targetW];
-  }
-
   const targetAspect = targetW / targetH;
   const srcAspect = srcW / srcH;
 
