@@ -37,6 +37,7 @@ export default function App() {
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const fileInputRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -147,6 +148,7 @@ export default function App() {
     handleShutter,
     quality,
     setQuality,
+    handleFiles,
   } = useCameraCapture({
     sessionId,
     onSendPhoto: sendPhotoSecure,
@@ -562,12 +564,33 @@ export default function App() {
       )}
 
         {cameraReady && (
-          <button
-            type="button"
-            className="shutter singleShutter"
-            onClick={handleShutter}
-            aria-label="Foto aufnehmen und senden"
-          />
+          <>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: "none" }}
+              onChange={(e) => {
+                handleFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="uploadBtn"
+              onClick={() => fileInputRef.current?.click()}
+              aria-label="Bild aus Galerie waehlen"
+            >
+              Galerie
+            </button>
+            <button
+              type="button"
+              className="shutter singleShutter"
+              onClick={handleShutter}
+              aria-label="Foto aufnehmen und senden"
+            />
+          </>
         )}
 
       {cameraReady && (
