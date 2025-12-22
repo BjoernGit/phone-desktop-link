@@ -43,6 +43,7 @@ export default function App() {
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
+  const [offerStatus, setOfferStatus] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -128,6 +129,7 @@ export default function App() {
     onDecryptPhoto: decryptPhoto,
     onSessionOffer: (payload) => {
       if (!payload?.session && !payload?.seed) return;
+      setOfferStatus("Offer eingegangen");
       setIncomingOffer({
         session: payload.session,
         seed: payload.seed || "",
@@ -666,6 +668,7 @@ export default function App() {
           </label>
           <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
           <div className="pillLine">ENC: {encStatus}</div>
+          {offerStatus && <div className="pillLine">Offer: {offerStatus}</div>}
         </div>
         <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
@@ -696,6 +699,7 @@ export default function App() {
               handleStartCamera();
             }
             setQrMode((v) => !v);
+            setQrOffer(null);
           }}
           aria-label="QR-Modus umschalten"
         >
@@ -717,7 +721,15 @@ export default function App() {
               </div>
             </div>
             <div className="qrOfferActions">
-              <button type="button" className="qrOfferBtn" onClick={() => applyQrOffer(qrOffer)}>
+              <button
+                type="button"
+                className="qrOfferBtn"
+                onClick={() => {
+                  applyQrOffer(qrOffer);
+                  setQrOffer(null);
+                  setQrMode(false);
+                }}
+              >
                 Session einlesen
               </button>
               <button
@@ -729,8 +741,14 @@ export default function App() {
                     session: sessionId,
                     seed: sessionSeed,
                   }, qrOffer.session);
+                  setOfferStatus("Angebot gesendet");
                   setQrStatus("Session-Angebot gesendet");
-                  setTimeout(() => setQrStatus(""), 3000);
+                  setTimeout(() => {
+                    setQrStatus("");
+                    setOfferStatus("");
+                  }, 3000);
+                  setQrOffer(null);
+                  setQrMode(false);
                 }}
               >
                 Eigene Session senden
