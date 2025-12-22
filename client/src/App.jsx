@@ -43,7 +43,7 @@ export default function App() {
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
-  const [offerStatus, setOfferStatus] = useState("");
+  const [offerStatus, setOfferStatus] = useState("idle");
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -179,6 +179,7 @@ export default function App() {
       if (offer.seed) {
         applySeed(offer.seed, offer.session);
       }
+      setOfferStatus("Offer angenommen");
       setQrStatus("Session übernommen");
       setTimeout(() => setQrStatus(""), 2000);
     },
@@ -545,10 +546,11 @@ export default function App() {
                 value={debugDataUrl}
                 onChange={setDebugDataUrl}
                 onAdd={injectDebugPhoto}
-                status={copyStatus}
+                status={copyStatus || qrStatus}
                 metrics={`seed: ${sessionSeed || "n/a"} | key: ${sessionKeyB64 || "n/a"} | enc: ${encStatus}`}
                 seedValue={sessionSeed}
                 onSeedChange={handleSeedInput}
+                offerStatus={offerStatus}
               />
             )}
 
@@ -745,7 +747,7 @@ export default function App() {
                   setQrStatus("Session-Angebot gesendet");
                   setTimeout(() => {
                     setQrStatus("");
-                    setOfferStatus("");
+                    setOfferStatus("idle");
                   }, 3000);
                   setQrOffer(null);
                   setQrMode(false);

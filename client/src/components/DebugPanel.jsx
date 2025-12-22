@@ -1,4 +1,13 @@
-export function DebugPanel({ value, onChange, onAdd, status, metrics, seedValue, onSeedChange }) {
+export function DebugPanel({
+  value,
+  onChange,
+  onAdd,
+  status,
+  metrics,
+  seedValue,
+  onSeedChange,
+  offerStatus,
+}) {
   return (
     <div className="debugPanel">
       <label className="debugLabel" htmlFor="debugDataUrl">
@@ -33,11 +42,16 @@ export function DebugPanel({ value, onChange, onAdd, status, metrics, seedValue,
         </div>
       )}
 
-      {(status || metrics) && (
+      {(status || metrics || offerStatus) && (
         <div className="debugStatus">
           {status}
-          {status && metrics ? " • " : ""}
+          {status && metrics ? " Â· " : ""}
           {metrics}
+        </div>
+      )}
+      {offerStatus && (
+        <div className="debugStatus">
+          Offer: {offerStatus}
         </div>
       )}
     </div>
