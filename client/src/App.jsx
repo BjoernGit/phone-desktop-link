@@ -6,6 +6,7 @@ import { isMobileDevice } from "./utils/session";
 import { toBlob } from "./utils/image";
 import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
+import jsQR from "jsqr";
 import { QrPanel } from "./components/QrPanel";
 import { PeerPanel } from "./components/PeerPanel";
 import { PhotoGrid } from "./components/PhotoGrid";
@@ -38,6 +39,9 @@ export default function App() {
   const [seedInitialized, setSeedInitialized] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
   const fileInputRef = useRef(null);
+  const [qrMode, setQrMode] = useState(false);
+  const [qrStatus, setQrStatus] = useState("");
+  const [qrOffer, setQrOffer] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -60,6 +64,21 @@ export default function App() {
   useEffect(() => {
     setIsMobile(isMobileDevice());
   }, []);
+
+  const applyQrOffer = useCallback(
+    (offer) => {
+      if (!offer?.session) {
+        setQrStatus("Kein Session-Parameter im QR");
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      params.set("session", offer.session);
+      const hash = offer.seed ? `#seed=${offer.seed}` : "";
+      const newUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}${hash}`;
+      window.location.href = newUrl;
+    },
+    []
+  );
 
   const decryptPhoto = useCallback(
     async (payload) => {
@@ -153,6 +172,59 @@ export default function App() {
     sessionId,
     onSendPhoto: sendPhotoSecure,
   });
+
+  useEffect(() => {
+    if (!qrMode) return undefined;
+    setQrStatus("QR-Scan aktiv");
+    setQrOffer(null);
+    let active = true;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+
+    const parseQr = (raw) => {
+      try {
+        const url = new URL(raw);
+        const session = url.searchParams.get("session") || "";
+        const seed = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")).get("seed") || "" : "";
+        return { session, seed, raw };
+      } catch (e) {
+        return { session: "", seed: "", raw };
+      }
+    };
+
+    const scan = () => {
+      if (!active) return;
+      const v = videoRef.current;
+      if (!v || !v.videoWidth || !v.videoHeight) {
+        requestAnimationFrame(scan);
+        return;
+      }
+      const maxW = 320;
+      const scale = Math.min(1, maxW / v.videoWidth);
+      const w = Math.max(120, Math.round(v.videoWidth * scale));
+      const h = Math.max(120, Math.round(v.videoHeight * scale));
+      canvas.width = w;
+      canvas.height = h;
+      ctx.drawImage(v, 0, 0, w, h);
+      const imgData = ctx.getImageData(0, 0, w, h);
+      const result = jsQR(imgData.data, w, h);
+      if (result?.data) {
+        const parsed = parseQr(result.data);
+        setQrStatus(parsed.session ? `QR erkannt: ${parsed.session}` : "QR erkannt");
+        setQrOffer(parsed);
+        setQrMode(false);
+        setTimeout(() => setQrStatus(""), 4000);
+        return;
+      }
+      requestAnimationFrame(scan);
+    };
+
+    requestAnimationFrame(scan);
+    return () => {
+      active = false;
+      setQrStatus("");
+    };
+  }, [qrMode, videoRef]);
 
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -570,6 +642,47 @@ export default function App() {
         >
           Galerie
         </button>
+        <button
+          type="button"
+          className={`qrToggle ${qrMode ? "active" : ""}`}
+          onClick={() => setQrMode((v) => !v)}
+          aria-label="QR-Modus umschalten"
+        >
+          QR
+        </button>
+        {qrMode && <div className="qrBadge">QR Mode</div>}
+        {qrOffer?.session && (
+          <div className="qrOfferPanel">
+            <div className="qrOfferText">
+              QR erkannt
+              <div className="qrOfferMeta">
+                Session: <code>{qrOffer.session}</code>
+                {qrOffer.seed ? (
+                  <>
+                    <br />
+                    Seed: <code>{qrOffer.seed}</code>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <div className="qrOfferActions">
+              <button
+                type="button"
+                className="qrOfferBtn"
+                onClick={() => applyQrOffer(qrOffer)}
+              >
+                Session einlesen
+              </button>
+              <button
+                type="button"
+                className="qrOfferBtn ghost"
+                onClick={() => setQrStatus("Session senden folgt")}
+              >
+                Eigene Session senden
+              </button>
+            </div>
+          </div>
+        )}
 
       {!cameraReady && (
         <>

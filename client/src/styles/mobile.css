@@ -225,7 +225,7 @@
 .uploadBtn {
   position: absolute;
   left: 16px;
-  bottom: 32px;
+  bottom: 80px;
   z-index: 80;
   border: 0;
   border-radius: 12px;
@@ -235,4 +235,94 @@
   color: #050505;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.qrToggle {
+  position: absolute;
+  left: 16px;
+  bottom: 32px;
+  z-index: 80;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #050505;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.qrToggle.active {
+  background: rgba(111, 201, 255, 0.9);
+  color: #052239;
+}
+
+.qrBadge {
+  position: absolute;
+  left: 50%;
+  bottom: 100px;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  backdrop-filter: blur(6px);
+  z-index: 85;
+}
+
+.qrOfferPanel {
+  position: absolute;
+  left: 50%;
+  bottom: 150px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #fff;
+  padding: 10px 12px;
+  border-radius: 14px;
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
+  z-index: 90;
+  width: min(90vw, 320px);
+}
+
+.qrOfferText {
+  font-size: 13px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.qrOfferMeta {
+  font-weight: 600;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.qrOfferMeta code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 8px;
+  color: #fff;
+}
+
+.qrOfferActions {
+  display: flex;
+  gap: 8px;
+}
+
+.qrOfferBtn {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-weight: 800;
+  font-size: 13px;
+  color: #050505;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.qrOfferBtn.ghost {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }
