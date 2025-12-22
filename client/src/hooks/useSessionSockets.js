@@ -149,9 +149,9 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   );
 
   const sendSessionOffer = useCallback(
-    (offer) => {
+    (offer, targetSessionId) => {
       if (!sessionId || !offer) return;
-      socket.emit("session-offer", { sessionId, offer });
+      socket.emit("session-offer", { sessionId, offer, target: targetSessionId });
     },
     [sessionId, socket]
   );
@@ -170,5 +170,6 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     sendPhoto,
     addLocalPhoto,
     sendSessionOffer,
+    setSessionId,
   };
 }

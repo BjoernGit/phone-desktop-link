@@ -75,10 +75,16 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       params.set("session", offer.session);
       const hash = offer.seed ? `#seed=${offer.seed}` : "";
-      const newUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}${hash}`;
-      window.location.href = newUrl;
+      const newUrl = `${window.location.pathname}?${params.toString()}${hash}`;
+      window.history.replaceState({}, "", newUrl);
+      overrideSessionId?.(offer.session);
+      if (offer.seed) {
+        applySeed(offer.seed, offer.session);
+      }
+      setQrStatus("Session übernommen");
+      setTimeout(() => setQrStatus(""), 2000);
     },
-    []
+    [applySeed, overrideSessionId]
   );
 
   const decryptPhoto = useCallback(
@@ -107,7 +113,16 @@ export default function App() {
     [sessionKey]
   );
 
-  const { sessionId, peers, photos, sendPhoto, addLocalPhoto, socketStatus, sendSessionOffer } = useSessionSockets({
+  const {
+    sessionId,
+    peers,
+    photos,
+    sendPhoto,
+    addLocalPhoto,
+    socketStatus,
+    sendSessionOffer,
+    setSessionId: overrideSessionId,
+  } = useSessionSockets({
     isMobile,
     deviceName,
     onDecryptPhoto: decryptPhoto,
@@ -122,16 +137,17 @@ export default function App() {
   });
 
   const applySeed = useCallback(
-    async (seed) => {
+    async (seed, sessionOverride) => {
       setSessionSeed(seed);
-      if (!seed || !sessionId) {
+      const sid = sessionOverride || sessionId;
+      if (!seed || !sid) {
         setSessionKey(null);
         setSessionKeyB64("");
         setEncStatus("missing-seed");
         return;
       }
       try {
-        const key = await deriveAesKeyFromSeed(seed, sessionId);
+        const key = await deriveAesKeyFromSeed(seed, sid);
         const keyB64 = await exportAesKeyBase64Url(key);
         setSessionKey(key);
         setSessionKeyB64(keyB64);
@@ -654,7 +670,12 @@ export default function App() {
         <button
           type="button"
           className={`qrToggle ${qrMode ? "active" : ""}`}
-          onClick={() => setQrMode((v) => !v)}
+          onClick={() => {
+            if (!cameraReady) {
+              handleStartCamera();
+            }
+            setQrMode((v) => !v);
+          }}
           aria-label="QR-Modus umschalten"
         >
           QR
@@ -686,8 +707,7 @@ export default function App() {
                   sendSessionOffer({
                     session: sessionId,
                     seed: sessionSeed,
-                    target: qrOffer.session,
-                  });
+                  }, qrOffer.session);
                   setQrStatus("Session-Angebot gesendet");
                   setTimeout(() => setQrStatus(""), 3000);
                 }}
