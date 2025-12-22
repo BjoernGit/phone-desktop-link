@@ -14,6 +14,7 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET", "POST"],
   },
+  maxHttpBufferSize: 5 * 1024 * 1024, // 5 MB Payload-Limit fuer Photos
 });
 
 function roomName(sessionId) {
