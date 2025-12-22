@@ -582,12 +582,12 @@ export default function App() {
           </button>
           {showQualityPicker && (
             <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
-              {[
-                { id: "S", label: "S (640 x 360)" },
-                { id: "M", label: "M (1280 x 720)" },
-                { id: "L", label: "L (1920 x 1080)" },
-                { id: "XL", label: "XL (2560 x 1440)" },
-              ].map((opt) => (
+                {[
+                  { id: "S", label: "S (360 x 640)" },
+                  { id: "M", label: "M (720 x 1280)" },
+                  { id: "L", label: "L (1080 x 1920)" },
+                  { id: "XL", label: "XL (1440 x 2560)" },
+                ].map((opt) => (
                 <button
                   key={opt.id}
                   type="button"

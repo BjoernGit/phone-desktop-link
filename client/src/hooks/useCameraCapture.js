@@ -3,16 +3,53 @@ import { useCallback, useEffect, useRef, useState } from "react";
 function getCaptureTarget(quality) {
   switch (quality) {
     case "S":
-      return { width: 640, height: 360, jpeg: 0.65 };
+      return { width: 640, height: 360, jpeg: 0.75 };
     case "M":
-      return { width: 1280, height: 720, jpeg: 0.75 };
+      return { width: 1280, height: 720, jpeg: 0.82 };
     case "L":
-      return { width: 1920, height: 1080, jpeg: 0.8 };
+      return { width: 1920, height: 1080, jpeg: 0.88 };
     case "XL":
-      return { width: 2560, height: 1440, jpeg: 0.82 };
+      return { width: 2560, height: 1440, jpeg: 0.9 };
     default:
-      return { width: 1280, height: 720, jpeg: 0.75 };
+      return { width: 1280, height: 720, jpeg: 0.82 };
   }
+}
+
+function drawScaled(source, srcW, srcH, targetW, targetH, jpegQuality) {
+  // Wenn Portrait, Ziel auch drehen
+  if (srcH > srcW && targetW > targetH) {
+    [targetW, targetH] = [targetH, targetW];
+  }
+
+  const targetAspect = targetW / targetH;
+  const srcAspect = srcW / srcH;
+
+  let sW = srcW;
+  let sH = srcH;
+  let sx = 0;
+  let sy = 0;
+
+  // Crop, um das Ziel-Aspect zu treffen
+  if (srcAspect > targetAspect) {
+    sW = Math.round(srcH * targetAspect);
+    sx = Math.round((srcW - sW) / 2);
+  } else if (srcAspect < targetAspect) {
+    sH = Math.round(srcW / targetAspect);
+    sy = Math.round((srcH - sH) / 2);
+  }
+
+  // Nicht hochskalieren: maximal 1:1
+  const scale = Math.min(1, targetW / sW, targetH / sH);
+  const outW = Math.max(1, Math.round(sW * scale));
+  const outH = Math.max(1, Math.round(sH * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.drawImage(source, sx, sy, sW, sH, 0, 0, outW, outH);
+
+  return canvas.toDataURL("image/jpeg", jpegQuality);
 }
 
 export function useCameraCapture({ sessionId, onSendPhoto }) {
@@ -23,12 +60,14 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
 
   const videoRef = useRef(null);
   const streamRef = useRef(null);
+  const imageCaptureRef = useRef(null);
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    imageCaptureRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraReady(false);
   }, []);
@@ -39,11 +78,25 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 2560 },
+          height: { ideal: 1440 },
+        },
         audio: false,
       });
 
       streamRef.current = stream;
+
+      const track = stream.getVideoTracks()[0];
+      if (track && "ImageCapture" in window) {
+        try {
+          imageCaptureRef.current = new window.ImageCapture(track);
+        } catch (e) {
+          imageCaptureRef.current = null;
+        }
+      }
+
       const v = videoRef.current;
       if (v) {
         v.srcObject = stream;
@@ -140,101 +193,34 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
 
+    const { width: targetW, height: targetH, jpeg } = getCaptureTarget(quality);
+
+    const trySend = (source, srcW, srcH) => {
+      const dataUrl = drawScaled(source, srcW, srcH, targetW, targetH, jpeg);
+      onSendPhoto?.(dataUrl);
+      if (navigator.vibrate) navigator.vibrate(20);
+    };
+
+    // 1) Versuche ImageCapture.takePhoto() fuer volle Aufloesung
+    const track = streamRef.current?.getVideoTracks()?.[0];
+    if (track && imageCaptureRef.current && imageCaptureRef.current.takePhoto) {
+      try {
+        const blob = await imageCaptureRef.current.takePhoto();
+        const bmp = await createImageBitmap(blob);
+        trySend(bmp, bmp.width, bmp.height);
+        return;
+      } catch (e) {
+        // Fallback auf Video-Frame
+      }
+    }
+
+    // 2) Fallback: Video-Frame nutzen (mit Crop/Downscale, kein Upscale)
     const v = videoRef.current;
     if (!v.videoWidth || !v.videoHeight) {
       setCameraError("No video frame yet - versuche erneut");
       return;
     }
-
-    let { width: targetW, height: targetH, jpeg } = getCaptureTarget(quality);
-    const isPortrait = v.videoHeight > v.videoWidth || window.innerHeight > window.innerWidth;
-    if (isPortrait && targetW > targetH) {
-      // flip to portrait if the target is defined landscape
-      [targetW, targetH] = [targetH, targetW];
-    }
-
-    if (v.readyState < HTMLMediaElement.HAVE_CURRENT_DATA || v.videoWidth === 0) {
-      await new Promise((res) => {
-        let settled = false;
-        const onLoaded = () => {
-          if (!settled) {
-            settled = true;
-            cleanup();
-            res();
-          }
-        };
-        const cleanup = () => {
-          v.removeEventListener("loadeddata", onLoaded);
-          clearTimeout(timeout);
-        };
-        v.addEventListener("loadeddata", onLoaded);
-        const timeout = setTimeout(() => {
-          if (!settled) {
-            settled = true;
-            cleanup();
-            res();
-          }
-        }, 500);
-      });
-    }
-
-    const vw = v.videoWidth || targetW;
-    const vh = v.videoHeight || targetH;
-    const srcAspect = vw / vh;
-    const targetAspect = targetW / targetH;
-
-    let sx = 0;
-    let sy = 0;
-    let sW = vw;
-    let sH = vh;
-
-    if (srcAspect > targetAspect) {
-      sW = Math.round(vh * targetAspect);
-      sx = Math.round((vw - sW) / 2);
-    } else if (srcAspect < targetAspect) {
-      sH = Math.round(vw / targetAspect);
-      sy = Math.round((vh - sH) / 2);
-    }
-
-    const canvas = document.createElement("canvas");
-    canvas.width = targetW;
-    canvas.height = targetH;
-    const ctx = canvas.getContext("2d", { alpha: false });
-
-    const maxTries = 3;
-    let tries = 0;
-    let sent = false;
-
-    while (tries < maxTries && !sent) {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(v, sx, sy, sW, sH, 0, 0, targetW, targetH);
-
-      try {
-        const sampleW = Math.min(20, canvas.width);
-        const sampleH = Math.min(20, canvas.height);
-        const sxp = Math.floor((canvas.width - sampleW) / 2);
-        const syp = Math.floor((canvas.height - sampleH) / 2);
-        const img = ctx.getImageData(sxp, syp, sampleW, sampleH).data;
-        let sum = 0;
-        for (let i = 0; i < img.length; i += 4) {
-          sum += 0.2126 * img[i] + 0.7152 * img[i + 1] + 0.0722 * img[i + 2];
-        }
-        const avg = sum / (sampleW * sampleH);
-        if (avg < 12 && tries < maxTries - 1) {
-          await new Promise((res) => setTimeout(res, 220));
-          tries += 1;
-          continue;
-        }
-      } catch (e) {
-        // ignore and send once
-      }
-
-      const imageDataUrl = canvas.toDataURL("image/jpeg", jpeg);
-      onSendPhoto?.(imageDataUrl);
-      sent = true;
-    }
-
-    if (navigator.vibrate) navigator.vibrate(20);
+    trySend(v, v.videoWidth, v.videoHeight);
   }, [cameraReady, onSendPhoto, quality, sessionId]);
 
   const handleStartCamera = useCallback(
