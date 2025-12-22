@@ -1,5 +1,11 @@
 node_modules/
 .env
+.env.local
 quickinfos
 QuickInfos.txt
 start-dev.bat
+start-root.bat
+start-client.bat
+start-server.bat
+client/localhost*.pem
+client/localhost*-key.pem

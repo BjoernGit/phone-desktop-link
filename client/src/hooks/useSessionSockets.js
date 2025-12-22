@@ -9,7 +9,7 @@ function getSocketUrl() {
 export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
-  const [socketStatus, setSocketStatus] = useState("disconnected");
+  const [socketStatus, setSocketStatus] = useState("connecting");
   const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
 
@@ -18,14 +18,23 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
     const url = getSocketUrl();
     const s = io(url, {
       path: "/socket.io",
-      transports: ["websocket", "polling"],
+      // Tunnel-freundlich: nur Polling, damit kein WS-Upgrade durch CF muss
+      transports: ["polling"],
       secure: isSecure,
-      withCredentials: true,
+      // Keine Cookies/withCredentials nötig; verhindert CORS-Probleme über den Tunnel
+      withCredentials: false,
     });
 
     s.on("connect_error", (err) => {
-      console.warn("Socket connect_error", err?.message || err);
-      setSocketStatus(`connect_error: ${err?.message || err}`);
+      const msg = err?.message || err || "connect_error";
+      console.warn("Socket connect_error", msg);
+      setSocketStatus(`connect_error: ${msg}`);
+    });
+
+    s.on("error", (err) => {
+      const msg = err?.message || err || "error";
+      console.warn("Socket error", msg);
+      setSocketStatus(`error: ${msg}`);
     });
 
     s.on("reconnect_attempt", () => setSocketStatus("reconnect_attempt"));
@@ -40,12 +49,27 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto }) {
     setSessionId(sid);
   }, [isMobile]);
 
+  // Timeout-Fallback, damit "connecting" nicht endlos stehenbleibt
+  useEffect(() => {
+    if (socketConnected) return undefined;
+    const shouldTimeout = socketStatus === "connecting" || socketStatus === "reconnect_attempt";
+    if (!shouldTimeout) return undefined;
+    const timer = setTimeout(() => {
+      if (!socketConnected) setSocketStatus("connect_timeout");
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [socketConnected, socketStatus]);
+
   // connect/disconnect bookkeeping
   useEffect(() => {
-    const onConnect = () => setSocketConnected(true);
-    const onDisconnect = () => {
+    const onConnect = () => {
+      setSocketConnected(true);
+      setSocketStatus("connected");
+    };
+    const onDisconnect = (reason) => {
       setSocketConnected(false);
       setPeers([]);
+      setSocketStatus(`disconnected${reason ? `: ${reason}` : ""}`);
     };
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
