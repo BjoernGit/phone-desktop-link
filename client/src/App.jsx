@@ -66,7 +66,7 @@ export default function App() {
     setIsMobile(isMobileDevice());
   }, []);
 
-  const applyQrOffer = useCallback(
+  /* const applyQrOffer = useCallback(
     (offer) => {
       if (!offer?.session) {
         setQrStatus("Kein Session-Parameter im QR");
@@ -85,7 +85,7 @@ export default function App() {
       setTimeout(() => setQrStatus(""), 2000);
     },
     [applySeed, overrideSessionId]
-  );
+  ); */
 
   const decryptPhoto = useCallback(
     async (payload) => {
@@ -160,6 +160,27 @@ export default function App() {
       }
     },
     [sessionId]
+  );
+
+  const applyQrOffer = useCallback(
+    (offer) => {
+      if (!offer?.session) {
+        setQrStatus("Kein Session-Parameter im QR");
+        return;
+      }
+      const params = new URLSearchParams(window.location.search);
+      params.set("session", offer.session);
+      const hash = offer.seed ? `#seed=${offer.seed}` : "";
+      const newUrl = `${window.location.pathname}?${params.toString()}${hash}`;
+      window.history.replaceState({}, "", newUrl);
+      overrideSessionId?.(offer.session);
+      if (offer.seed) {
+        applySeed(offer.seed, offer.session);
+      }
+      setQrStatus("Session übernommen");
+      setTimeout(() => setQrStatus(""), 2000);
+    },
+    [applySeed, overrideSessionId]
   );
 
   const sendPhotoSecure = useCallback(
