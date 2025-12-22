@@ -47,7 +47,7 @@ function drawScaled(source, srcW, srcH, targetW, targetH, jpegQuality) {
   return canvas.toDataURL("image/jpeg", jpegQuality);
 }
 
-export function useCameraCapture({ sessionId, onSendPhoto }) {
+export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange }) {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [quality, setQuality] = useState("M");
@@ -56,6 +56,13 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const imageCaptureRef = useRef(null);
+  const reportInfo = useCallback(
+    (payload) => {
+      if (!onCapabilitiesChange) return;
+      onCapabilitiesChange(payload);
+    },
+    [onCapabilitiesChange]
+  );
 
   const stopCamera = useCallback(() => {
     if (streamRef.current) {
@@ -84,6 +91,29 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
       streamRef.current = stream;
 
       const track = stream.getVideoTracks()[0];
+      if (track && track.getCapabilities) {
+        const caps = track.getCapabilities();
+        // Versuche moeglichst hohe Aufloesung per applyConstraints
+        const targetW = caps.width?.max || 2560;
+        const targetH = caps.height?.max || 2560;
+        if (targetW && targetH && track.applyConstraints) {
+          try {
+            await track.applyConstraints({
+              width: { ideal: targetW },
+              height: { ideal: targetH },
+            });
+          } catch (e) {
+            // ignorieren, fallback auf vorhandene Settings
+          }
+        }
+        const settings = track.getSettings ? track.getSettings() : {};
+        reportInfo({
+          type: "track",
+          caps,
+          settings,
+        });
+      }
+
       if (track && "ImageCapture" in window) {
         try {
           imageCaptureRef.current = new window.ImageCapture(track);
@@ -202,6 +232,7 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
       try {
         const blob = await imageCaptureRef.current.takePhoto();
         const bmp = await createImageBitmap(blob);
+        reportInfo({ type: "photo", source: "takePhoto", width: bmp.width, height: bmp.height });
         trySend(bmp, bmp.width, bmp.height);
         return;
       } catch (e) {
@@ -215,6 +246,7 @@ export function useCameraCapture({ sessionId, onSendPhoto }) {
       setCameraError("No video frame yet - versuche erneut");
       return;
     }
+    reportInfo({ type: "photo", source: "video", width: v.videoWidth, height: v.videoHeight });
     trySend(v, v.videoWidth, v.videoHeight);
   }, [cameraReady, onSendPhoto, quality, sessionId]);
 

@@ -37,6 +37,7 @@ export default function App() {
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const [camMeta, setCamMeta] = useState({ track: null, photo: null });
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -147,7 +148,18 @@ export default function App() {
     handleShutter,
     quality,
     setQuality,
-  } = useCameraCapture({ sessionId, onSendPhoto: sendPhotoSecure });
+  } = useCameraCapture({
+    sessionId,
+    onSendPhoto: sendPhotoSecure,
+    onCapabilitiesChange: (info) => {
+      if (!info) return;
+      setCamMeta((prev) => {
+        if (info.type === "track") return { ...prev, track: info };
+        if (info.type === "photo") return { ...prev, photo: info };
+        return prev;
+      });
+    },
+  });
 
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -167,6 +179,24 @@ export default function App() {
   );
   const legalContent = legalContentMap[location.pathname];
   const legalOpen = !!legalContent && location.pathname !== "/";
+  const camDebug = useMemo(() => {
+    const parts = [];
+    if (camMeta.track) {
+      const caps = camMeta.track.caps || {};
+      const settings = camMeta.track.settings || {};
+      const maxW = caps.width?.max;
+      const maxH = caps.height?.max;
+      const setW = settings.width;
+      const setH = settings.height;
+      const maxStr = maxW && maxH ? `${maxW}x${maxH}` : "n/a";
+      const setStr = setW && setH ? `${setW}x${setH}` : "n/a";
+      parts.push(`Cam max ${maxStr}, set ${setStr}`);
+    }
+    if (camMeta.photo) {
+      parts.push(`Shot ${camMeta.photo.width}x${camMeta.photo.height} via ${camMeta.photo.source}`);
+    }
+    return parts.join(" | ");
+  }, [camMeta]);
   useEffect(() => {
     if (!cameraReady && showQualityPicker) {
       setShowQualityPicker(false);
@@ -529,11 +559,11 @@ export default function App() {
   }
 
   return (
-    <div className="mobileSimpleRoot">
-        <div className="mobileDebugPill">
-          <div className="pillLine">Session: {sessionId || "n/a"}</div>
-          <label className="pillLine pillLabel">
-            Seed:
+        <div className="mobileSimpleRoot">
+          <div className="mobileDebugPill">
+            <div className="pillLine">Session: {sessionId || "n/a"}</div>
+            <label className="pillLine pillLabel">
+              Seed:
             <input
             className="pillInput"
             value={sessionSeed || ""}
@@ -541,11 +571,12 @@ export default function App() {
             onChange={(e) => handleSeedInput(e.target.value)}
           />
         </label>
-        <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
-        <div className="pillLine">ENC: {encStatus}</div>
-        <div className="pillLine">Socket: {socketStatus}</div>
-      </div>
-      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
+            <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
+            <div className="pillLine">ENC: {encStatus}</div>
+            <div className="pillLine">Socket: {socketStatus}</div>
+            {camDebug && <div className="pillLine">Cam: {camDebug}</div>}
+          </div>
+          <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
       {!cameraReady && (
         <>
