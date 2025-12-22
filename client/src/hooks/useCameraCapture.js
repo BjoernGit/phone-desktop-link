@@ -253,34 +253,27 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
   const handleFiles = useCallback(
     async (fileList) => {
       if (!fileList || !fileList.length) return;
-      const { width: targetW, height: targetH, jpeg } = getCaptureTarget(quality);
 
-      const loadBitmap = async (file) => {
-        if (!file?.type?.startsWith("image/")) return null;
-        if (window.createImageBitmap) {
-          return await window.createImageBitmap(file);
-        }
-        return await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = reject;
-          img.src = URL.createObjectURL(file);
+      const toDataUrl = (file) =>
+        new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
         });
-      };
 
       for (const file of Array.from(fileList)) {
         try {
-          const bmp = await loadBitmap(file);
-          if (!bmp) continue;
-          const dataUrl = drawScaled(bmp, bmp.width, bmp.height, targetW, targetH, jpeg);
-          onSendPhoto?.(dataUrl);
+          if (!file?.type?.startsWith("image/")) continue;
+          const dataUrl = await toDataUrl(file);
+          if (dataUrl) onSendPhoto?.(dataUrl);
           if (navigator.vibrate) navigator.vibrate(10);
         } catch (e) {
           setCameraError(e?.message || "Upload fehlgeschlagen");
         }
       }
     },
-    [onSendPhoto, quality]
+    [onSendPhoto]
   );
 
   const handleStartCamera = useCallback(

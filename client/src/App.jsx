@@ -551,6 +551,26 @@ export default function App() {
         </div>
         <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            handleFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        <button
+          type="button"
+          className="uploadBtn"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Bild aus Galerie waehlen"
+        >
+          Galerie
+        </button>
+
       {!cameraReady && (
         <>
           <div className="mobileSimpleHint" aria-hidden>
@@ -564,33 +584,12 @@ export default function App() {
       )}
 
         {cameraReady && (
-          <>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              style={{ display: "none" }}
-              onChange={(e) => {
-                handleFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              className="uploadBtn"
-              onClick={() => fileInputRef.current?.click()}
-              aria-label="Bild aus Galerie waehlen"
-            >
-              Galerie
-            </button>
-            <button
-              type="button"
-              className="shutter singleShutter"
-              onClick={handleShutter}
-              aria-label="Foto aufnehmen und senden"
-            />
-          </>
+          <button
+            type="button"
+            className="shutter singleShutter"
+            onClick={handleShutter}
+            aria-label="Foto aufnehmen und senden"
+          />
         )}
 
       {cameraReady && (
