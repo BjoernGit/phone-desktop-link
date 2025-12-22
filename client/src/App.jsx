@@ -42,6 +42,7 @@ export default function App() {
   const [qrMode, setQrMode] = useState(false);
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
+  const [incomingOffer, setIncomingOffer] = useState(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -106,10 +107,18 @@ export default function App() {
     [sessionKey]
   );
 
-  const { sessionId, peers, photos, sendPhoto, addLocalPhoto, socketStatus } = useSessionSockets({
+  const { sessionId, peers, photos, sendPhoto, addLocalPhoto, socketStatus, sendSessionOffer } = useSessionSockets({
     isMobile,
     deviceName,
     onDecryptPhoto: decryptPhoto,
+    onSessionOffer: (payload) => {
+      if (!payload?.session && !payload?.seed) return;
+      setIncomingOffer({
+        session: payload.session,
+        seed: payload.seed || "",
+        from: payload.fromDevice || payload.fromRole || "Peer",
+      });
+    },
   });
 
   const applySeed = useCallback(
@@ -666,17 +675,22 @@ export default function App() {
               </div>
             </div>
             <div className="qrOfferActions">
-              <button
-                type="button"
-                className="qrOfferBtn"
-                onClick={() => applyQrOffer(qrOffer)}
-              >
+              <button type="button" className="qrOfferBtn" onClick={() => applyQrOffer(qrOffer)}>
                 Session einlesen
               </button>
               <button
                 type="button"
                 className="qrOfferBtn ghost"
-                onClick={() => setQrStatus("Session senden folgt")}
+                onClick={() => {
+                  if (!sendSessionOffer) return;
+                  sendSessionOffer({
+                    session: sessionId,
+                    seed: sessionSeed,
+                    target: qrOffer.session,
+                  });
+                  setQrStatus("Session-Angebot gesendet");
+                  setTimeout(() => setQrStatus(""), 3000);
+                }}
               >
                 Eigene Session senden
               </button>
@@ -704,6 +718,46 @@ export default function App() {
             aria-label="Foto aufnehmen und senden"
           />
         )}
+
+      {incomingOffer && !isMobile && (
+        <div className="legalModal" onClick={() => setIncomingOffer(null)}>
+          <div
+            className="legalModalCard"
+            onClick={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            <div className="legalModalBody">
+              <h3>Session wechseln?</h3>
+              <p>
+                {incomingOffer.from || "Peer"} bietet eine Session an:
+                <br />
+                <strong>{incomingOffer.session}</strong>
+                {incomingOffer.seed ? (
+                  <>
+                    <br />
+                    Seed: <code>{incomingOffer.seed}</code>
+                  </>
+                ) : null}
+              </p>
+              <div className="legalActions">
+                <button type="button" className="legalClose" onClick={() => setIncomingOffer(null)}>
+                  Ablehnen
+                </button>
+                <button
+                  type="button"
+                  className="legalClose"
+                  onClick={() => {
+                    applyQrOffer(incomingOffer);
+                  }}
+                >
+                  Akzeptieren
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cameraReady && (
         <div className="qualityPickerWrap">
