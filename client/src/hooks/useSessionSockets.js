@@ -18,8 +18,9 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     const url = getSocketUrl();
     const s = io(url, {
       path: "/socket.io",
-      // Tunnel-freundlich: nur Polling, damit kein WS-Upgrade durch CF muss
+      // Nur Polling, Upgrade aus -> stabil bei HTTPS/Proxy
       transports: ["polling"],
+      upgrade: false,
       secure: isSecure,
       // Keine Cookies/withCredentials nötig; verhindert CORS-Probleme über den Tunnel
       withCredentials: false,
@@ -46,6 +47,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   // determine session id based on role
   useEffect(() => {
     const sid = isMobile ? getSessionIdFromUrl() ?? "" : ensureDesktopSessionId();
+    console.log("setSessionId derived", { sid, isMobile, fromUrl: window.location.search });
     setSessionId(sid);
   }, [isMobile]);
 
@@ -63,6 +65,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   // connect/disconnect bookkeeping
   useEffect(() => {
     const onConnect = () => {
+      console.log("socket connected (client)", { socketId: socket.id });
       setSocketConnected(true);
       setSocketStatus("connected");
     };
@@ -73,6 +76,10 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     };
     socket.on("connect", onConnect);
     socket.on("disconnect", onDisconnect);
+    // Falls der Socket schon verbunden ist, setze den Status direkt
+    if (socket.connected) {
+      onConnect();
+    }
     return () => {
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
@@ -83,7 +90,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   useEffect(() => {
     if (!sessionId) return undefined;
     const role = isMobile ? "mobile" : "desktop";
-    socket.emit("join-session", { sessionId, role, deviceName });
+    console.log("socket effect (events) for session", sessionId, "role", role, "connected?", socketConnected);
 
     const onPeerJoined = ({ role: joinedRole, clientId, deviceName: joinedName }) => {
       if (joinedRole === (isMobile ? "desktop" : "mobile")) {
@@ -119,6 +126,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     socket.on("peer-left", onPeerLeft);
     socket.on("photo", onPhoto);
     socket.on("session-offer", (payload) => {
+      console.log("session-offer received", payload);
       onSessionOffer?.(payload);
     });
 
@@ -130,12 +138,36 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     };
   }, [deviceName, isMobile, sessionId, socket, onDecryptPhoto, onSessionOffer]);
 
-  // re-emit join on reconnect so peers repopulate after a drop
+  // emit join when connected/reconnected and sessionId is known
   useEffect(() => {
     if (!socketConnected || !sessionId) return;
     const role = isMobile ? "mobile" : "desktop";
+    console.log("emit join-session (connected)", { sessionId, role, deviceName, socketId: socket.id });
     socket.emit("join-session", { sessionId, role, deviceName });
   }, [deviceName, isMobile, sessionId, socket, socketConnected]);
+
+  const forceJoin = useCallback(() => {
+    if (!sessionId) return;
+    const role = isMobile ? "mobile" : "desktop";
+    if (!socket.connected) {
+      try {
+        socket.connect();
+      } catch (e) {
+        console.warn("socket connect failed", e);
+      }
+    }
+    console.log("emit join-session (manual/force)", { sessionId, role, deviceName, socketId: socket.id });
+    socket.emit("join-session", { sessionId, role, deviceName });
+  }, [deviceName, isMobile, sessionId, socket]);
+
+  // Optional: manueller Join-Trigger (für Notfälle)
+  useEffect(() => {
+    const handler = () => {
+      forceJoin();
+    };
+    window.addEventListener("manual-join", handler);
+    return () => window.removeEventListener("manual-join", handler);
+  }, [forceJoin]);
 
   // close socket on unmount
   useEffect(() => () => socket.close(), [socket]);
@@ -151,6 +183,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   const sendSessionOffer = useCallback(
     (offer, targetSessionId) => {
       if (!sessionId || !offer) return;
+      console.log("send session-offer", { from: sessionId, target: targetSessionId, offer });
       socket.emit("session-offer", { sessionId, offer, target: targetSessionId });
     },
     [sessionId, socket]
@@ -171,5 +204,6 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     addLocalPhoto,
     sendSessionOffer,
     setSessionId,
+    forceJoin,
   };
 }
