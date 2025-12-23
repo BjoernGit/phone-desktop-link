@@ -519,6 +519,45 @@ export default function App() {
               </div>
             </header>
 
+            {incomingOffer && (
+              <div className="sessionOfferBar">
+                <div className="sessionOfferText">
+                  Ihnen wurde eine Session angeboten:
+                  <br />
+                  <strong>{incomingOffer.session}</strong>
+                  {incomingOffer.seed ? (
+                    <>
+                      <br />
+                      Seed: <code>{incomingOffer.seed}</code>
+                    </>
+                  ) : null}
+                </div>
+                <div className="sessionOfferActions">
+                  <button
+                    type="button"
+                    className="sessionOfferBtn ghost"
+                    onClick={() => {
+                      setIncomingOffer(null);
+                      setOfferStatus("Offer abgelehnt");
+                    }}
+                  >
+                    Ablehnen
+                  </button>
+                  <button
+                    type="button"
+                    className="sessionOfferBtn"
+                    onClick={() => {
+                      applyQrOffer(incomingOffer);
+                      setIncomingOffer(null);
+                      setOfferStatus("Offer übernommen");
+                    }}
+                  >
+                    Beitreten
+                  </button>
+                </div>
+              </div>
+            )}
+
             {showDebug && (
               <DebugPanel
                 value={debugDataUrl}
