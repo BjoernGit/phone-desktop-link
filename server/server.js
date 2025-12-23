@@ -22,7 +22,10 @@ function roomName(sessionId) {
 }
 
 io.on("connection", (socket) => {
+  console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
+
   socket.on("join-session", ({ sessionId, role, deviceName }) => {
+    console.log("join-session", { sessionId, role, deviceName, socketId: socket.id });
     if (!sessionId) return;
 
     const room = roomName(sessionId);
@@ -30,6 +33,21 @@ io.on("connection", (socket) => {
     socket.data.sessionId = sessionId;
     socket.data.role = role;
     socket.data.deviceName = deviceName;
+
+    // Bestehende Peers an den Joiner senden
+    const roomInfo = io.sockets.adapter.rooms.get(room);
+    if (roomInfo && roomInfo.size > 1) {
+      roomInfo.forEach((id) => {
+        if (id === socket.id) return;
+        const other = io.sockets.sockets.get(id);
+        if (!other?.data?.role) return;
+        socket.emit("peer-joined", {
+          role: other.data.role,
+          clientId: id,
+          deviceName: other.data.deviceName,
+        });
+      });
+    }
 
     socket.to(room).emit("peer-joined", { role, clientId: socket.id, deviceName });
   });
@@ -39,6 +57,18 @@ io.on("connection", (socket) => {
     const hasEncrypted = iv && ciphertext;
     if (!hasEncrypted) return;
     io.to(roomName(sessionId)).emit("photo", { iv, ciphertext, mime });
+  });
+
+  socket.on("session-offer", ({ sessionId, offer, target }) => {
+    if (!offer) return;
+    const dest = target || sessionId;
+    if (!dest) return;
+    console.log(`session-offer from ${sessionId} to ${dest}`);
+    socket.to(roomName(dest)).emit("session-offer", {
+      ...offer,
+      fromRole: socket.data.role,
+      fromDevice: socket.data.deviceName,
+    });
   });
 
   socket.on("disconnect", () => {
