@@ -21,6 +21,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       // Nur Polling, Upgrade aus -> stabil bei HTTPS/Proxy
       transports: ["polling"],
       upgrade: false,
+      autoConnect: false,
       secure: isSecure,
       // Keine Cookies/withCredentials nötig; verhindert CORS-Probleme über den Tunnel
       withCredentials: false,
@@ -51,6 +52,18 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     setSessionId(sid);
   }, [isMobile]);
 
+  // ensure socket connects once wir eine SessionId haben
+  useEffect(() => {
+    if (!sessionId) return;
+    if (!socket.connected) {
+      try {
+        socket.connect();
+      } catch (e) {
+        console.warn("socket connect failed", e);
+      }
+    }
+  }, [sessionId, socket]);
+
   // Timeout-Fallback, damit "connecting" nicht endlos stehenbleibt
   useEffect(() => {
     if (socketConnected) return undefined;
@@ -68,6 +81,12 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       console.log("socket connected (client)", { socketId: socket.id });
       setSocketConnected(true);
       setSocketStatus("connected");
+      // Join sofort nach Connect
+      if (sessionId) {
+        const role = isMobile ? "mobile" : "desktop";
+        console.log("emit join-session (on connect)", { sessionId, role, deviceName, socketId: socket.id });
+        socket.emit("join-session", { sessionId, role, deviceName });
+      }
     };
     const onDisconnect = (reason) => {
       setSocketConnected(false);
@@ -93,6 +112,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     console.log("socket effect (events) for session", sessionId, "role", role, "connected?", socketConnected);
 
     const onPeerJoined = ({ role: joinedRole, clientId, deviceName: joinedName }) => {
+      console.log("peer-joined event", { joinedRole, clientId, joinedName });
       if (joinedRole === (isMobile ? "desktop" : "mobile")) {
         setPeers((prev) => {
           if (prev.some((p) => p.id === clientId)) return prev;
@@ -138,11 +158,11 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     };
   }, [deviceName, isMobile, sessionId, socket, onDecryptPhoto, onSessionOffer]);
 
-  // emit join when connected/reconnected and sessionId is known
+  // emit join when sessionId changes and Socket ist verbunden
   useEffect(() => {
-    if (!socketConnected || !sessionId) return;
+    if (!sessionId || !socketConnected) return;
     const role = isMobile ? "mobile" : "desktop";
-    console.log("emit join-session (connected)", { sessionId, role, deviceName, socketId: socket.id });
+    console.log("emit join-session (session change)", { sessionId, role, deviceName, socketId: socket.id });
     socket.emit("join-session", { sessionId, role, deviceName });
   }, [deviceName, isMobile, sessionId, socket, socketConnected]);
 

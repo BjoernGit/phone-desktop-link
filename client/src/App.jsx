@@ -651,18 +651,6 @@ export default function App() {
         {offerStatus && <div className="pillLine">Offer: {offerStatus}</div>}
         {qrStatus && <div className="pillLine">{qrStatus}</div>}
       </div>
-      <button
-        type="button"
-        className="startBtn manualJoinBtn"
-        onClick={() => {
-          const evt = new CustomEvent("manual-join");
-          window.dispatchEvent(evt);
-          forceJoin?.();
-        }}
-        aria-label="Session beitreten"
-      >
-        Session beitreten
-      </button>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
       <input
@@ -676,18 +664,6 @@ export default function App() {
           e.target.value = "";
         }}
       />
-      <button
-        type="button"
-        className="startBtn"
-        onClick={() => {
-          // Falls Auto-Join klemmt, manuell triggern
-          const evt = new CustomEvent("manual-join");
-          window.dispatchEvent(evt);
-        }}
-        aria-label="Session beitreten"
-      >
-        Session beitreten
-      </button>
       <button
         type="button"
         className="uploadBtn"
