@@ -1,21 +1,21 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import "./App.css";
-import heroLogo from "./assets/Snap2Desk_Text_Logo.png";
 import { isMobileDevice } from "./utils/session";
 import { toBlob } from "./utils/image";
 import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
 import jsQR from "jsqr";
 import { QrPanel } from "./components/QrPanel";
-import { PeerPanel } from "./components/PeerPanel";
-import { PhotoGrid } from "./components/PhotoGrid";
 import { Lightbox } from "./components/Lightbox";
 import { DebugPanel } from "./components/DebugPanel";
 import { FooterBar } from "./components/FooterBar";
 import { SessionOfferBar } from "./components/SessionOfferBar";
 import { MobileDebugPill } from "./components/MobileDebugPill";
 import { MobileControls } from "./components/MobileControls";
+import { DesktopHero } from "./components/DesktopHero";
+import { PairingRow } from "./components/PairingRow";
+import { DesktopCanvas } from "./components/DesktopCanvas";
 import { decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
 import { useEncryption } from "./hooks/useEncryption";
 import { CookiesContent } from "./pages/CookiesPage";
@@ -57,7 +57,7 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Gerät";
+    return "Unbekanntes Geraet";
   }, []);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function App() {
         setEncStatus("decrypt-missing-key");
         return null;
       }
-      // plain payloads werden ignoriert, um Verschlüsselung zu erzwingen
+      // plain payloads werden ignoriert, um Verschlsselung zu erzwingen
       if (payload?.imageDataUrl) {
         setEncStatus("plain-ignored");
       }
@@ -368,18 +368,18 @@ export default function App() {
         }
       }
     } catch (e) {
-      console.warn("Bild-Clipboard fehlgeschlagen, falle zurück auf Text:", e);
+      console.warn("Bild-Clipboard fehlgeschlagen, falle zurck auf Text:", e);
     }
     try {
       await navigator.clipboard.writeText(src);
       setCopyStatus(
         supportsImageClipboard
           ? "Link kopiert (Bild-Clipboard blockiert)"
-          : "Link kopiert (Bild-Clipboard nicht unterstützt)"
+          : "Link kopiert (Bild-Clipboard nicht untersttzt)"
       );
       setTimeout(() => setCopyStatus(""), 1500);
     } catch (e) {
-      setCopyStatus("Kopieren nicht möglich");
+      setCopyStatus("Kopieren nicht mglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
@@ -391,25 +391,25 @@ export default function App() {
       setTimeout(() => setCopyStatus(""), 1500);
     } catch (e) {
       console.warn("Plain copy failed", e);
-      setCopyStatus("Kopieren nicht möglich");
+      setCopyStatus("Kopieren nicht mglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
 
   async function copyEncrypted(src) {
     if (!sessionKey) {
-      setCopyStatus("Kein Key - verschlüsselt nicht kopiert");
+      setCopyStatus("Kein Key - verschlsselt nicht kopiert");
       setTimeout(() => setCopyStatus(""), 1500);
       return;
     }
     try {
       const payload = await encryptDataUrl(src, sessionKey);
       await navigator.clipboard.writeText(JSON.stringify(payload));
-      setCopyStatus("Verschlüsselt kopiert");
+      setCopyStatus("Verschlsselt kopiert");
       setTimeout(() => setCopyStatus(""), 1500);
     } catch (e) {
       console.warn("Encrypted copy failed", e);
-      setCopyStatus("Verschlüsseltes Kopieren fehlgeschlagen");
+      setCopyStatus("Verschlsseltes Kopieren fehlgeschlagen");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
@@ -434,7 +434,7 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.warn("Speichern fehlgeschlagen:", e);
-      setCopyStatus("Speichern nicht möglich");
+      setCopyStatus("Speichern nicht mglich");
       setTimeout(() => setCopyStatus(""), 1500);
     }
   }
@@ -447,14 +447,14 @@ export default function App() {
       const parsed = JSON.parse(src);
       if (parsed?.ciphertext) {
         if (!sessionKey) {
-          setCopyStatus("Kein Key zum Entschlüsseln");
+          setCopyStatus("Kein Key zum Entschlsseln");
           setTimeout(() => setCopyStatus(""), 1500);
           return;
         }
         try {
           const decrypted = await decryptToDataUrl(parsed, sessionKey);
           addLocalPhoto(decrypted);
-          setCopyStatus("Entschlüsselt importiert");
+          setCopyStatus("Entschlsselt importiert");
           setTimeout(() => setCopyStatus(""), 1500);
         } catch (e) {
           console.warn("Decrypt debug import failed", e);
@@ -470,7 +470,7 @@ export default function App() {
 
     const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
     if (!looksOkay) {
-      setCopyStatus("Ungültige Quelle");
+      setCopyStatus("Ungltige Quelle");
       setTimeout(() => setCopyStatus(""), 1200);
       return;
     }
@@ -495,15 +495,8 @@ export default function App() {
     return (
       <>
         <div className="desktopShell">
-          <div className="pageContent">
-            <header className="desktopHero">
-              <div className="heroCopy">
-                <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
-                <div className="heroSub">
-                  Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher - ganz ohne Account.
-                </div>
-              </div>
-            </header>
+            <div className="pageContent">
+              <DesktopHero />
 
             {incomingOffer && !isMobile && (
               <SessionOfferBar
@@ -515,7 +508,7 @@ export default function App() {
                 onAccept={() => {
                   applyQrOffer(incomingOffer);
                   setIncomingOffer(null);
-                  setOfferStatus("Offer übernommen");
+                  setOfferStatus("Offer bernommen");
                 }}
               />
             )}
@@ -541,35 +534,19 @@ export default function App() {
 
             {hasActiveUI && (
               <>
-                <section
-                  className="pairingRow"
-                  style={{
-                    "--qr-size": `${qrSize}px`,
-                  }}
-                >
-                  <PeerPanel
-                    ref={peerPanelRef}
-                    peers={peers}
+                  <PairingRow
+                    qrSize={qrSize}
+                    qrDocked={qrDocked}
+                    url={url}
+                    qrPanelRef={qrPanelRef}
+                    peerPanelRef={peerPanelRef}
                     hasConnection={hasConnection}
-                    style={panelHeights.qr ? { height: `${panelHeights.qr}px` } : undefined}
+                    panelHeights={panelHeights}
+                    peers={peers}
                   />
-                  <QrPanel
-                    ref={qrPanelRef}
-                    value={url}
-                    size={qrSize}
-                    label={qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}
-                    className={qrDocked ? "docked" : "centered"}
-                  />
-                </section>
 
-                <main className="desktopCanvas">
-                  {photos.length === 0 ? (
-                    <div className="emptyInvite">
-                      <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
-                      <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Auslöser.</div>
-                    </div>
-                  ) : (
-                    <PhotoGrid
+                  <main className="desktopCanvas">
+                    <DesktopCanvas
                       photos={photos}
                       onSelect={setLightboxSrc}
                       onCopy={copyImageToClipboard}
@@ -578,10 +555,9 @@ export default function App() {
                       onCopyPlain={copyPlainUrl}
                       onCopyEncrypted={copyEncrypted}
                     />
-                  )}
-                </main>
-              </>
-            )}
+                  </main>
+                </>
+              )}
           </div>
 
           <Lightbox
@@ -665,7 +641,7 @@ export default function App() {
         setShowQualityPicker={setShowQualityPicker}
       />
 
-      {qrMode && qrOffer?.session && (
+      {qrOffer?.session && (
         <div className="qrOfferPanel">
           <div className="qrOfferText">
             QR erkannt
@@ -769,7 +745,7 @@ export default function App() {
               setShowQualityPicker((v) => !v);
             }}
           >
-            Auflösung: {quality}
+            Auflsung: {quality}
           </button>
           {showQualityPicker && (
             <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
@@ -798,3 +774,4 @@ export default function App() {
     </div>
   );
 }
+
