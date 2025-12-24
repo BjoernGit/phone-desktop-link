@@ -69,6 +69,14 @@
   z-index: 1;
 }
 
+.mobileControlsTop {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 85;
+}
+
 .mobileSimpleHint {
   position: absolute;
   left: 50%;

@@ -13,13 +13,11 @@ import { PhotoGrid } from "./components/PhotoGrid";
 import { Lightbox } from "./components/Lightbox";
 import { DebugPanel } from "./components/DebugPanel";
 import { FooterBar } from "./components/FooterBar";
-import {
-  decryptToDataUrl,
-  encryptDataUrl,
-  deriveAesKeyFromSeed,
-  generateSeedBase64Url,
-  exportAesKeyBase64Url,
-} from "./utils/crypto";
+import { SessionOfferBar } from "./components/SessionOfferBar";
+import { MobileDebugPill } from "./components/MobileDebugPill";
+import { MobileControls } from "./components/MobileControls";
+import { decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
+import { useEncryption } from "./hooks/useEncryption";
 import { CookiesContent } from "./pages/CookiesPage";
 import { PrivacyContent } from "./pages/PrivacyPage";
 import { TermsContent } from "./pages/TermsPage";
@@ -32,13 +30,12 @@ export default function App() {
   const [debugDataUrl, setDebugDataUrl] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
-  const [sessionKey, setSessionKey] = useState(null);
   const [sessionSeed, setSessionSeed] = useState("");
-  const [sessionKeyB64, setSessionKeyB64] = useState("");
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
   const fileInputRef = useRef(null);
+  const sessionKeyRef = useRef(null);
   const [qrMode, setQrMode] = useState(false);
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
@@ -69,9 +66,10 @@ export default function App() {
 
   const decryptPhoto = useCallback(
     async (payload) => {
-      if (payload?.ciphertext && sessionKey) {
+      const key = sessionKeyRef.current;
+      if (payload?.ciphertext && key) {
         try {
-          const result = await decryptToDataUrl(payload, sessionKey);
+          const result = await decryptToDataUrl(payload, key);
           setEncStatus("decrypt-ok");
           return result;
         } catch (e) {
@@ -80,7 +78,7 @@ export default function App() {
           return null;
         }
       }
-      if (payload?.ciphertext && !sessionKey) {
+      if (payload?.ciphertext && !key) {
         setEncStatus("decrypt-missing-key");
         return null;
       }
@@ -90,7 +88,7 @@ export default function App() {
       }
       return null;
     },
-    [sessionKey]
+    [] // key is taken from ref; setEncStatus is stable
   );
 
   const {
@@ -117,30 +115,18 @@ export default function App() {
     },
   });
 
-  const applySeed = useCallback(
+  const { sessionKey, sessionKeyB64, applySeed } = useEncryption(sessionId, setEncStatus);
+
+  useEffect(() => {
+    sessionKeyRef.current = sessionKey;
+  }, [sessionKey]);
+
+  const applySeedAndStore = useCallback(
     async (seed, sessionOverride) => {
       setSessionSeed(seed);
-      const sid = sessionOverride || sessionId;
-      if (!seed || !sid) {
-        setSessionKey(null);
-        setSessionKeyB64("");
-        setEncStatus("missing-seed");
-        return;
-      }
-      try {
-        const key = await deriveAesKeyFromSeed(seed, sid);
-        const keyB64 = await exportAesKeyBase64Url(key);
-        setSessionKey(key);
-        setSessionKeyB64(keyB64);
-        setEncStatus("key-ready");
-      } catch (e) {
-        console.warn("Key derive/import failed", e);
-        setSessionKey(null);
-        setSessionKeyB64("");
-        setEncStatus("key-error");
-      }
+      await applySeed(seed, sessionOverride);
     },
-    [sessionId]
+    [applySeed]
   );
 
   const applyQrOffer = useCallback(
@@ -156,12 +142,12 @@ export default function App() {
       window.history.replaceState({}, "", newUrl);
       overrideSessionId?.(offer.session);
       if (offer.seed) {
-        applySeed(offer.seed, offer.session);
+        applySeedAndStore(offer.seed, offer.session);
       }
       setQrStatus("Session uebernommen");
       setTimeout(() => setQrStatus(""), 2000);
     },
-    [applySeed, overrideSessionId]
+    [applySeedAndStore, overrideSessionId]
   );
 
   const sendPhotoSecure = useCallback(
@@ -342,19 +328,19 @@ export default function App() {
         return;
       }
 
-      await applySeed(seed);
+      await applySeedAndStore(seed);
       setSeedInitialized(true);
     };
 
     setup();
-  }, [applySeed, isMobile, seedInitialized, sessionId, sessionSeed]);
+  }, [applySeedAndStore, isMobile, seedInitialized, sessionId, sessionSeed]);
 
   const handleSeedInput = useCallback(
     (value) => {
       const trimmed = value.trim();
-      applySeed(trimmed);
+      applySeedAndStore(trimmed);
     },
-    [applySeed]
+    [applySeedAndStore]
   );
 
   async function copyImageToClipboard(src) {
@@ -519,43 +505,19 @@ export default function App() {
               </div>
             </header>
 
-            {incomingOffer && (
-              <div className="sessionOfferBar">
-                <div className="sessionOfferText">
-                  Ihnen wurde eine Session angeboten:
-                  <br />
-                  <strong>{incomingOffer.session}</strong>
-                  {incomingOffer.seed ? (
-                    <>
-                      <br />
-                      Seed: <code>{incomingOffer.seed}</code>
-                    </>
-                  ) : null}
-                </div>
-                <div className="sessionOfferActions">
-                  <button
-                    type="button"
-                    className="sessionOfferBtn ghost"
-                    onClick={() => {
-                      setIncomingOffer(null);
-                      setOfferStatus("Offer abgelehnt");
-                    }}
-                  >
-                    Ablehnen
-                  </button>
-                  <button
-                    type="button"
-                    className="sessionOfferBtn"
-                    onClick={() => {
-                      applyQrOffer(incomingOffer);
-                      setIncomingOffer(null);
-                      setOfferStatus("Offer übernommen");
-                    }}
-                  >
-                    Beitreten
-                  </button>
-                </div>
-              </div>
+            {incomingOffer && !isMobile && (
+              <SessionOfferBar
+                offer={incomingOffer}
+                onDecline={() => {
+                  setIncomingOffer(null);
+                  setOfferStatus("Offer abgelehnt");
+                }}
+                onAccept={() => {
+                  applyQrOffer(incomingOffer);
+                  setIncomingOffer(null);
+                  setOfferStatus("Offer übernommen");
+                }}
+              />
             )}
 
             {showDebug && (
@@ -674,59 +636,36 @@ export default function App() {
 
   return (
     <div className="mobileSimpleRoot">
-      <div className="mobileDebugPill">
-        <div className="pillLine">Session: {sessionId || "n/a"}</div>
-        <label className="pillLine pillLabel">
-          Seed:
-          <input
-            className="pillInput"
-            value={sessionSeed || ""}
-            placeholder="seed"
-            onChange={(e) => handleSeedInput(e.target.value)}
-          />
-        </label>
-        <div className="pillLine">Key: {sessionKeyB64 || "n/a"}</div>
-        <div className="pillLine">ENC: {encStatus}</div>
-        {offerStatus && <div className="pillLine">Offer: {offerStatus}</div>}
-        {qrStatus && <div className="pillLine">{qrStatus}</div>}
-      </div>
-      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        multiple
-        style={{ display: "none" }}
-        onChange={(e) => {
-          handleFiles(e.target.files);
-          e.target.value = "";
-        }}
+      <MobileDebugPill
+        sessionId={sessionId}
+        sessionSeed={sessionSeed}
+        sessionKeyB64={sessionKeyB64}
+        encStatus={encStatus}
+        offerStatus={offerStatus}
+        qrStatus={qrStatus}
+        onSeedChange={handleSeedInput}
       />
-      <button
-        type="button"
-        className="uploadBtn"
-        onClick={() => fileInputRef.current?.click()}
-        aria-label="Bild aus Galerie wählen"
-      >
-        Galerie
-      </button>
-      <button
-        type="button"
-        className={`qrToggle ${qrMode ? "active" : ""}`}
-        onClick={() => {
-          if (!cameraReady) {
-            handleStartCamera();
-          }
-          setQrMode((v) => !v);
-          setQrOffer(null);
-        }}
-        aria-label="QR-Modus umschalten"
-      >
-        QR
-      </button>
-      {qrMode && <div className="qrBadge">QR Mode</div>}
-      {qrOffer?.session && (
+
+      <MobileControls
+        videoRef={videoRef}
+        cameraReady={cameraReady}
+        cameraError={cameraError}
+        isStartingCamera={isStartingCamera}
+        handleStartCamera={handleStartCamera}
+        handleShutter={handleShutter}
+        fileInputRef={fileInputRef}
+        handleFiles={handleFiles}
+        qrMode={qrMode}
+        setQrMode={setQrMode}
+        setQrOffer={setQrOffer}
+        handleStartQrCamera={handleStartCamera}
+        quality={quality}
+        setQuality={setQuality}
+        showQualityPicker={showQualityPicker}
+        setShowQualityPicker={setShowQualityPicker}
+      />
+
+      {qrMode && qrOffer?.session && (
         <div className="qrOfferPanel">
           <div className="qrOfferText">
             QR erkannt
@@ -778,27 +717,6 @@ export default function App() {
             </button>
           </div>
         </div>
-      )}
-
-      {!cameraReady && (
-        <>
-          <div className="mobileSimpleHint" aria-hidden>
-            Tippe, um die Kamera freizugeben
-          </div>
-          <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
-            {isStartingCamera ? "Startet..." : "Kamera starten"}
-          </button>
-          {cameraError && <div className="tapError">{cameraError}</div>}
-        </>
-      )}
-
-      {cameraReady && (
-        <button
-          type="button"
-          className="shutter singleShutter"
-          onClick={handleShutter}
-          aria-label="Foto aufnehmen und senden"
-        />
       )}
 
       {incomingOffer && !isMobile && (
