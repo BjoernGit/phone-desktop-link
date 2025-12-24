@@ -61,7 +61,10 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    setIsMobile(isMobileDevice());
+    const onResize = () => setIsMobile(isMobileDevice());
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const decryptPhoto = useCallback(
@@ -82,9 +85,9 @@ export default function App() {
         setEncStatus("decrypt-missing-key");
         return null;
       }
-      // plain payloads werden ignoriert, um Verschlsselung zu erzwingen
       if (payload?.imageDataUrl) {
-        setEncStatus("plain-ignored");
+        setEncStatus("plain-ok");
+        return payload.imageDataUrl;
       }
       return null;
     },
@@ -115,7 +118,7 @@ export default function App() {
     },
   });
 
-  const { sessionKey, sessionKeyB64, applySeed } = useEncryption(sessionId, setEncStatus);
+  const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 
   useEffect(() => {
     sessionKeyRef.current = sessionKey;
@@ -223,11 +226,13 @@ export default function App() {
       const result = jsQR(imgData.data, w, h);
       if (result?.data) {
         const parsed = parseQr(result.data);
-        setQrStatus(parsed.session ? `QR erkannt: ${parsed.session}` : "QR erkannt");
-        setQrOffer(parsed);
-        setQrMode(false);
-        setTimeout(() => setQrStatus(""), 4000);
-        return;
+        if (parsed.session) {
+          setQrStatus(`QR erkannt: ${parsed.session}`);
+          setQrOffer(parsed);
+          setQrMode(false);
+          setTimeout(() => setQrStatus(""), 4000);
+          return;
+        }
       }
       requestAnimationFrame(scan);
     };
@@ -315,8 +320,7 @@ export default function App() {
     const setup = async () => {
       if (!window.isSecureContext || !crypto?.subtle) {
         console.warn("WebCrypto not available, falling back to unencrypted mode");
-        setSessionKey(null);
-        setSessionKeyB64("");
+        clearKey();
         setSeedInitialized(true);
         return;
       }
@@ -695,7 +699,7 @@ export default function App() {
         </div>
       )}
 
-      {incomingOffer && !isMobile && (
+      {incomingOffer && isMobile && (
         <div className="legalModal" onClick={() => setIncomingOffer(null)}>
           <div
             className="legalModalCard"
@@ -745,7 +749,7 @@ export default function App() {
               setShowQualityPicker((v) => !v);
             }}
           >
-            Auflsung: {quality}
+            Auflösung: {quality}
           </button>
           {showQualityPicker && (
             <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>

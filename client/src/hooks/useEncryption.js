@@ -5,12 +5,17 @@ export function useEncryption(sessionId, setEncStatus) {
   const [sessionKey, setSessionKey] = useState(null);
   const [sessionKeyB64, setSessionKeyB64] = useState("");
 
+  const clearKey = useCallback(() => {
+    setSessionKey(null);
+    setSessionKeyB64("");
+    setEncStatus?.("no-key");
+  }, [setEncStatus]);
+
   const applySeed = useCallback(
     async (seed, sessionOverride) => {
       const sid = sessionOverride || sessionId;
       if (!seed || !sid) {
-        setSessionKey(null);
-        setSessionKeyB64("");
+        clearKey();
         setEncStatus?.("missing-seed");
         return;
       }
@@ -22,13 +27,12 @@ export function useEncryption(sessionId, setEncStatus) {
         setEncStatus?.("key-ready");
       } catch (e) {
         console.warn("Key derive/import failed", e);
-        setSessionKey(null);
-        setSessionKeyB64("");
+        clearKey();
         setEncStatus?.("key-error");
       }
     },
-    [sessionId, setEncStatus]
+    [sessionId, setEncStatus, clearKey]
   );
 
-  return { sessionKey, sessionKeyB64, applySeed };
+  return { sessionKey, sessionKeyB64, applySeed, clearKey };
 }
