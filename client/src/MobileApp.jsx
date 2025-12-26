@@ -29,7 +29,6 @@ export function MobileApp({
   showQualityPicker,
   setShowQualityPicker,
   mobileView,
-  setMobileView,
   handleTouchStart,
   handleTouchEnd,
   sendSessionOffer,
@@ -47,15 +46,18 @@ export function MobileApp({
 }) {
   return (
     <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <MobileDebugPill
-        sessionId={sessionId}
-        sessionSeed={sessionSeed}
-        sessionKeyB64={sessionKeyB64}
-        encStatus={encStatus}
-        offerStatus={offerStatus}
-        qrStatus={qrStatus}
-        onSeedChange={handleSeedInput}
-      />
+      {/* Hidden for production; keep component wired for quick re-activation when mobile debugging is needed */}
+      <div style={{ display: "none" }}>
+        <MobileDebugPill
+          sessionId={sessionId}
+          sessionSeed={sessionSeed}
+          sessionKeyB64={sessionKeyB64}
+          encStatus={encStatus}
+          offerStatus={offerStatus}
+          qrStatus={qrStatus}
+          onSeedChange={handleSeedInput}
+        />
+      </div>
 
       <MobileControls
         videoRef={videoRef}
@@ -145,14 +147,7 @@ export function MobileApp({
       ) : (
         <div className="mobileGalleryView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <div className="mobileGalleryPlaceholder">
-            <h2>Galerie (Mobil)</h2>
-            <button
-              type="button"
-              className="mobileBackBtn"
-              onClick={() => setMobileView("camera")}
-            >
-              Zurueck zur Kamera
-            </button>
+            <h2>Galerie</h2>
             {photos.length === 0 ? (
               <>
                 <p>Noch keine Fotos in dieser Session.</p>

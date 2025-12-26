@@ -211,6 +211,24 @@
   overflow: auto;
 }
 
+.mobileGalleryView .photoGrid {
+  width: 100%;
+  justify-content: center;
+  gap: 12px;
+  padding: 0 16px 24px;
+}
+
+.mobileGalleryView .photoCard {
+  width: min(340px, calc(100vw - 64px));
+}
+
+.mobileGalleryView .photoImg {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+
 .mobileGalleryView {
   position: absolute;
   inset: 0;
