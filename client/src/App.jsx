@@ -7,6 +7,7 @@ import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
 import jsQR from "jsqr";
 import { QrPanel } from "./components/QrPanel";
+import { PhotoGrid } from "./components/PhotoGrid";
 import { Lightbox } from "./components/Lightbox";
 import { DebugPanel } from "./components/DebugPanel";
 import { FooterBar } from "./components/FooterBar";
@@ -806,10 +807,35 @@ export default function App() {
           )}
         </>
       ) : (
-        <div className="mobileGalleryPlaceholder">
-          <h2>Galerie (Mobil)</h2>
-          <p>Hier werden später empfangene oder gesendete Fotos angezeigt.</p>
-          <p>Swipe nach rechts zurück zur Kamera.</p>
+        <div className="mobileGalleryView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <div className="mobileGalleryPlaceholder">
+            <h2>Galerie (Mobil)</h2>
+            <button
+              type="button"
+              className="mobileBackBtn"
+              onClick={() => setMobileView("camera")}
+            >
+              Zurück zur Kamera
+            </button>
+            {photos.length === 0 ? (
+              <>
+                <p>Noch keine Fotos in dieser Session.</p>
+                <p>Swipe nach rechts zurück zur Kamera.</p>
+              </>
+            ) : (
+              <div className="mobileGalleryGrid">
+                <PhotoGrid
+                  photos={photos}
+                  onSelect={setLightboxSrc}
+                  onCopy={copyImageToClipboard}
+                  onSave={saveImage}
+                  showDebug={false}
+                  onCopyPlain={copyPlainUrl}
+                  onCopyEncrypted={copyEncrypted}
+                />
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

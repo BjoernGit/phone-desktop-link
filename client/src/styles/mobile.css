@@ -72,11 +72,13 @@
 .mobileCameraView {
   position: absolute;
   inset: 0;
+  z-index: 1;
 }
 
 .mobileCameraView.hidden {
   opacity: 0;
   pointer-events: none;
+  z-index: 0;
 }
 
 .mobileControlsTop {
@@ -194,13 +196,41 @@
   color: #fff;
   text-align: center;
   padding: 24px;
-  max-width: 480px;
+  max-width: 640px;
   margin: 0 auto;
   line-height: 1.4;
 }
 
 .mobileGalleryPlaceholder h2 {
   margin-bottom: 8px;
+}
+
+.mobileGalleryGrid {
+  margin-top: 12px;
+  max-height: calc(100vh - 200px);
+  overflow: auto;
+}
+
+.mobileGalleryView {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: linear-gradient(180deg, #0c0f1a 0%, #0b0d18 100%);
+}
+
+.mobileBackBtn {
+  margin-bottom: 12px;
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  font-size: 14px;
+  color: #050505;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
 }
 
 .mobileLink {
