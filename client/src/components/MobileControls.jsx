@@ -17,9 +17,10 @@ export function MobileControls({
   setQuality,
   showQualityPicker,
   setShowQualityPicker,
+  hidden = false,
 }) {
   return (
-    <>
+    <div className={hidden ? "mobileCameraView hidden" : "mobileCameraView"}>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
       <input
@@ -37,7 +38,7 @@ export function MobileControls({
         type="button"
         className="uploadBtn"
         onClick={() => fileInputRef.current?.click()}
-        aria-label="Bild aus Galerie wählen"
+        aria-label="Bild aus Galerie waehlen"
       >
         Galerie
       </button>
@@ -88,7 +89,7 @@ export function MobileControls({
               setShowQualityPicker((v) => !v);
             }}
           >
-            Auflösung: {quality}
+            Aufloesung: {quality}
           </button>
           {showQualityPicker && (
             <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
@@ -114,6 +115,6 @@ export function MobileControls({
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }

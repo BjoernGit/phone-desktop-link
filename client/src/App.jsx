@@ -41,11 +41,13 @@ export default function App() {
   const [qrOffer, setQrOffer] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerStatus, setOfferStatus] = useState("idle");
+  const [mobileView, setMobileView] = useState("camera"); // camera | gallery
   const location = useLocation();
   const navigate = useNavigate();
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
+  const touchStartRef = useRef(null);
 
   const deviceName = useMemo(() => {
     const uaData = navigator.userAgentData;
@@ -66,6 +68,30 @@ export default function App() {
     onResize();
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  const handleTouchStart = useCallback((e) => {
+    const t = e.changedTouches?.[0];
+    if (!t) return;
+    touchStartRef.current = { x: t.clientX, y: t.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback(
+    (e) => {
+      const start = touchStartRef.current;
+      const t = e.changedTouches?.[0];
+      touchStartRef.current = null;
+      if (!start || !t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; // nur klare horizontale Swipes
+      if (dx < -40) {
+        setMobileView("gallery");
+      } else if (dx > 40) {
+        setMobileView("camera");
+      }
+    },
+    []
+  );
 
   const decryptPhoto = useCallback(
     async (payload) => {
@@ -598,7 +624,7 @@ export default function App() {
 
   if (missingSeed) {
     return (
-      <div className="mobileSimpleRoot">
+      <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="mobileBlocked">
           <h2>QR-Code scannen</h2>
           <p>Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.</p>
@@ -615,7 +641,7 @@ export default function App() {
   }
 
   return (
-    <div className="mobileSimpleRoot">
+    <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <MobileDebugPill
         sessionId={sessionId}
         sessionSeed={sessionSeed}
@@ -643,136 +669,147 @@ export default function App() {
         setQuality={setQuality}
         showQualityPicker={showQualityPicker}
         setShowQualityPicker={setShowQualityPicker}
+        hidden={mobileView !== "camera"}
       />
 
-      {qrOffer?.session && (
-        <div className="qrOfferPanel">
-          <div className="qrOfferText">
-            QR erkannt
-            <div className="qrOfferMeta">
-              Session: <code>{qrOffer.session}</code>
-              {qrOffer.seed ? (
-                <>
-                  <br />
-                  Seed: <code>{qrOffer.seed}</code>
-                </>
-              ) : null}
-            </div>
-          </div>
-          <div className="qrOfferActions">
-            <button
-              type="button"
-              className="qrOfferBtn"
-              onClick={() => {
-                applyQrOffer(qrOffer);
-                setQrOffer(null);
-                setQrMode(false);
-              }}
-            >
-              Session einlesen
-            </button>
-            <button
-              type="button"
-              className="qrOfferBtn ghost"
-              onClick={() => {
-                if (!sendSessionOffer) return;
-                sendSessionOffer(
-                  {
-                    session: sessionId,
-                    seed: sessionSeed,
-                  },
-                  qrOffer.session
-                );
-                setOfferStatus("Angebot gesendet");
-                setQrStatus("Session-Angebot gesendet");
-                setTimeout(() => {
-                  setQrStatus("");
-                  setOfferStatus("idle");
-                }, 3000);
-                setQrOffer(null);
-                setQrMode(false);
-              }}
-            >
-              Eigene Session senden
-            </button>
-          </div>
-        </div>
-      )}
-
-      {incomingOffer && isMobile && (
-        <div className="legalModal" onClick={() => setIncomingOffer(null)}>
-          <div
-            className="legalModalCard"
-            onClick={(e) => {
-              e.stopPropagation();
-            }}
-          >
-            <div className="legalModalBody">
-              <h3>Session wechseln?</h3>
-              <p>
-                {incomingOffer.from || "Peer"} bietet eine Session an:
-                <br />
-                <strong>{incomingOffer.session}</strong>
-                {incomingOffer.seed ? (
-                  <>
-                    <br />
-                    Seed: <code>{incomingOffer.seed}</code>
-                  </>
-                ) : null}
-              </p>
-              <div className="legalActions">
-                <button type="button" className="legalClose" onClick={() => setIncomingOffer(null)}>
-                  Ablehnen
+      {mobileView === "camera" ? (
+        <>
+          {qrOffer?.session && (
+            <div className="qrOfferPanel">
+              <div className="qrOfferText">
+                QR erkannt
+                <div className="qrOfferMeta">
+                  Session: <code>{qrOffer.session}</code>
+                  {qrOffer.seed ? (
+                    <>
+                      <br />
+                      Seed: <code>{qrOffer.seed}</code>
+                    </>
+                  ) : null}
+                </div>
+              </div>
+              <div className="qrOfferActions">
+                <button
+                  type="button"
+                  className="qrOfferBtn"
+                  onClick={() => {
+                    applyQrOffer(qrOffer);
+                    setQrOffer(null);
+                    setQrMode(false);
+                  }}
+                >
+                  Session einlesen
                 </button>
                 <button
                   type="button"
-                  className="legalClose"
+                  className="qrOfferBtn ghost"
                   onClick={() => {
-                    applyQrOffer(incomingOffer);
+                    if (!sendSessionOffer) return;
+                    sendSessionOffer(
+                      {
+                        session: sessionId,
+                        seed: sessionSeed,
+                      },
+                      qrOffer.session
+                    );
+                    setOfferStatus("Angebot gesendet");
+                    setQrStatus("Session-Angebot gesendet");
+                    setTimeout(() => {
+                      setQrStatus("");
+                      setOfferStatus("idle");
+                    }, 3000);
+                    setQrOffer(null);
+                    setQrMode(false);
                   }}
                 >
-                  Akzeptieren
+                  Eigene Session senden
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {cameraReady && (
-        <div className="qualityPickerWrap">
-          <button
-            type="button"
-            className="qualityToggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowQualityPicker((v) => !v);
-            }}
-          >
-            Auflösung: {quality}
-          </button>
-          {showQualityPicker && (
-            <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
-              {[
-                { id: "S", label: "S (360 x 640)" },
-                { id: "M", label: "M (720 x 1280)" },
-                { id: "L", label: "L (1080 x 1920)" },
-                { id: "XL", label: "XL (1440 x 2560)" },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`qualityItem ${quality === opt.id ? "active" : ""}`}
-                  onClick={() => {
-                    setQuality(opt.id);
-                    setShowQualityPicker(false);
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          {incomingOffer && isMobile && (
+            <div className="legalModal" onClick={() => setIncomingOffer(null)}>
+              <div
+                className="legalModalCard"
+                onClick={(e) => {
+                  e.stopPropagation();
+                }}
+              >
+                <div className="legalModalBody">
+                  <h3>Session wechseln?</h3>
+                  <p>
+                    {incomingOffer.from || "Peer"} bietet eine Session an:
+                    <br />
+                    <strong>{incomingOffer.session}</strong>
+                    {incomingOffer.seed ? (
+                      <>
+                        <br />
+                        Seed: <code>{incomingOffer.seed}</code>
+                      </>
+                    ) : null}
+                  </p>
+                  <div className="legalActions">
+                    <button type="button" className="legalClose" onClick={() => setIncomingOffer(null)}>
+                      Ablehnen
+                    </button>
+                    <button
+                      type="button"
+                      className="legalClose"
+                      onClick={() => {
+                        applyQrOffer(incomingOffer);
+                      }}
+                    >
+                      Akzeptieren
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
+
+          {cameraReady && (
+            <div className="qualityPickerWrap">
+              <button
+                type="button"
+                className="qualityToggle"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowQualityPicker((v) => !v);
+                }}
+              >
+                Aufloesung: {quality}
+              </button>
+              {showQualityPicker && (
+                <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
+                  {[
+                    { id: "S", label: "S (360 x 640)" },
+                    { id: "M", label: "M (720 x 1280)" },
+                    { id: "L", label: "L (1080 x 1920)" },
+                    { id: "XL", label: "XL (1440 x 2560)" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className={`qualityItem ${quality === opt.id ? "active" : ""}`}
+                      onClick={() => {
+                        setQuality(opt.id);
+                        setShowQualityPicker(false);
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="mobileGalleryPlaceholder">
+          <h2>Galerie (Mobil)</h2>
+          <p>Hier werden später empfangene oder gesendete Fotos angezeigt.</p>
+          <p>Swipe nach rechts zurück zur Kamera.</p>
         </div>
       )}
     </div>
