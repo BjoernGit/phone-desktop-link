@@ -24,8 +24,8 @@ function roomName(sessionId) {
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
 
-  socket.on("join-session", ({ sessionId, role, deviceName }) => {
-    console.log("join-session", { sessionId, role, deviceName, socketId: socket.id });
+  socket.on("join-session", ({ sessionId, role, deviceName, clientUuid }) => {
+    console.log("join-session", { sessionId, role, deviceName, clientUuid, socketId: socket.id });
     if (!sessionId) return;
 
     const room = roomName(sessionId);
@@ -33,6 +33,7 @@ io.on("connection", (socket) => {
     socket.data.sessionId = sessionId;
     socket.data.role = role;
     socket.data.deviceName = deviceName;
+    socket.data.clientUuid = clientUuid;
 
     // Bestehende Peers an den Joiner senden
     const roomInfo = io.sockets.adapter.rooms.get(room);
@@ -45,11 +46,12 @@ io.on("connection", (socket) => {
           role: other.data.role,
           clientId: id,
           deviceName: other.data.deviceName,
+          clientUuid: other.data.clientUuid,
         });
       });
     }
 
-    socket.to(room).emit("peer-joined", { role, clientId: socket.id, deviceName });
+    socket.to(room).emit("peer-joined", { role, clientId: socket.id, deviceName, clientUuid });
   });
 
   socket.on("photo", ({ sessionId, iv, ciphertext, mime }) => {
@@ -59,16 +61,25 @@ io.on("connection", (socket) => {
     io.to(roomName(sessionId)).emit("photo", { iv, ciphertext, mime });
   });
 
-  socket.on("session-offer", ({ sessionId, offer, target }) => {
+  socket.on("session-offer", ({ sessionId, offer, target, targetUuid }) => {
     if (!offer) return;
     const dest = target || sessionId;
-    if (!dest) return;
-    console.log(`session-offer from ${sessionId} to ${dest}`);
-    socket.to(roomName(dest)).emit("session-offer", {
+    if (!dest && !targetUuid) return;
+    console.log(`session-offer from ${sessionId} to ${dest || targetUuid}`);
+
+    const payload = {
       ...offer,
       fromRole: socket.data.role,
       fromDevice: socket.data.deviceName,
-    });
+      fromUuid: socket.data.clientUuid,
+    };
+
+    if (targetUuid) {
+      const sockets = Array.from(io.sockets.sockets.values()).filter((s) => s.data.clientUuid === targetUuid);
+      sockets.forEach((s) => s.emit("session-offer", payload));
+    } else if (dest) {
+      socket.to(roomName(dest)).emit("session-offer", payload);
+    }
   });
 
   socket.on("disconnect", () => {
@@ -77,7 +88,7 @@ io.on("connection", (socket) => {
     const deviceName = socket.data.deviceName;
     if (!sessionId || !role) return;
 
-    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id, deviceName });
+    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id, deviceName, clientUuid: socket.data.clientUuid });
   });
 });
 

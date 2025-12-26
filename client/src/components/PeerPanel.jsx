@@ -15,7 +15,7 @@ export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, s
         <div className="peerList">
           {peers.map((p) => (
             <span key={p.id} className="peerTag">
-              {p.name || p.role}
+              {(p.name || p.role) + (p.clientUuid ? ` (${p.clientUuid.slice(0, 6)})` : "")}
             </span>
           ))}
         </div>

@@ -89,6 +89,10 @@
   --qr-size: 240px;
 }
 
+.pairingRow.withUpload {
+  grid-template-columns: 1fr 1fr auto;
+}
+
 .peerPanel {
   background: var(--card);
   border-radius: 18px;
@@ -129,6 +133,76 @@
   .qrPanel {
     justify-self: center;
   }
+}
+
+.pairingRow .uploadPanel {
+  background: var(--card);
+  border-radius: 18px;
+  padding: 14px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 100%;
+}
+
+.uploadPanel h3 {
+  margin: 0 0 6px;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+.uploadPanel .uploadActions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.uploadPanel button {
+  border: 0;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 800;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.uploadPanel button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.clipboardPreview {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.clipboardLabel {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.clipboardThumb {
+  max-width: 100%;
+  border-radius: 10px;
+}
+
+.clipboardText {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 8px;
+  border-radius: 8px;
 }
 
 .pill {

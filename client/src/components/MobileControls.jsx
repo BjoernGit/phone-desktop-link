@@ -89,7 +89,7 @@ export function MobileControls({
               setShowQualityPicker((v) => !v);
             }}
           >
-            Aufloesung: {quality}
+            Auflösung: {quality}
           </button>
           {showQualityPicker && (
             <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>

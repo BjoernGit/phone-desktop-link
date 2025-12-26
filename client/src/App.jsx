@@ -43,11 +43,14 @@ export default function App() {
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerStatus, setOfferStatus] = useState("idle");
   const [mobileView, setMobileView] = useState("camera"); // camera | gallery
+  const [clipboardPreview, setClipboardPreview] = useState(null);
+  const [clipboardMode, setClipboardMode] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
+  const desktopFileInputRef = useRef(null);
   const touchStartRef = useRef(null);
 
   const deviceName = useMemo(() => {
@@ -60,7 +63,7 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Geraet";
+    return "Unbekanntes Ger�t";
   }, []);
 
   useEffect(() => {
@@ -123,10 +126,10 @@ export default function App() {
 
   const {
     sessionId,
+    clientUuid,
     peers,
     photos,
     sendPhoto,
-    addLocalPhoto,
     socketStatus,
     sendSessionOffer,
     setSessionId: overrideSessionId,
@@ -167,6 +170,7 @@ export default function App() {
       }
       const params = new URLSearchParams(window.location.search);
       params.set("session", offer.session);
+      if (offer.targetUuid) params.set("uid", offer.targetUuid);
       const hash = offer.seed ? `#seed=${offer.seed}` : "";
       const newUrl = `${window.location.pathname}?${params.toString()}${hash}`;
       window.history.replaceState({}, "", newUrl);
@@ -228,8 +232,9 @@ export default function App() {
       try {
         const url = new URL(raw);
         const session = url.searchParams.get("session") || "";
+        const targetUuid = url.searchParams.get("uid") || "";
         const seed = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")).get("seed") || "" : "";
-        return { session, seed, raw };
+        return { session, seed, targetUuid, raw };
       } catch (e) {
         return { session: "", seed: "", raw };
       }
@@ -509,12 +514,107 @@ export default function App() {
     setDebugDataUrl("");
   }
 
+  const fileToDataUrl = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  const handleDesktopFiles = useCallback(
+    async (fileList) => {
+      if (!fileList || !fileList.length) return;
+      for (const file of Array.from(fileList)) {
+        try {
+          if (!file?.type?.startsWith("image/")) continue;
+          const dataUrl = await fileToDataUrl(file);
+          if (dataUrl) {
+            await sendPhotoSecure(dataUrl);
+          }
+        } catch (e) {
+          console.warn("Desktop upload failed", e);
+          setCopyStatus("Upload fehlgeschlagen");
+          setTimeout(() => setCopyStatus(""), 1500);
+        }
+      }
+    },
+    [sendPhotoSecure]
+  );
+
+  const handleDesktopClipboardLoad = useCallback(async () => {
+    try {
+      let found = false;
+      // Erst versuchen, echte Image-Items zu lesen
+      if (navigator.clipboard?.read) {
+        const items = await navigator.clipboard.read();
+        for (const item of items) {
+          const imgType = item.types.find((t) => t.startsWith("image/"));
+          if (imgType) {
+            const blob = await item.getType(imgType);
+            const dataUrl = await fileToDataUrl(blob);
+            if (dataUrl) {
+              setClipboardPreview({ type: "image", data: dataUrl });
+              setLightboxSrc(dataUrl);
+              setClipboardMode(true);
+              setCopyStatus("Clipboard geladen");
+              setTimeout(() => setCopyStatus(""), 1200);
+              found = true;
+              break;
+            }
+          }
+        }
+      }
+      // Fallback: Text
+      if (!found) {
+        const txt = await navigator.clipboard.readText();
+        if (txt && (txt.startsWith("data:image") || txt.startsWith("http"))) {
+          setClipboardPreview({ type: "text", data: txt });
+          setCopyStatus("Clipboard geladen");
+          setTimeout(() => setCopyStatus(""), 1200);
+          found = true;
+        }
+      }
+      if (!found) {
+        setCopyStatus("Keine Bilddaten im Clipboard");
+        setTimeout(() => setCopyStatus(""), 1500);
+      }
+    } catch (e) {
+      console.warn("Clipboard read failed", e);
+      setCopyStatus("Clipboard nicht lesbar");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }, []);
+
+  const handleDesktopClipboardSend = useCallback(async () => {
+    if (!clipboardPreview) return;
+    try {
+      await sendPhotoSecure(clipboardPreview.data);
+      setCopyStatus("Clipboard-Bild gesendet");
+      setTimeout(() => setCopyStatus(""), 1200);
+      setClipboardPreview(null);
+      setClipboardMode(false);
+      setLightboxSrc(null);
+    } catch (e) {
+      console.warn("Clipboard send failed", e);
+      setCopyStatus("Senden fehlgeschlagen");
+      setTimeout(() => setCopyStatus(""), 1500);
+    }
+  }, [clipboardPreview, sendPhotoSecure]);
+
+  const discardClipboardPreview = useCallback(() => {
+    setClipboardPreview(null);
+    setClipboardMode(false);
+    setLightboxSrc(null);
+  }, []);
+
   if (!isMobile) {
     const buildUrl = () => {
       if (!sessionId) return window.location.href;
       const params = new URLSearchParams(window.location.search);
       params.delete("key");
       params.set("session", sessionId);
+      if (clientUuid) params.set("uid", clientUuid);
       const hash = sessionSeed ? `#seed=${sessionSeed}` : "";
       return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash}`;
     };
@@ -522,6 +622,49 @@ export default function App() {
     const url = buildUrl();
     const qrBaseSize = 240;
     const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;
+    const uploadPanel = (
+      <div>
+        <h3>Fotos hinzufügen</h3>
+        <div className="uploadActions">
+          <button type="button" onClick={() => desktopFileInputRef.current?.click()}>
+            Bild hochladen
+          </button>
+          <button type="button" onClick={handleDesktopClipboardLoad}>
+            Clipboard laden
+          </button>
+        </div>
+        <input
+          ref={desktopFileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => {
+            handleDesktopFiles(e.target.files);
+            e.target.value = "";
+          }}
+        />
+        {clipboardPreview && (
+          <div className="clipboardPreview">
+            <div className="clipboardLabel">Clipboard-Vorschau</div>
+            {clipboardPreview.type === "image" ? (
+              <img src={clipboardPreview.data} alt="Clipboard preview" className="clipboardThumb" />
+            ) : (
+              <code className="clipboardText">{clipboardPreview.data.slice(0, 120)}</code>
+            )}
+            <div className="uploadActions">
+              <button type="button" onClick={handleDesktopClipboardSend}>
+                Vorschau senden
+              </button>
+              <button type="button" onClick={() => setClipboardPreview(null)}>
+                Verwerfen
+              </button>
+            </div>
+          </div>
+        )}
+        <p className="mutedText">Bilder werden innerhalb dieser Session geteilt.</p>
+      </div>
+    );
 
     return (
       <>
@@ -564,8 +707,9 @@ export default function App() {
             )}
 
             {hasActiveUI && (
-              <>
+                <>
                   <PairingRow
+                    uploadPanel={uploadPanel}
                     qrSize={qrSize}
                     qrDocked={qrDocked}
                     url={url}
@@ -593,12 +737,38 @@ export default function App() {
 
           <Lightbox
             src={lightboxSrc}
-            onClose={() => setLightboxSrc(null)}
+            onClose={clipboardMode ? discardClipboardPreview : () => setLightboxSrc(null)}
             onCopy={copyImageToClipboard}
             onSave={saveImage}
             showDebug={showDebug}
             onCopyPlain={copyPlainUrl}
             onCopyEncrypted={copyEncrypted}
+            actions={
+              clipboardMode ? (
+                <>
+                  <button
+                    type="button"
+                    className="overlayBtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDesktopClipboardSend();
+                    }}
+                  >
+                    Senden
+                  </button>
+                  <button
+                    type="button"
+                    className="overlayBtn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      discardClipboardPreview();
+                    }}
+                  >
+                    Verwerfen
+                  </button>
+                </>
+              ) : undefined
+            }
           />
 
           <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
@@ -706,13 +876,14 @@ export default function App() {
                   className="qrOfferBtn ghost"
                   onClick={() => {
                     if (!sendSessionOffer) return;
-                    sendSessionOffer(
-                      {
-                        session: sessionId,
-                        seed: sessionSeed,
-                      },
-                      qrOffer.session
-                    );
+                sendSessionOffer(
+                  {
+                    session: sessionId,
+                    seed: sessionSeed,
+                  },
+                  qrOffer.session,
+                  qrOffer.targetUuid
+                );
                     setOfferStatus("Angebot gesendet");
                     setQrStatus("Session-Angebot gesendet");
                     setTimeout(() => {
@@ -779,7 +950,7 @@ export default function App() {
                   setShowQualityPicker((v) => !v);
                 }}
               >
-                Aufloesung: {quality}
+                Auflösung: {quality}
               </button>
               {showQualityPicker && (
                 <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
@@ -841,4 +1012,5 @@ export default function App() {
     </div>
   );
 }
+
 

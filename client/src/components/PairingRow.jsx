@@ -3,6 +3,7 @@ import { PeerPanel } from "./PeerPanel";
 import { QrPanel } from "./QrPanel";
 
 export function PairingRow({
+  uploadPanel,
   qrSize,
   qrDocked,
   url,
@@ -14,11 +15,12 @@ export function PairingRow({
 }) {
   return (
     <section
-      className="pairingRow"
+      className={`pairingRow ${uploadPanel ? "withUpload" : ""}`}
       style={{
         "--qr-size": `${qrSize}px`,
       }}
     >
+      {uploadPanel ? <div className="uploadPanel">{uploadPanel}</div> : null}
       <PeerPanel
         ref={peerPanelRef}
         peers={peers}
@@ -29,7 +31,7 @@ export function PairingRow({
         ref={qrPanelRef}
         value={url}
         size={qrSize}
-        label={qrDocked ? "Weitere Geraete koppeln" : "Scanne den QR-Code"}
+        label={qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}
         className={qrDocked ? "docked" : "centered"}
       />
     </section>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted }) {
+export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted, actions }) {
   const [dim, setDim] = useState("");
   if (!src) return null;
   return (
@@ -21,48 +21,54 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
         </div>
       )}
       <div className="lightboxActions">
-        <button
-          type="button"
-          className="overlayBtn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onCopy?.(src);
-          }}
-        >
-          Copy
-        </button>
-        <button
-          type="button"
-          className="overlayBtn"
-          onClick={(e) => {
-            e.stopPropagation();
-            onSave?.(src);
-          }}
-        >
-          Save
-        </button>
-        {showDebug && (
+        {actions ? (
+          actions
+        ) : (
           <>
             <button
               type="button"
               className="overlayBtn"
               onClick={(e) => {
                 e.stopPropagation();
-                onCopyPlain?.(src);
+                onCopy?.(src);
               }}
             >
-              Copy URL
+              Copy
             </button>
             <button
               type="button"
               className="overlayBtn"
               onClick={(e) => {
                 e.stopPropagation();
-                onCopyEncrypted?.(src);
+                onSave?.(src);
               }}
             >
-              Copy Enc
+              Save
             </button>
+            {showDebug && (
+              <>
+                <button
+                  type="button"
+                  className="overlayBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyPlain?.(src);
+                  }}
+                >
+                  Copy URL
+                </button>
+                <button
+                  type="button"
+                  className="overlayBtn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCopyEncrypted?.(src);
+                  }}
+                >
+                  Copy Enc
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
