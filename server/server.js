@@ -21,16 +21,22 @@ function roomName(sessionId) {
   return `session:${sessionId}`;
 }
 
+function coerceSessionId(raw) {
+  if (!raw) return "";
+  return typeof raw === "string" ? raw : String(raw);
+}
+
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
 
   socket.on("join-session", ({ sessionId, role, deviceName, clientUuid }) => {
-    console.log("join-session", { sessionId, role, deviceName, clientUuid, socketId: socket.id });
-    if (!sessionId) return;
+    const sid = coerceSessionId(sessionId);
+    if (!sid) return;
+    console.log("join-session", { sessionId: sid, role, deviceName, clientUuid, socketId: socket.id });
 
-    const room = roomName(sessionId);
+    const room = roomName(sid);
     socket.join(room);
-    socket.data.sessionId = sessionId;
+    socket.data.sessionId = sid;
     socket.data.role = role;
     socket.data.deviceName = deviceName;
     socket.data.clientUuid = clientUuid;
@@ -55,17 +61,21 @@ io.on("connection", (socket) => {
   });
 
   socket.on("photo", ({ sessionId, iv, ciphertext, mime }) => {
-    if (!sessionId) return;
+    const sid = coerceSessionId(sessionId);
+    const activeSession = socket.data.sessionId;
+    if (!sid || !activeSession || activeSession !== sid) return;
     const hasEncrypted = iv && ciphertext;
     if (!hasEncrypted) return;
-    io.to(roomName(sessionId)).emit("photo", { iv, ciphertext, mime });
+    io.to(roomName(sid)).emit("photo", { iv, ciphertext, mime });
   });
 
   socket.on("session-offer", ({ sessionId, offer, target, targetUuid }) => {
-    if (!offer) return;
-    const dest = target || sessionId;
+    const sid = coerceSessionId(sessionId) || socket.data.sessionId;
+    if (!offer || !sid) return;
+    if (socket.data.sessionId !== sid) return; // nicht aus fremder Session senden
+    const dest = coerceSessionId(target) || sid;
     if (!dest && !targetUuid) return;
-    console.log(`session-offer from ${sessionId} to ${dest || targetUuid}`);
+    console.log(`session-offer from ${sid} to ${dest || targetUuid}`);
 
     const payload = {
       ...offer,

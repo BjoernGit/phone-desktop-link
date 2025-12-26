@@ -27,7 +27,7 @@ export async function blobToJpeg(blob) {
   if (window.createImageBitmap) {
     try {
       return await drawWithBitmap();
-    } catch (e) {
+    } catch {
       // fallback below
     }
   }
@@ -64,7 +64,7 @@ export async function blobToPng(blob) {
   if (window.createImageBitmap) {
     try {
       return await drawWithBitmap();
-    } catch (e) {
+    } catch {
       // fallback below
     }
   }

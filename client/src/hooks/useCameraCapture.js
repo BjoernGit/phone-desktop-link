@@ -102,7 +102,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
               width: { ideal: targetW },
               height: { ideal: targetH },
             });
-          } catch (e) {
+          } catch {
             // ignorieren, fallback auf vorhandene Settings
           }
         }
@@ -117,7 +117,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
       if (track && "ImageCapture" in window) {
         try {
           imageCaptureRef.current = new window.ImageCapture(track);
-        } catch (e) {
+        } catch {
           imageCaptureRef.current = null;
         }
       }
@@ -127,7 +127,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
         v.srcObject = stream;
         try {
           await v.play();
-        } catch (e) {
+        } catch {
           // ignore; some browsers require a user gesture despite the button
         }
         await new Promise((res) => {
@@ -187,7 +187,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
                   off.height = bmp.height;
                   off.getContext("2d").drawImage(bmp, 0, 0);
                 }
-              } catch (e) {
+              } catch {
                 // ignore
               }
             };
@@ -213,7 +213,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
       setCameraError(err?.message ?? "Camera permission denied");
       setCameraReady(false);
     }
-  }, [stopCamera]);
+  }, [reportInfo, stopCamera]);
 
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
@@ -235,9 +235,9 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
         reportInfo({ type: "photo", source: "takePhoto", width: bmp.width, height: bmp.height });
         trySend(bmp, bmp.width, bmp.height);
         return;
-      } catch (e) {
-        // Fallback auf Video-Frame
-      }
+    } catch {
+      // Fallback auf Video-Frame
+    }
     }
 
     // 2) Fallback: Video-Frame nutzen (mit Crop/Downscale, kein Upscale)
@@ -248,7 +248,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
     }
     reportInfo({ type: "photo", source: "video", width: v.videoWidth, height: v.videoHeight });
     trySend(v, v.videoWidth, v.videoHeight);
-  }, [cameraReady, onSendPhoto, quality, sessionId]);
+  }, [cameraReady, onSendPhoto, quality, reportInfo, sessionId]);
 
   const handleFiles = useCallback(
     async (fileList) => {

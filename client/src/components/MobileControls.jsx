@@ -1,4 +1,5 @@
 import React from "react";
+import { QualityPicker } from "./QualityPicker";
 
 export function MobileControls({
   videoRef,
@@ -80,40 +81,15 @@ export function MobileControls({
       )}
 
       {cameraReady && (
-        <div className="qualityPickerWrap">
-          <button
-            type="button"
-            className="qualityToggle"
-            onClick={(e) => {
-              e.stopPropagation();
-              setShowQualityPicker((v) => !v);
-            }}
-          >
-            Auflösung: {quality}
-          </button>
-          {showQualityPicker && (
-            <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
-              {[
-                { id: "S", label: "S (360 x 640)" },
-                { id: "M", label: "M (720 x 1280)" },
-                { id: "L", label: "L (1080 x 1920)" },
-                { id: "XL", label: "XL (1440 x 2560)" },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`qualityItem ${quality === opt.id ? "active" : ""}`}
-                  onClick={() => {
-                    setQuality(opt.id);
-                    setShowQualityPicker(false);
-                  }}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <QualityPicker
+          quality={quality}
+          open={showQualityPicker}
+          onToggle={() => setShowQualityPicker((v) => !v)}
+          onSelect={(id) => {
+            setQuality(id);
+            setShowQualityPicker(false);
+          }}
+        />
       )}
     </div>
   );

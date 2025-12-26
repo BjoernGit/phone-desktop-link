@@ -5,6 +5,7 @@ import { isMobileDevice } from "./utils/session";
 import { toBlob } from "./utils/image";
 import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
+import { useStatusMessage } from "./hooks/useStatusMessage";
 import jsQR from "jsqr";
 import { QrPanel } from "./components/QrPanel";
 import { PhotoGrid } from "./components/PhotoGrid";
@@ -12,6 +13,7 @@ import { Lightbox } from "./components/Lightbox";
 import { DebugPanel } from "./components/DebugPanel";
 import { FooterBar } from "./components/FooterBar";
 import { SessionOfferBar } from "./components/SessionOfferBar";
+import { SessionOfferModal } from "./components/SessionOfferModal";
 import { MobileDebugPill } from "./components/MobileDebugPill";
 import { MobileControls } from "./components/MobileControls";
 import { DesktopHero } from "./components/DesktopHero";
@@ -27,7 +29,7 @@ import { ImpressumContent } from "./pages/ImpressumPage";
 export default function App() {
   const [isMobile, setIsMobile] = useState(() => isMobileDevice());
   const [lightboxSrc, setLightboxSrc] = useState(null);
-  const [copyStatus, setCopyStatus] = useState("");
+  const { message: copyStatus, show: showCopyStatus } = useStatusMessage();
   const [debugDataUrl, setDebugDataUrl] = useState("");
   const [showDebug, setShowDebug] = useState(false);
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
@@ -63,7 +65,7 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Ger�t";
+    return "Unbekanntes Geraet";
   }, []);
 
   useEffect(() => {
@@ -130,7 +132,7 @@ export default function App() {
     peers,
     photos,
     sendPhoto,
-    socketStatus,
+    addLocalPhoto,
     sendSessionOffer,
     setSessionId: overrideSessionId,
   } = useSessionSockets({
@@ -189,8 +191,7 @@ export default function App() {
       if (!sessionId || !imageDataUrl) return;
       if (!sessionKey) {
         setEncStatus("no-key");
-        setCopyStatus("Kein Key - Foto nicht gesendet");
-        setTimeout(() => setCopyStatus(""), 1500);
+        showCopyStatus("Kein Key - Foto nicht gesendet");
         return;
       }
       try {
@@ -202,7 +203,7 @@ export default function App() {
         setEncStatus("encrypt-fail");
       }
     },
-    [sessionId, sessionKey, sendPhoto]
+    [sendPhoto, sessionId, sessionKey, showCopyStatus]
   );
 
   const {
@@ -235,7 +236,7 @@ export default function App() {
         const targetUuid = url.searchParams.get("uid") || "";
         const seed = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")).get("seed") || "" : "";
         return { session, seed, targetUuid, raw };
-      } catch (e) {
+      } catch {
         return { session: "", seed: "", raw };
       }
     };
@@ -369,7 +370,7 @@ export default function App() {
     };
 
     setup();
-  }, [applySeedAndStore, isMobile, seedInitialized, sessionId, sessionSeed]);
+  }, [applySeedAndStore, clearKey, isMobile, seedInitialized, sessionId, sessionSeed]);
 
   const handleSeedInput = useCallback(
     (value) => {
@@ -388,8 +389,7 @@ export default function App() {
           const type = blob.type || "image/jpeg";
           const item = new ClipboardItem({ [type]: blob });
           await navigator.clipboard.write([item]);
-          setCopyStatus(`${label} kopiert`);
-          setTimeout(() => setCopyStatus(""), 1500);
+          showCopyStatus(`${label} kopiert`);
         };
 
         try {
@@ -408,45 +408,38 @@ export default function App() {
     }
     try {
       await navigator.clipboard.writeText(src);
-      setCopyStatus(
+      showCopyStatus(
         supportsImageClipboard
           ? "Link kopiert (Bild-Clipboard blockiert)"
           : "Link kopiert (Bild-Clipboard nicht untersttzt)"
       );
-      setTimeout(() => setCopyStatus(""), 1500);
-    } catch (e) {
-      setCopyStatus("Kopieren nicht mglich");
-      setTimeout(() => setCopyStatus(""), 1500);
+    } catch {
+      showCopyStatus("Kopieren nicht mglich");
     }
   }
 
   async function copyPlainUrl(src) {
     try {
       await navigator.clipboard.writeText(src);
-      setCopyStatus("Data-URL kopiert");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Data-URL kopiert");
     } catch (e) {
       console.warn("Plain copy failed", e);
-      setCopyStatus("Kopieren nicht mglich");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Kopieren nicht mglich");
     }
   }
 
   async function copyEncrypted(src) {
     if (!sessionKey) {
-      setCopyStatus("Kein Key - verschlsselt nicht kopiert");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Kein Key - verschlsselt nicht kopiert");
       return;
     }
     try {
       const payload = await encryptDataUrl(src, sessionKey);
       await navigator.clipboard.writeText(JSON.stringify(payload));
-      setCopyStatus("Verschlsselt kopiert");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Verschlsselt kopiert");
     } catch (e) {
       console.warn("Encrypted copy failed", e);
-      setCopyStatus("Verschlsseltes Kopieren fehlgeschlagen");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Verschlsseltes Kopieren fehlgeschlagen");
     }
   }
 
@@ -470,8 +463,7 @@ export default function App() {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.warn("Speichern fehlgeschlagen:", e);
-      setCopyStatus("Speichern nicht mglich");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Speichern nicht mglich");
     }
   }
 
@@ -483,31 +475,27 @@ export default function App() {
       const parsed = JSON.parse(src);
       if (parsed?.ciphertext) {
         if (!sessionKey) {
-          setCopyStatus("Kein Key zum Entschlsseln");
-          setTimeout(() => setCopyStatus(""), 1500);
+          showCopyStatus("Kein Key zum Entschlsseln");
           return;
         }
         try {
           const decrypted = await decryptToDataUrl(parsed, sessionKey);
           addLocalPhoto(decrypted);
-          setCopyStatus("Entschlsselt importiert");
-          setTimeout(() => setCopyStatus(""), 1500);
+          showCopyStatus("Entschlsselt importiert");
         } catch (e) {
           console.warn("Decrypt debug import failed", e);
-          setCopyStatus("Decrypt fehlgeschlagen");
-          setTimeout(() => setCopyStatus(""), 1500);
+          showCopyStatus("Decrypt fehlgeschlagen");
         }
         setDebugDataUrl("");
         return;
       }
-    } catch (e) {
+    } catch {
       // Not JSON, fall through
     }
 
     const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
     if (!looksOkay) {
-      setCopyStatus("Ungltige Quelle");
-      setTimeout(() => setCopyStatus(""), 1200);
+      showCopyStatus("Ungltige Quelle", 1200);
       return;
     }
     addLocalPhoto(src);
@@ -534,12 +522,11 @@ export default function App() {
           }
         } catch (e) {
           console.warn("Desktop upload failed", e);
-          setCopyStatus("Upload fehlgeschlagen");
-          setTimeout(() => setCopyStatus(""), 1500);
+          showCopyStatus("Upload fehlgeschlagen");
         }
       }
     },
-    [sendPhotoSecure]
+    [sendPhotoSecure, showCopyStatus]
   );
 
   const handleDesktopClipboardLoad = useCallback(async () => {
@@ -557,8 +544,7 @@ export default function App() {
               setClipboardPreview({ type: "image", data: dataUrl });
               setLightboxSrc(dataUrl);
               setClipboardMode(true);
-              setCopyStatus("Clipboard geladen");
-              setTimeout(() => setCopyStatus(""), 1200);
+              showCopyStatus("Clipboard geladen", 1200);
               found = true;
               break;
             }
@@ -570,37 +556,32 @@ export default function App() {
         const txt = await navigator.clipboard.readText();
         if (txt && (txt.startsWith("data:image") || txt.startsWith("http"))) {
           setClipboardPreview({ type: "text", data: txt });
-          setCopyStatus("Clipboard geladen");
-          setTimeout(() => setCopyStatus(""), 1200);
+          showCopyStatus("Clipboard geladen", 1200);
           found = true;
         }
       }
       if (!found) {
-        setCopyStatus("Keine Bilddaten im Clipboard");
-        setTimeout(() => setCopyStatus(""), 1500);
+        showCopyStatus("Keine Bilddaten im Clipboard");
       }
     } catch (e) {
       console.warn("Clipboard read failed", e);
-      setCopyStatus("Clipboard nicht lesbar");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Clipboard nicht lesbar");
     }
-  }, []);
+  }, [showCopyStatus]);
 
   const handleDesktopClipboardSend = useCallback(async () => {
     if (!clipboardPreview) return;
     try {
       await sendPhotoSecure(clipboardPreview.data);
-      setCopyStatus("Clipboard-Bild gesendet");
-      setTimeout(() => setCopyStatus(""), 1200);
+      showCopyStatus("Clipboard-Bild gesendet", 1200);
       setClipboardPreview(null);
       setClipboardMode(false);
       setLightboxSrc(null);
     } catch (e) {
       console.warn("Clipboard send failed", e);
-      setCopyStatus("Senden fehlgeschlagen");
-      setTimeout(() => setCopyStatus(""), 1500);
+      showCopyStatus("Senden fehlgeschlagen");
     }
-  }, [clipboardPreview, sendPhotoSecure]);
+  }, [clipboardPreview, sendPhotoSecure, showCopyStatus]);
 
   const discardClipboardPreview = useCallback(() => {
     setClipboardPreview(null);
@@ -900,82 +881,13 @@ export default function App() {
             </div>
           )}
 
-          {incomingOffer && isMobile && (
-            <div className="legalModal" onClick={() => setIncomingOffer(null)}>
-              <div
-                className="legalModalCard"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-              >
-                <div className="legalModalBody">
-                  <h3>Session wechseln?</h3>
-                  <p>
-                    {incomingOffer.from || "Peer"} bietet eine Session an:
-                    <br />
-                    <strong>{incomingOffer.session}</strong>
-                    {incomingOffer.seed ? (
-                      <>
-                        <br />
-                        Seed: <code>{incomingOffer.seed}</code>
-                      </>
-                    ) : null}
-                  </p>
-                  <div className="legalActions">
-                    <button type="button" className="legalClose" onClick={() => setIncomingOffer(null)}>
-                      Ablehnen
-                    </button>
-                    <button
-                      type="button"
-                      className="legalClose"
-                      onClick={() => {
-                        applyQrOffer(incomingOffer);
-                      }}
-                    >
-                      Akzeptieren
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {cameraReady && (
-            <div className="qualityPickerWrap">
-              <button
-                type="button"
-                className="qualityToggle"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setShowQualityPicker((v) => !v);
-                }}
-              >
-                Auflösung: {quality}
-              </button>
-              {showQualityPicker && (
-                <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>
-                  {[
-                    { id: "S", label: "S (360 x 640)" },
-                    { id: "M", label: "M (720 x 1280)" },
-                    { id: "L", label: "L (1080 x 1920)" },
-                    { id: "XL", label: "XL (1440 x 2560)" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      className={`qualityItem ${quality === opt.id ? "active" : ""}`}
-                      onClick={() => {
-                        setQuality(opt.id);
-                        setShowQualityPicker(false);
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
+          <SessionOfferModal
+            offer={isMobile ? incomingOffer : null}
+            onDecline={() => setIncomingOffer(null)}
+            onAccept={() => {
+              applyQrOffer(incomingOffer);
+            }}
+          />
         </>
       ) : (
         <div className="mobileGalleryView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -1012,5 +924,6 @@ export default function App() {
     </div>
   );
 }
+
 
 

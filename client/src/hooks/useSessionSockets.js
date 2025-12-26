@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
 
@@ -10,7 +10,7 @@ function getClientUuid() {
     const uuid = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2, 10);
     sessionStorage.setItem(key, uuid);
     return uuid;
-  } catch (e) {
+  } catch {
     return Math.random().toString(36).slice(2, 10);
   }
 }
@@ -25,6 +25,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   const [socketStatus, setSocketStatus] = useState("connecting");
   const [peers, setPeers] = useState([]);
   const [photos, setPhotos] = useState([]);
+  const joinedSessionRef = useRef("");
   const clientUuid = useMemo(() => getClientUuid(), []);
 
   const socket = useMemo(() => {
@@ -63,8 +64,23 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   useEffect(() => {
     const sid = isMobile ? getSessionIdFromUrl() ?? "" : ensureDesktopSessionId();
     console.log("setSessionId derived", { sid, isMobile, fromUrl: window.location.search });
+    if (!sid || sid === sessionId) return;
+    // Sync state to external source (URL/session generator)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSessionId(sid);
-  }, [isMobile]);
+  }, [isMobile, sessionId]);
+
+  const emitJoin = useCallback(
+    (reason = "auto") => {
+      if (!sessionId) return;
+      if (!socket.connected) return;
+      const role = isMobile ? "mobile" : "desktop";
+      console.log("emit join-session", { sessionId, role, deviceName, clientUuid, reason, socketId: socket.id });
+      socket.emit("join-session", { sessionId, role, deviceName, clientUuid });
+      joinedSessionRef.current = sessionId;
+    },
+    [clientUuid, deviceName, isMobile, sessionId, socket]
+  );
 
   // ensure socket connects once wir eine SessionId haben
   useEffect(() => {
@@ -95,16 +111,12 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       console.log("socket connected (client)", { socketId: socket.id });
       setSocketConnected(true);
       setSocketStatus("connected");
-      // Join sofort nach Connect
-      if (sessionId) {
-        const role = isMobile ? "mobile" : "desktop";
-        console.log("emit join-session (on connect)", { sessionId, role, deviceName, socketId: socket.id });
-        socket.emit("join-session", { sessionId, role, deviceName });
-      }
+      emitJoin("connect");
     };
     const onDisconnect = (reason) => {
       setSocketConnected(false);
       setPeers([]);
+      joinedSessionRef.current = "";
       setSocketStatus(`disconnected${reason ? `: ${reason}` : ""}`);
     };
     socket.on("connect", onConnect);
@@ -117,7 +129,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       socket.off("connect", onConnect);
       socket.off("disconnect", onDisconnect);
     };
-  }, [socket]);
+  }, [emitJoin, socket]);
 
   // join session + peer/photo events
   useEffect(() => {
@@ -166,19 +178,17 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       socket.off("photo", onPhoto);
       socket.off("session-offer");
     };
-  }, [deviceName, isMobile, sessionId, socket, onDecryptPhoto, onSessionOffer]);
+  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer]);
 
   // emit join when sessionId changes and Socket ist verbunden
   useEffect(() => {
     if (!sessionId || !socketConnected) return;
-    const role = isMobile ? "mobile" : "desktop";
-    console.log("emit join-session (session change)", { sessionId, role, deviceName, clientUuid, socketId: socket.id });
-    socket.emit("join-session", { sessionId, role, deviceName, clientUuid });
-  }, [clientUuid, deviceName, isMobile, sessionId, socket, socketConnected]);
+    if (joinedSessionRef.current === sessionId) return;
+    emitJoin("session-change");
+  }, [emitJoin, sessionId, socketConnected]);
 
   const forceJoin = useCallback(() => {
     if (!sessionId) return;
-    const role = isMobile ? "mobile" : "desktop";
     if (!socket.connected) {
       try {
         socket.connect();
@@ -186,9 +196,8 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
         console.warn("socket connect failed", e);
       }
     }
-    console.log("emit join-session (manual/force)", { sessionId, role, deviceName, clientUuid, socketId: socket.id });
-    socket.emit("join-session", { sessionId, role, deviceName, clientUuid });
-  }, [clientUuid, deviceName, isMobile, sessionId, socket]);
+    emitJoin("force");
+  }, [emitJoin, sessionId, socket]);
 
   // Optional: manueller Join-Trigger (für Notfälle)
   useEffect(() => {
