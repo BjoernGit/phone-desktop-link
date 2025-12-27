@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 const QUALITY_OPTIONS = [
   { id: "S", label: "S (360 x 640)" },
@@ -7,7 +8,9 @@ const QUALITY_OPTIONS = [
   { id: "XL", label: "XL (1440 x 2560)" },
 ];
 
-export function QualityPicker({ quality, open, onToggle, onSelect, options = QUALITY_OPTIONS, labelPrefix = "Aufloesung" }) {
+export function QualityPicker({ quality, open, onToggle, onSelect, options = QUALITY_OPTIONS, labelPrefix }) {
+  const { t } = useTranslation();
+  const prefix = labelPrefix || t("mobile.quality.label");
   return (
     <div className="qualityPickerWrap">
       <button
@@ -18,7 +21,7 @@ export function QualityPicker({ quality, open, onToggle, onSelect, options = QUA
           onToggle?.();
         }}
       >
-        {labelPrefix}: {quality}
+        {prefix}: {quality}
       </button>
       {open && (
         <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>

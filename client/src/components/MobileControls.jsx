@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { QualityPicker } from "./QualityPicker";
 
 export function MobileControls({
@@ -20,6 +21,7 @@ export function MobileControls({
   setShowQualityPicker,
   hidden = false,
 }) {
+  const { t } = useTranslation();
   return (
     <div className={hidden ? "mobileCameraView hidden" : "mobileCameraView"}>
       <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
@@ -39,9 +41,9 @@ export function MobileControls({
         type="button"
         className="uploadBtn"
         onClick={() => fileInputRef.current?.click()}
-        aria-label="Bild aus Galerie waehlen"
+        aria-label={t("common.aria.chooseFromGallery")}
       >
-        Galerie
+        {t("mobile.controls.gallery")}
       </button>
       <button
         type="button"
@@ -53,19 +55,19 @@ export function MobileControls({
           setQrMode((v) => !v);
           setQrOffer(null);
         }}
-        aria-label="QR-Modus umschalten"
+        aria-label={t("common.aria.toggleQr")}
       >
         QR
       </button>
-      {qrMode && <div className="qrBadge">QR Mode</div>}
+      {qrMode && <div className="qrBadge">{t("mobile.controls.qrBadge")}</div>}
 
       {!cameraReady && (
         <>
           <div className="mobileSimpleHint" aria-hidden>
-            Tippe, um die Kamera freizugeben
+            {t("mobile.controls.tapToRelease")}
           </div>
           <button type="button" className="startBtn" onClick={handleStartCamera} disabled={isStartingCamera}>
-            {isStartingCamera ? "Startet..." : "Kamera starten"}
+            {isStartingCamera ? t("mobile.controls.starting") : t("mobile.controls.startCamera")}
           </button>
           {cameraError && <div className="tapError">{cameraError}</div>}
         </>
@@ -76,7 +78,7 @@ export function MobileControls({
           type="button"
           className="shutter singleShutter"
           onClick={handleShutter}
-          aria-label="Foto aufnehmen und senden"
+          aria-label={t("common.aria.takePhoto")}
         />
       )}
 

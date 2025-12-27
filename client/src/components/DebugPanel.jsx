@@ -1,3 +1,5 @@
+import { useTranslation } from "react-i18next";
+
 export function DebugPanel({
   value,
   onChange,
@@ -8,10 +10,11 @@ export function DebugPanel({
   onSeedChange,
   offerStatus,
 }) {
+  const { t } = useTranslation();
   return (
     <div className="debugPanel">
       <label className="debugLabel" htmlFor="debugDataUrl">
-        Debug Data-URL einfuegen
+        {t("debug.insertDataUrl")}
       </label>
 
       <div className="debugControls">
@@ -23,14 +26,14 @@ export function DebugPanel({
           onChange={(e) => onChange?.(e.target.value)}
         />
         <button type="button" className="debugBtn" onClick={onAdd}>
-          Add
+          {t("common.buttons.add")}
         </button>
       </div>
 
       {typeof seedValue !== "undefined" && onSeedChange && (
         <div className="debugSeedRow">
           <label className="debugLabel" htmlFor="debugSeed">
-            Seed (Desktop):
+            {t("debug.seedLabel")}
           </label>
           <input
             id="debugSeed"

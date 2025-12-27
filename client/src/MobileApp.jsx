@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { MobileDebugPill } from "./components/MobileDebugPill";
 import { MobileControls } from "./components/MobileControls";
 import { SessionOfferModal } from "./components/SessionOfferModal";
@@ -50,6 +51,8 @@ export function MobileApp({
   rejectPeer,
   clientUuid,
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       {/* Hidden for production; keep component wired for quick re-activation when mobile debugging is needed */}
@@ -65,7 +68,7 @@ export function MobileApp({
         />
       </div>
 
-      <div className="selfIdBadge">Deine ID: {clientUuid ? clientUuid.slice(0, 6) : "n/a"}</div>
+      <div className="selfIdBadge">{t("mobile.selfId", { id: clientUuid ? clientUuid.slice(0, 6) : "n/a" })}</div>
 
       <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
 
@@ -94,13 +97,13 @@ export function MobileApp({
           {qrOffer?.session && (
             <div className="qrOfferPanel">
               <div className="qrOfferText">
-                QR erkannt
+                {t("mobile.qr.detected")}
                 <div className="qrOfferMeta">
-                  Session: <code>{qrOffer.session}</code>
+                  {t("mobile.qr.session")} <code>{qrOffer.session}</code>
                   {qrOffer.seed ? (
                     <>
                       <br />
-                      Seed: <code>{qrOffer.seed}</code>
+                      {t("mobile.qr.seed")} <code>{qrOffer.seed}</code>
                     </>
                   ) : null}
                 </div>
@@ -115,7 +118,7 @@ export function MobileApp({
                     setQrMode(false);
                   }}
                 >
-                  Session einlesen
+                  {t("mobile.qr.readSession")}
                 </button>
                 <button
                   type="button"
@@ -132,8 +135,8 @@ export function MobileApp({
                       qrOffer.targetUuid,
                       qrOffer.offerSecret
                     );
-                    setOfferStatus("Angebot gesendet");
-                    setQrStatus("Session-Angebot gesendet");
+                    setOfferStatus(t("mobile.qr.offerSent"));
+                    setQrStatus(t("mobile.qr.offerSentStatus"));
                     setTimeout(() => {
                       setQrStatus("");
                       setOfferStatus("idle");
@@ -142,7 +145,7 @@ export function MobileApp({
                     setQrMode(false);
                   }}
                 >
-                  Eigene Session senden
+                  {t("mobile.qr.sendOwnSession")}
                 </button>
               </div>
             </div>
@@ -164,11 +167,11 @@ export function MobileApp({
       ) : (
         <div className="mobileGalleryView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <div className="mobileGalleryPlaceholder">
-            <h2>Galerie</h2>
+            <h2>{t("mobile.gallery.title")}</h2>
             {photos.length === 0 ? (
               <>
-                <p>Noch keine Fotos in dieser Session.</p>
-                <p>Swipe nach rechts zurueck zur Kamera.</p>
+                <p>{t("mobile.gallery.empty")}</p>
+                <p>{t("mobile.gallery.swipeBack")}</p>
               </>
             ) : (
               <div className="mobileGalleryGrid">

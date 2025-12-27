@@ -1,48 +1,50 @@
+import { useTranslation } from "react-i18next";
 import { PageShell } from "./PrivacyPage";
 
 export function CookiesContent() {
+  const { t } = useTranslation();
+
   return (
     <>
-      <h2>1. Allgemeines</h2>
-      <p>Diese Website verwendet derzeit <strong>keine Cookies</strong>.</p>
-      <p>
-        Cookies sind kleine Textdateien, die auf Ihrem Endger&auml;t gespeichert werden und bestimmte Informationen enthalten k&ouml;nnen.
-        Sie dienen h&auml;ufig dazu, Websites benutzerfreundlicher, effektiver und sicherer zu machen.
-      </p>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.cookies.general.heading") }} />
+      <p dangerouslySetInnerHTML={{ __html: t("legal.cookies.general.noCookies") }} />
+      <p dangerouslySetInnerHTML={{ __html: t("legal.cookies.general.explanation") }} />
 
       <hr />
 
-      <h2>2. Aktueller Stand</h2>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.cookies.currentStatus.heading") }} />
       <ul>
-        <li>❌ Es werden <strong>keine Cookies</strong> gesetzt</li>
-        <li>❌ Es werden <strong>keine Tracking- oder Analyse-Tools</strong> eingesetzt</li>
-        <li>❌ Es findet <strong>kein Nutzer-Tracking</strong> statt</li>
+        <li dangerouslySetInnerHTML={{ __html: t("legal.cookies.currentStatus.item1") }} />
+        <li dangerouslySetInnerHTML={{ __html: t("legal.cookies.currentStatus.item2") }} />
+        <li dangerouslySetInnerHTML={{ __html: t("legal.cookies.currentStatus.item3") }} />
       </ul>
-      <p>Die Nutzung dieser Website ist vollst&auml;ndig <strong>ohne Cookies</strong> m&ouml;glich.</p>
+      <p dangerouslySetInnerHTML={{ __html: t("legal.cookies.currentStatus.summary") }} />
 
       <hr />
 
-      <h2>3. Zuk&uuml;nftige Nutzung von Cookies</h2>
-      <p>
-        Sollten in Zukunft Cookies eingesetzt werden (z. B. f&uuml;r funktionale Zwecke oder optionale Erweiterungen), wird diese
-        Cookie-Richtlinie entsprechend angepasst. Erforderliche Einwilligungen werden dann vor dem Setzen entsprechender Cookies eingeholt.
-      </p>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.cookies.futureUse.heading") }} />
+      <p dangerouslySetInnerHTML={{ __html: t("legal.cookies.futureUse.text") }} />
 
       <hr />
 
-      <h2>4. Kontakt</h2>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.cookies.contact.heading") }} />
       <p>
-        Bei Fragen zur Verwendung von Cookies auf dieser Website k&ouml;nnen Sie sich jederzeit an den Betreiber wenden:
+        {t("legal.cookies.contact.intro")}
         <br />
-        <strong>E-Mail:</strong> <a href="mailto:kontakt@snap2desk.com">kontakt@snap2desk.com</a>
+        <strong>{t("legal.cookies.contact.email")}</strong>{" "}
+        <a href={`mailto:${t("legal.cookies.contact.emailAddress")}`}>
+          {t("legal.cookies.contact.emailAddress")}
+        </a>
       </p>
     </>
   );
 }
 
 export default function CookiesPage() {
+  const { t } = useTranslation();
+
   return (
-    <PageShell title="Cookies">
+    <PageShell title={t("legal.cookies.title")}>
       <CookiesContent />
     </PageShell>
   );

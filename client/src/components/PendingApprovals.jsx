@@ -1,6 +1,8 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export function PendingApprovals({ pending, onApprove, onReject }) {
+  const { t } = useTranslation();
   if (!pending || pending.length === 0) return null;
   return (
     <div className="pendingApprovals">
@@ -9,14 +11,14 @@ export function PendingApprovals({ pending, onApprove, onReject }) {
         return (
           <div key={id} className="sessionOfferBar pendingBar">
             <div className="sessionOfferText">
-              <code className="offerSender">{shortId}</code> m&ouml;chte Ihrer Session beitreten
+              <code className="offerSender">{shortId}</code> {t("offer.wantsToJoin", { device: "" })}
             </div>
             <div className="sessionOfferActions">
               <button type="button" className="sessionOfferBtn ghost" onClick={() => onReject?.(id)}>
-                Ablehnen
+                {t("common.buttons.reject")}
               </button>
               <button type="button" className="sessionOfferBtn" onClick={() => onApprove?.(id)}>
-                Zulassen
+                {t("common.buttons.approve")}
               </button>
             </div>
           </div>

@@ -1,11 +1,13 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 
 export function MobileDebugPill({ sessionId, sessionSeed, sessionKeyB64, encStatus, offerStatus, qrStatus, onSeedChange }) {
+  const { t } = useTranslation();
   return (
     <div className="mobileDebugPill">
-      <div className="pillLine">Session: {sessionId || "n/a"}</div>
+      <div className="pillLine">{t("mobile.qr.session")} {sessionId || "n/a"}</div>
       <label className="pillLine pillLabel">
-        Seed:
+        {t("mobile.qr.seed")}
         <input
           className="pillInput"
           value={sessionSeed || ""}

@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { PeerPanel } from "./PeerPanel";
 import { QrPanel } from "./QrPanel";
 
@@ -13,6 +14,7 @@ export function PairingRow({
   panelHeights,
   peers,
 }) {
+  const { t } = useTranslation();
   return (
     <section
       className={`pairingRow ${uploadPanel ? "withUpload" : ""}`}
@@ -31,7 +33,7 @@ export function PairingRow({
         ref={qrPanelRef}
         value={url}
         size={qrSize}
-        label={qrDocked ? "Weitere Geräte koppeln" : "Scanne den QR-Code"}
+        label={qrDocked ? t("desktop.qr.pairMore") : t("desktop.qr.label")}
         className={qrDocked ? "docked" : "centered"}
       />
     </section>

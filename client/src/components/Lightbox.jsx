@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted, actions }) {
+  const { t } = useTranslation();
   const [dim, setDim] = useState("");
   if (!src) return null;
   return (
@@ -8,7 +10,7 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
       <img
         className="lightboxImg"
         src={src}
-        alt="Vergroessertes Foto"
+        alt={t("lightbox.altText")}
         onLoad={(e) => {
           const w = e.currentTarget.naturalWidth;
           const h = e.currentTarget.naturalHeight;
@@ -33,7 +35,7 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
                 onCopy?.(src);
               }}
             >
-              Copy
+              {t("common.buttons.copy")}
             </button>
             <button
               type="button"
@@ -43,7 +45,7 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
                 onSave?.(src);
               }}
             >
-              Save
+              {t("common.buttons.save")}
             </button>
             {showDebug && (
               <>
@@ -55,7 +57,7 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
                     onCopyPlain?.(src);
                   }}
                 >
-                  Copy URL
+                  {t("common.buttons.copyUrl")}
                 </button>
                 <button
                   type="button"
@@ -65,7 +67,7 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
                     onCopyEncrypted?.(src);
                   }}
                 >
-                  Copy Enc
+                  {t("common.buttons.copyEnc")}
                 </button>
               </>
             )}

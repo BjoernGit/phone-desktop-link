@@ -1,4 +1,5 @@
 import React, { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { DesktopHero } from "./components/DesktopHero";
 import { SessionOfferBar } from "./components/SessionOfferBar";
 import { DebugPanel } from "./components/DebugPanel";
@@ -56,6 +57,7 @@ export function DesktopApp({
   approvePeer,
   rejectPeer,
 }) {
+  const { t } = useTranslation();
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
   const hasConnection = peerCount > 0;
@@ -80,13 +82,13 @@ export function DesktopApp({
 
   const uploadPanel = (
     <div>
-      <h3>Fotos hinzufuegen</h3>
+      <h3>{t("desktop.upload.title")}</h3>
       <div className="uploadActions">
         <button type="button" onClick={() => desktopFileInputRef.current?.click()}>
-          Bild hochladen
+          {t("desktop.upload.uploadImage")}
         </button>
         <button type="button" onClick={handleDesktopClipboardLoad}>
-          Clipboard laden
+          {t("desktop.upload.loadClipboard")}
         </button>
       </div>
       <input
@@ -102,7 +104,7 @@ export function DesktopApp({
       />
       {clipboardPreview && (
         <div className="clipboardPreview">
-          <div className="clipboardLabel">Clipboard-Vorschau</div>
+          <div className="clipboardLabel">{t("desktop.upload.clipboardPreview")}</div>
           {clipboardPreview.type === "image" ? (
             <img src={clipboardPreview.data} alt="Clipboard preview" className="clipboardThumb" />
           ) : (
@@ -110,15 +112,15 @@ export function DesktopApp({
           )}
           <div className="uploadActions">
             <button type="button" onClick={handleDesktopClipboardSend}>
-              Vorschau senden
+              {t("desktop.upload.sendPreview")}
             </button>
             <button type="button" onClick={() => setClipboardPreview(null)}>
-              Verwerfen
+              {t("common.buttons.discard")}
             </button>
           </div>
         </div>
       )}
-      <p className="mutedText">Bilder werden innerhalb dieser Session geteilt.</p>
+      <p className="mutedText">{t("desktop.upload.mutedText")}</p>
     </div>
   );
 
@@ -136,12 +138,12 @@ export function DesktopApp({
                   rejectPeer(incomingOffer.fromUuid);
                 }
                 setIncomingOffer(null);
-                setOfferStatus("Offer abgelehnt");
+                setOfferStatus(t("status.offerRejected"));
               }}
               onAccept={() => {
                 applyQrOffer(incomingOffer);
                 setIncomingOffer(null);
-                setOfferStatus("Offer bernommen");
+                setOfferStatus(t("status.offerAccepted"));
               }}
             />
           )}
@@ -161,7 +163,7 @@ export function DesktopApp({
 
           {!hasActiveUI && (
             <div className="qrHeroWrap">
-              <QrPanel ref={qrPanelRef} value={url} size={240} label="Scanne den QR-Code" className="heroCenter" />
+              <QrPanel ref={qrPanelRef} value={url} size={240} label={t("desktop.qr.label")} className="heroCenter" />
             </div>
           )}
 
@@ -214,7 +216,7 @@ export function DesktopApp({
                     handleDesktopClipboardSend();
                   }}
                 >
-                  Senden
+                  {t("common.buttons.send")}
                 </button>
                 <button
                   type="button"
@@ -224,7 +226,7 @@ export function DesktopApp({
                     discardClipboardPreview();
                   }}
                 >
-                  Verwerfen
+                  {t("common.buttons.discard")}
                 </button>
               </>
             ) : undefined

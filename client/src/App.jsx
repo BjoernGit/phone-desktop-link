@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import "./App.css";
 import { isMobileDevice } from "./utils/session";
 import { useSessionSockets } from "./hooks/useSessionSockets";
@@ -17,6 +18,7 @@ import { DesktopApp } from "./DesktopApp";
 import { MobileApp } from "./MobileApp";
 
 export default function App() {
+  const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => isMobileDevice());
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const { message: copyStatus, show: showCopyStatus } = useStatusMessage();
@@ -69,8 +71,8 @@ export default function App() {
     if (ua.includes("iPad")) return "iPad";
     if (ua.includes("Mac")) return "Mac";
     if (ua.includes("Win")) return "Windows";
-    return "Unbekanntes Geraet";
-  }, []);
+    return t("common.deviceName.unknown");
+  }, [t]);
 
   useEffect(() => {
     const onResize = () => setIsMobile(isMobileDevice());
@@ -150,10 +152,10 @@ export default function App() {
         try {
           const plain = await decryptJsonWithSecret(offerSecret, payload.enc, "offer-share");
           if (!plain?.session || !plain?.seed) {
-            setOfferStatus("Offer unvollstaendig");
+            setOfferStatus(t("status.offerIncomplete"));
             return;
           }
-          setOfferStatus("Offer eingegangen");
+          setOfferStatus(t("status.offerReceived"));
           setIncomingOffer({
             session: plain.session,
             seed: plain.seed || "",
@@ -163,7 +165,7 @@ export default function App() {
           });
         } catch (e) {
           console.warn("Offer decrypt failed", e);
-          setOfferStatus("Offer nicht lesbar");
+          setOfferStatus(t("status.offerUnreadable"));
         }
       };
       doDecrypt();
@@ -217,7 +219,7 @@ export default function App() {
   const applyQrOffer = useCallback(
     (offer) => {
       if (!offer?.session) {
-        setQrStatus("Kein Session-Parameter im QR");
+        setQrStatus(t("status.noSession"));
         return;
       }
       const params = new URLSearchParams(window.location.search);
@@ -230,10 +232,10 @@ export default function App() {
       if (offer.seed) {
         applySeedAndStore(offer.seed, offer.session);
       }
-      setQrStatus("Session uebernommen");
+      setQrStatus(t("status.sessionTaken"));
       setTimeout(() => setQrStatus(""), 2000);
     },
-    [applySeedAndStore, overrideSessionId]
+    [applySeedAndStore, overrideSessionId, t]
   );
 
   const sendPhotoSecure = useCallback(
@@ -241,15 +243,15 @@ export default function App() {
       if (!sessionId || !imageDataUrl) return;
       if (!sessionKey) {
         setEncStatus("no-key");
-        showCopyStatus("Kein Key - Foto nicht gesendet");
+        showCopyStatus(t("errors.noKey"));
         return;
       }
       if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
-        showCopyStatus("Nur Bild-Data-URLs erlaubt");
+        showCopyStatus(t("errors.onlyImageDataUrls"));
         return;
       }
       if (/^data:image\/svg\+xml/i.test(imageDataUrl)) {
-        showCopyStatus("SVG wird nicht gesendet");
+        showCopyStatus(t("errors.svgNotSent"));
         return;
       }
       try {
@@ -261,7 +263,7 @@ export default function App() {
         setEncStatus("encrypt-fail");
       }
     },
-    [sendPhoto, sessionId, sessionKey, showCopyStatus]
+    [sendPhoto, sessionId, sessionKey, showCopyStatus, t]
   );
 
   const {
@@ -277,6 +279,7 @@ export default function App() {
   } = useCameraCapture({
     sessionId,
     onSendPhoto: sendPhotoSecure,
+    t,
   });
 
   const {
@@ -295,19 +298,20 @@ export default function App() {
     showCopyStatus,
     sendPhotoSecure,
     setLightboxSrc,
+    t,
   });
 
   useQrScanner({
     enabled: qrMode,
     videoRef,
     onStart: () => {
-      setQrStatus("QR-Scan aktiv");
+      setQrStatus(t("mobile.qr.scanActive"));
       setQrOffer(null);
     },
     onStop: () => setQrStatus(""),
     onResult: (parsed) => {
       if (!parsed?.session) return;
-      setQrStatus(`QR erkannt: ${parsed.session}`);
+      setQrStatus(t("mobile.qr.recognized", { session: parsed.session }));
       setQrOffer(parsed);
       setQrMode(false);
       setTimeout(() => setQrStatus(""), 4000);
@@ -424,16 +428,16 @@ export default function App() {
       const parsed = JSON.parse(src);
       if (parsed?.ciphertext) {
         if (!sessionKey) {
-          showCopyStatus("Kein Key zum Entschlsseln");
+          showCopyStatus(t("errors.noKeyToDecrypt"));
           return;
         }
         try {
           const decrypted = await decryptToDataUrl(parsed, sessionKey);
           addLocalPhoto(decrypted);
-          showCopyStatus("Entschlsselt importiert");
+          showCopyStatus(t("clipboard.decryptedImported"));
         } catch (e) {
           console.warn("Decrypt debug import failed", e);
-          showCopyStatus("Decrypt fehlgeschlagen");
+          showCopyStatus(t("errors.decryptFailed"));
         }
         setDebugDataUrl("");
         return;
@@ -444,7 +448,7 @@ export default function App() {
 
     const looksOkay = src.startsWith("data:image") || src.startsWith("http://") || src.startsWith("https://");
     if (!looksOkay) {
-      showCopyStatus("Ungltige Quelle", 1200);
+      showCopyStatus(t("errors.invalidSource"), 1200);
       return;
     }
     addLocalPhoto(src);
@@ -471,11 +475,11 @@ export default function App() {
           }
         } catch (e) {
           console.warn("Desktop upload failed", e);
-          showCopyStatus("Upload fehlgeschlagen");
+          showCopyStatus(t("errors.uploadFailed"));
         }
       }
     },
-    [sendPhotoSecure, showCopyStatus]
+    [sendPhotoSecure, showCopyStatus, t]
   );
 
   if (!isMobile) {
@@ -535,15 +539,15 @@ if (missingSeed) {
     return (
       <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
         <div className="mobileBlocked">
-          <h2>QR-Code scannen</h2>
-          <p>Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.</p>
+          <h2>{t("mobile.blocked.title")}</h2>
+          <p>{t("mobile.blocked.instruction1")}</p>
           <p>
-            Website:{" "}
+            {t("mobile.blocked.websiteLabel")}{" "}
             <a className="mobileLink" href="https://snap2desk.com" target="_blank" rel="noreferrer">
               snap2desk.com
             </a>
           </p>
-          <p>Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App.</p>
+          <p>{t("mobile.blocked.instruction2")}</p>
         </div>
       </div>
     );

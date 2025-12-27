@@ -1,0 +1,267 @@
+{
+  "common": {
+    "deviceName": {
+      "unknown": "Unknown Device"
+    },
+    "buttons": {
+      "approve": "Approve",
+      "reject": "Reject",
+      "decline": "Decline",
+      "accept": "Accept",
+      "join": "Join",
+      "send": "Send",
+      "discard": "Discard",
+      "copy": "Copy",
+      "save": "Save",
+      "copyUrl": "Copy URL",
+      "copyEnc": "Copy Enc",
+      "add": "Add"
+    },
+    "aria": {
+      "viewPhoto": "View photo {{idx}}",
+      "copyToClipboard": "Copy to clipboard",
+      "saveImage": "Save",
+      "chooseFromGallery": "Choose image from gallery",
+      "toggleQr": "Toggle QR mode",
+      "takePhoto": "Take photo and send"
+    }
+  },
+  "mobile": {
+    "blocked": {
+      "title": "Scan QR Code",
+      "instruction1": "Please open Snap2Desk on your desktop/laptop and scan the QR code with your phone's camera.",
+      "websiteLabel": "Website:",
+      "instruction2": "Start the camera app on your phone, scan the code and follow the link. Then the app will appear here."
+    },
+    "selfId": "Your ID: {{id}}",
+    "qr": {
+      "detected": "QR detected",
+      "session": "Session:",
+      "seed": "Seed:",
+      "readSession": "Read session",
+      "sendOwnSession": "Send own session",
+      "offerSent": "Offer sent",
+      "offerSentStatus": "Session offer sent",
+      "scanActive": "QR scan active",
+      "recognized": "QR recognized: {{session}}"
+    },
+    "controls": {
+      "gallery": "Gallery",
+      "qrBadge": "QR Mode",
+      "startCamera": "Start camera",
+      "starting": "Starting...",
+      "tapToRelease": "Tap to release camera"
+    },
+    "gallery": {
+      "title": "Gallery",
+      "empty": "No photos in this session yet.",
+      "swipeBack": "Swipe right to return to camera."
+    },
+    "quality": {
+      "label": "Resolution"
+    }
+  },
+  "desktop": {
+    "hero": {
+      "tagline": "Photos from your phone straight to your desktop. Fast, simple, safe - without an account."
+    },
+    "upload": {
+      "title": "Add photos",
+      "uploadImage": "Upload image",
+      "loadClipboard": "Load clipboard",
+      "clipboardPreview": "Clipboard preview",
+      "sendPreview": "Send preview",
+      "mutedText": "Images are shared within this session."
+    },
+    "qr": {
+      "label": "Scan the QR code",
+      "pairMore": "Pair more devices"
+    },
+    "canvas": {
+      "ready": "Ready to receive photos",
+      "hint": "Scan the QR code with your phone and tap the shutter."
+    },
+    "peers": {
+      "title": "Connected Devices",
+      "connected": "Device(s) connected",
+      "waiting": "Waiting for connection",
+      "empty": "Connect a device to send new photos."
+    }
+  },
+  "offer": {
+    "wantsToJoin": "{{device}} wants to join your session",
+    "invitesYou": "{{device}} invites you to a session",
+    "newRequest": "New request",
+    "modalTitle": "Switch session?",
+    "wantsToJoinModal": "{{device}} wants to join your session.",
+    "invitesYouModal": "{{device}} invites you to a session."
+  },
+  "status": {
+    "noSession": "No session parameter in QR",
+    "sessionTaken": "Session adopted",
+    "offerIncomplete": "Offer incomplete",
+    "offerReceived": "Offer received",
+    "offerUnreadable": "Offer unreadable",
+    "offerRejected": "Offer rejected",
+    "offerAccepted": "Offer accepted"
+  },
+  "errors": {
+    "noKey": "No key - photo not sent",
+    "onlyImageDataUrls": "Only image data URLs allowed",
+    "svgNotSent": "SVG not sent",
+    "noKeyToDecrypt": "No key to decrypt",
+    "decryptFailed": "Decryption failed",
+    "invalidSource": "Invalid source",
+    "uploadFailed": "Upload failed",
+    "noVideoFrame": "No video frame yet - try again",
+    "cameraPermissionDenied": "Camera permission denied"
+  },
+  "clipboard": {
+    "decryptedImported": "Decrypted and imported",
+    "noImage": "No image",
+    "jpegCopied": "JPEG copied",
+    "pngCopied": "PNG copied",
+    "jpegFallbackPng": "JPEG clipboard failed, trying PNG:",
+    "imageFallbackText": "Image clipboard failed, falling back to text:",
+    "linkCopiedBlocked": "Link copied (image clipboard blocked)",
+    "linkCopiedUnsupported": "Link copied (image clipboard not supported)",
+    "copyNotPossible": "Copy not possible",
+    "dataUrlCopied": "Data URL copied",
+    "noKeyEncrypted": "No key - encrypted not copied",
+    "encryptedCopied": "Encrypted copied",
+    "encryptedCopyFailed": "Encrypted copy failed",
+    "saveNotPossible": "Save not possible",
+    "saveFailed": "Save failed:",
+    "notSupported": "Image clipboard not supported",
+    "noImageData": "No image data in clipboard",
+    "notReadable": "Clipboard not readable",
+    "loaded": "Clipboard loaded",
+    "imageSent": "Clipboard image sent",
+    "sendFailed": "Send failed"
+  },
+  "debug": {
+    "insertDataUrl": "Insert debug data URL",
+    "seedLabel": "Seed (Desktop):"
+  },
+  "footer": {
+    "copyright": "(c) 2025 Snap2Desk. All rights reserved.",
+    "debug": "Debug",
+    "privacy": "Privacy",
+    "cookies": "Cookies",
+    "terms": "Terms of Service",
+    "impressum": "Legal Notice",
+    "locale": "Switzerland"
+  },
+  "lightbox": {
+    "altText": "Enlarged photo"
+  },
+  "legal": {
+    "pageShell": {
+      "heroTagline": "Photos from your phone straight to your desktop. Fast, simple, safe - without an account."
+    },
+    "privacy": {
+      "title": "Privacy Policy",
+      "general": {
+        "heading": "1. General",
+        "text": "The protection of your personal data is an important concern for the operator of this website. This website can generally be used <strong>without an account and without actively entering personal data</strong>."
+      },
+      "dataProcessing": {
+        "heading": "2. Processing of Personal Data",
+        "intro": "<strong>No user accounts are maintained and no data is stored permanently</strong>. The following connection data is processed temporarily for technical purposes:",
+        "item1": "IP address for the duration of the connection",
+        "item2": "Session ID (sessionId) and device name for pairing devices",
+        "volatile": "This data is processed exclusively in a volatile manner and is not persisted.",
+        "noTracking": "<strong>No analysis or tracking tools</strong> are used, and <strong>no cookies are set for marketing or analysis purposes</strong>."
+      },
+      "transferredContent": {
+        "heading": "3. Transferred Content (Photos)",
+        "intro": "Photos transferred via this website serve exclusively for <strong>temporary transfer between connected devices</strong>.",
+        "item1": "The transferred data is <strong>not stored permanently</strong>.",
+        "item2": "There is <strong>no disclosure to third parties</strong> (except to the counterpart you have connected).",
+        "item3": "The transfer is <strong>end-to-end encrypted</strong>; the server only sees encrypted payloads."
+      }
+    },
+    "terms": {
+      "title": "Terms of Service",
+      "scope": {
+        "heading": "1. Scope",
+        "text": "These Terms of Service govern the use of the website <strong>Snap2Desk</strong> and the functions provided for transferring images between devices. By using this service, you agree to these Terms of Service."
+      },
+      "serviceDescription": {
+        "heading": "2. Service Description",
+        "text": "Snap2Desk enables the <strong>temporary transfer of images</strong> between connected devices via a web interface. The service is provided <strong>without registration</strong> and <strong>without permanent storage</strong> of the transferred content. There is no entitlement to specific functions or permanent availability (best-effort)."
+      },
+      "ownResponsibility": {
+        "heading": "3. Use at Your Own Risk",
+        "intro": "Use of the service is <strong>at your own risk</strong>. The operator assumes no warranty for:",
+        "item1": "the continuous availability of the service",
+        "item2": "error-free data transmission",
+        "item3": "loss or damage to transferred content"
+      },
+      "prohibitedUse": {
+        "heading": "4. Prohibited Use",
+        "intro": "Use of the service for illegal purposes is prohibited. In particular, it is not permitted to:",
+        "item1": "transfer illegal, offensive, or harmful content",
+        "item2": "use the service to distribute malware",
+        "item3": "misuse the technical infrastructure"
+      },
+      "liability": {
+        "heading": "5. Limitation of Liability",
+        "text": "The operator is not liable for direct or indirect damages resulting from the use or non-use of the service, to the extent permitted by law. Mandatory liability provisions (e.g., intent or gross negligence) remain unaffected."
+      },
+      "changes": {
+        "heading": "6. Changes to Terms of Service",
+        "text": "The operator reserves the right to update these Terms of Service at any time. The current version is available on this website."
+      },
+      "law": {
+        "heading": "7. Applicable Law",
+        "text": "<strong>Swiss law</strong> applies."
+      }
+    },
+    "cookies": {
+      "title": "Cookies",
+      "general": {
+        "heading": "1. General",
+        "noCookies": "This website currently does <strong>not use cookies</strong>.",
+        "explanation": "Cookies are small text files stored on your device that may contain certain information. They are often used to make websites more user-friendly, effective, and secure."
+      },
+      "currentStatus": {
+        "heading": "2. Current Status",
+        "item1": "❌ <strong>No cookies</strong> are set",
+        "item2": "❌ <strong>No tracking or analysis tools</strong> are used",
+        "item3": "❌ <strong>No user tracking</strong> takes place",
+        "summary": "This website can be used entirely <strong>without cookies</strong>."
+      },
+      "futureUse": {
+        "heading": "3. Future Use of Cookies",
+        "text": "Should cookies be used in the future (e.g., for functional purposes or optional extensions), this cookie policy will be updated accordingly. Required consents will be obtained before setting such cookies."
+      },
+      "contact": {
+        "heading": "4. Contact",
+        "intro": "If you have any questions about the use of cookies on this website, you can contact the operator at any time:",
+        "email": "Email:",
+        "emailAddress": "kontakt@snap2desk.com"
+      }
+    },
+    "impressum": {
+      "title": "Legal Notice",
+      "operator": {
+        "heading": "Website Operator",
+        "name": "Björn Glienke",
+        "address1": "Erlenmattstrasse 79",
+        "address2": "4058 Basel-Stadt",
+        "country": "Switzerland",
+        "email": "Email:",
+        "emailAddress": "kontakt@snap2desk.com"
+      },
+      "disclaimer": {
+        "heading": "Disclaimer",
+        "text": "The operator assumes no warranty for the accuracy, completeness, and timeliness of the provided content. Claims for liability against the operator for damages of a material or immaterial nature arising from access to or use or non-use of the published information are excluded."
+      },
+      "linksLiability": {
+        "heading": "Liability for Links",
+        "text": "This website may contain links to third-party external websites over whose content we have no control. Therefore, we cannot assume any warranty for this third-party content. The respective provider or operator of the linked pages is always responsible for the content of the linked pages."
+      }
+    }
+  }
+}

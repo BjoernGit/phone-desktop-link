@@ -1,14 +1,17 @@
 import { forwardRef } from "react";
+import { useTranslation } from "react-i18next";
 
 export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, style }, ref) {
+  const { t } = useTranslation();
   const peerCount = peers.length;
+
   return (
     <div className="peerPanel" ref={ref} style={style}>
-      <div className="panelTitle">Verbundene Geräte</div>
+      <div className="panelTitle">{t("desktop.peers.title")}</div>
       <div className="panelMeta">
         <span className={`pill ${hasConnection ? "ok" : "wait"}`}>
           <span className="dot" />
-          {hasConnection ? `${peerCount} Gerät(e) verbunden` : "Wartet auf Verbindung"}
+          {hasConnection ? `${peerCount} ${t("desktop.peers.connected")}` : t("desktop.peers.waiting")}
         </span>
       </div>
       {hasConnection ? (
@@ -20,7 +23,7 @@ export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, s
           ))}
         </div>
       ) : (
-        <div className="peerEmpty">Verbinde ein Gerät, um neue Fotos zu senden.</div>
+        <div className="peerEmpty">{t("desktop.peers.empty")}</div>
       )}
     </div>
   );

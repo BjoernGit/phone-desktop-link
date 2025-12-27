@@ -47,7 +47,7 @@ function drawScaled(source, srcW, srcH, targetW, targetH, jpegQuality) {
   return canvas.toDataURL("image/jpeg", jpegQuality);
 }
 
-export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange }) {
+export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange, t }) {
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [quality, setQuality] = useState("M");
@@ -210,7 +210,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
 
       setCameraReady(true);
     } catch (err) {
-      setCameraError(err?.message ?? "Camera permission denied");
+      setCameraError(err?.message ?? (t ? t("errors.cameraPermissionDenied") : "Camera permission denied"));
       setCameraReady(false);
     }
   }, [reportInfo, stopCamera]);
@@ -243,7 +243,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
     // 2) Fallback: Video-Frame nutzen (mit Crop/Downscale, kein Upscale)
     const v = videoRef.current;
     if (!v.videoWidth || !v.videoHeight) {
-      setCameraError("No video frame yet - versuche erneut");
+      setCameraError(t ? t("errors.noVideoFrame") : "No video frame yet - versuche erneut");
       return;
     }
     reportInfo({ type: "photo", source: "video", width: v.videoWidth, height: v.videoHeight });
@@ -269,7 +269,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange 
           if (dataUrl) onSendPhoto?.(dataUrl);
           if (navigator.vibrate) navigator.vibrate(10);
         } catch (e) {
-          setCameraError(e?.message || "Upload fehlgeschlagen");
+          setCameraError(e?.message || (t ? t("errors.uploadFailed") : "Upload fehlgeschlagen"));
         }
       }
     },

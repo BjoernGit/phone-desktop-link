@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { toBlob } from "../utils/image";
 import { encryptDataUrl } from "../utils/crypto";
 
-export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure, setLightboxSrc }) {
+export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure, setLightboxSrc, t }) {
   const [clipboardPreview, setClipboardPreview] = useState(null);
   const [clipboardMode, setClipboardMode] = useState(false);
 
@@ -11,71 +11,71 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
       const supportsImageClipboard = !!(navigator.clipboard?.write && window.ClipboardItem);
       try {
         if (supportsImageClipboard) {
-          const tryWrite = async (blob, label) => {
-            if (!blob) throw new Error("Kein Bild");
+          const tryWrite = async (blob, format) => {
+            if (!blob) throw new Error(t("clipboard.noImage"));
             const type = blob.type || "image/jpeg";
             const item = new ClipboardItem({ [type]: blob });
             await navigator.clipboard.write([item]);
-            showCopyStatus(`${label} kopiert`);
+            showCopyStatus(t(`clipboard.${format.toLowerCase()}Copied`));
           };
 
           try {
             const jpeg = await toBlob(src, "jpeg");
-            await tryWrite(jpeg, "JPEG");
+            await tryWrite(jpeg, "jpeg");
             return;
           } catch (errJpeg) {
-            console.warn("JPEG-Clipboard fehlgeschlagen, versuche PNG:", errJpeg);
+            console.warn(t("clipboard.jpegFallbackPng"), errJpeg);
             const png = await toBlob(src, "png");
-            await tryWrite(png, "PNG");
+            await tryWrite(png, "png");
             return;
           }
         }
       } catch (err) {
-        console.warn("Bild-Clipboard fehlgeschlagen, falle zurueck auf Text:", err);
+        console.warn(t("clipboard.imageFallbackText"), err);
       }
       try {
         await navigator.clipboard.writeText(src);
         showCopyStatus(
           supportsImageClipboard
-            ? "Link kopiert (Bild-Clipboard blockiert)"
-            : "Link kopiert (Bild-Clipboard nicht unterstuetzt)"
+            ? t("clipboard.linkCopiedBlocked")
+            : t("clipboard.linkCopiedUnsupported")
         );
       } catch {
-        showCopyStatus("Kopieren nicht moeglich");
+        showCopyStatus(t("clipboard.copyNotPossible"));
       }
     },
-    [showCopyStatus]
+    [showCopyStatus, t]
   );
 
   const copyPlainUrl = useCallback(
     async (src) => {
       try {
         await navigator.clipboard.writeText(src);
-        showCopyStatus("Data-URL kopiert");
+        showCopyStatus(t("clipboard.dataUrlCopied"));
       } catch (err) {
         console.warn("Plain copy failed", err);
-        showCopyStatus("Kopieren nicht moeglich");
+        showCopyStatus(t("clipboard.copyNotPossible"));
       }
     },
-    [showCopyStatus]
+    [showCopyStatus, t]
   );
 
   const copyEncrypted = useCallback(
     async (src) => {
       if (!sessionKey) {
-        showCopyStatus("Kein Key - verschluesselt nicht kopiert");
+        showCopyStatus(t("clipboard.noKeyEncrypted"));
         return;
       }
       try {
         const payload = await encryptDataUrl(src, sessionKey);
         await navigator.clipboard.writeText(JSON.stringify(payload));
-        showCopyStatus("Verschluesselt kopiert");
+        showCopyStatus(t("clipboard.encryptedCopied"));
       } catch (err) {
         console.warn("Encrypted copy failed", err);
-        showCopyStatus("Verschluesseltes Kopieren fehlgeschlagen");
+        showCopyStatus(t("clipboard.encryptedCopyFailed"));
       }
     },
-    [sessionKey, showCopyStatus]
+    [sessionKey, showCopyStatus, t]
   );
 
   const saveImage = useCallback(
@@ -87,7 +87,7 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
         } catch {
           blob = await toBlob(src, "png");
         }
-        if (!blob) throw new Error("Kein Bild");
+        if (!blob) throw new Error(t("clipboard.noImage"));
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         const ext = blob.type === "image/png" ? "png" : "jpg";
@@ -98,11 +98,11 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
         a.remove();
         URL.revokeObjectURL(url);
       } catch (err) {
-        console.warn("Speichern fehlgeschlagen:", err);
-        showCopyStatus("Speichern nicht moeglich");
+        console.warn(t("clipboard.saveFailed"), err);
+        showCopyStatus(t("clipboard.saveNotPossible"));
       }
     },
-    [showCopyStatus]
+    [showCopyStatus, t]
   );
 
   const fileToDataUrl = useCallback(
@@ -119,7 +119,7 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
   const handleDesktopClipboardLoad = useCallback(async () => {
     try {
       if (!navigator.clipboard?.read) {
-        showCopyStatus("Bild-Clipboard nicht unterstuetzt");
+        showCopyStatus(t("clipboard.notSupported"));
         return;
       }
 
@@ -137,30 +137,30 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
         setClipboardPreview({ type: "image", data: dataUrl });
         setLightboxSrc?.(dataUrl);
         setClipboardMode(true);
-        showCopyStatus("Clipboard geladen", 1200);
+        showCopyStatus(t("clipboard.loaded"), 1200);
         return;
       }
 
-      showCopyStatus("Keine Bilddaten im Clipboard");
+      showCopyStatus(t("clipboard.noImageData"));
     } catch (err) {
       console.warn("Clipboard read failed", err);
-      showCopyStatus("Clipboard nicht lesbar");
+      showCopyStatus(t("clipboard.notReadable"));
     }
-  }, [fileToDataUrl, setLightboxSrc, showCopyStatus]);
+  }, [fileToDataUrl, setLightboxSrc, showCopyStatus, t]);
 
   const handleDesktopClipboardSend = useCallback(async () => {
     if (!clipboardPreview) return;
     try {
       await sendPhotoSecure(clipboardPreview.data);
-      showCopyStatus("Clipboard-Bild gesendet", 1200);
+      showCopyStatus(t("clipboard.imageSent"), 1200);
       setClipboardPreview(null);
       setClipboardMode(false);
       setLightboxSrc?.(null);
     } catch (err) {
       console.warn("Clipboard send failed", err);
-      showCopyStatus("Senden fehlgeschlagen");
+      showCopyStatus(t("clipboard.sendFailed"));
     }
-  }, [clipboardPreview, sendPhotoSecure, setLightboxSrc, showCopyStatus]);
+  }, [clipboardPreview, sendPhotoSecure, setLightboxSrc, showCopyStatus, t]);
 
   const discardClipboardPreview = useCallback(() => {
     setClipboardPreview(null);

@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyPlain, onCopyEncrypted }) {
+  const { t } = useTranslation();
   const [dimMap, setDimMap] = useState({});
   if (!photos || photos.length === 0) return null;
 
@@ -21,7 +23,7 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyP
                 onSelect?.(src);
               }
             }}
-            aria-label={`Foto ${idx + 1} ansehen`}
+            aria-label={t("common.aria.viewPhoto", { idx: idx + 1 })}
           >
             <img
               className="photoImg"
@@ -48,9 +50,9 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyP
                   e.stopPropagation();
                   onCopy?.(src);
                 }}
-                aria-label="In Zwischenablage kopieren"
+                aria-label={t("common.aria.copyToClipboard")}
               >
-                Copy
+                {t("common.buttons.copy")}
               </button>
               <button
                 type="button"
@@ -59,9 +61,9 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyP
                   e.stopPropagation();
                   onSave?.(src);
                 }}
-                aria-label="Speichern"
+                aria-label={t("common.aria.saveImage")}
               >
-                Save
+                {t("common.buttons.save")}
               </button>
               {showDebug && (
                 <>
@@ -73,7 +75,7 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyP
                       onCopyPlain?.(src);
                     }}
                   >
-                    Copy URL
+                    {t("common.buttons.copyUrl")}
                   </button>
                   <button
                     type="button"
@@ -83,7 +85,7 @@ export function PhotoGrid({ photos, onSelect, onCopy, onSave, showDebug, onCopyP
                       onCopyEncrypted?.(src);
                     }}
                   >
-                    Copy Enc
+                    {t("common.buttons.copyEnc")}
                   </button>
                 </>
               )}

@@ -1,12 +1,15 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { PhotoGrid } from "./PhotoGrid";
 
 export function DesktopCanvas({ photos, onSelect, onCopy, onSave, onCopyPlain, onCopyEncrypted, showDebug }) {
+  const { t } = useTranslation();
+
   if (photos.length === 0) {
     return (
       <div className="emptyInvite">
-        <div className="emptyCallout">Bereit, Fotos zu empfangen</div>
-        <div className="emptyHint">Scanne den QR-Code mit deinem Handy und tippe auf den Auslöser.</div>
+        <div className="emptyCallout">{t("desktop.canvas.ready")}</div>
+        <div className="emptyHint">{t("desktop.canvas.hint")}</div>
       </div>
     );
   }

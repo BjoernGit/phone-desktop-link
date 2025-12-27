@@ -1,44 +1,47 @@
+import { useTranslation } from "react-i18next";
 import { PageShell } from "./PrivacyPage";
 
 export function ImpressumContent() {
+  const { t } = useTranslation();
+
   return (
     <>
-      <h2>Betreiber der Website</h2>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.impressum.operator.heading") }} />
       <p>
-        Bj&ouml;rn Glienke<br />
-        Erlenmattstrasse 79<br />
-        4058 Basel-Stadt<br />
-        Schweiz
+        {t("legal.impressum.operator.name")}
+        <br />
+        {t("legal.impressum.operator.address1")}
+        <br />
+        {t("legal.impressum.operator.address2")}
+        <br />
+        {t("legal.impressum.operator.country")}
       </p>
       <p>
-        <strong>E-Mail:</strong><br />
-        <a href="mailto:kontakt@snap2desk.com">kontakt@snap2desk.com</a>
-      </p>
-
-      <hr />
-
-      <h2>Haftungsausschluss</h2>
-      <p>
-        Der Betreiber &uuml;bernimmt keine Gew&auml;hr f&uuml;r die Richtigkeit, Vollst&auml;ndigkeit und Aktualit&auml;t der
-        bereitgestellten Inhalte. Haftungsanspr&uuml;che gegen den Betreiber wegen Sch&auml;den materieller oder immaterieller Art, die
-        aus dem Zugriff oder der Nutzung bzw. Nichtnutzung der ver&ouml;ffentlichten Informationen entstanden sind, werden ausgeschlossen.
+        <strong>{t("legal.impressum.operator.email")}</strong>
+        <br />
+        <a href={`mailto:${t("legal.impressum.operator.emailAddress")}`}>
+          {t("legal.impressum.operator.emailAddress")}
+        </a>
       </p>
 
       <hr />
 
-      <h2>Haftung f&uuml;r Links</h2>
-      <p>
-        Diese Website kann Links zu externen Websites Dritter enthalten, auf deren Inhalte kein Einfluss besteht. F&uuml;r diese fremden
-        Inhalte wird keine Gew&auml;hr &uuml;bernommen. F&uuml;r die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder
-        Betreiber der Seiten verantwortlich.
-      </p>
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.impressum.disclaimer.heading") }} />
+      <p dangerouslySetInnerHTML={{ __html: t("legal.impressum.disclaimer.text") }} />
+
+      <hr />
+
+      <h2 dangerouslySetInnerHTML={{ __html: t("legal.impressum.linksLiability.heading") }} />
+      <p dangerouslySetInnerHTML={{ __html: t("legal.impressum.linksLiability.text") }} />
     </>
   );
 }
 
 export default function ImpressumPage() {
+  const { t } = useTranslation();
+
   return (
-    <PageShell title="Impressum">
+    <PageShell title={t("legal.impressum.title")}>
       <ImpressumContent />
     </PageShell>
   );

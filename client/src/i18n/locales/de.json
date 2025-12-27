@@ -1,0 +1,267 @@
+{
+  "common": {
+    "deviceName": {
+      "unknown": "Unbekanntes Geraet"
+    },
+    "buttons": {
+      "approve": "Zulassen",
+      "reject": "Ablehnen",
+      "decline": "Ablehnen",
+      "accept": "Akzeptieren",
+      "join": "Beitreten",
+      "send": "Senden",
+      "discard": "Verwerfen",
+      "copy": "Copy",
+      "save": "Save",
+      "copyUrl": "Copy URL",
+      "copyEnc": "Copy Enc",
+      "add": "Add"
+    },
+    "aria": {
+      "viewPhoto": "Foto {{idx}} ansehen",
+      "copyToClipboard": "In Zwischenablage kopieren",
+      "saveImage": "Speichern",
+      "chooseFromGallery": "Bild aus Galerie waehlen",
+      "toggleQr": "QR-Modus umschalten",
+      "takePhoto": "Foto aufnehmen und senden"
+    }
+  },
+  "mobile": {
+    "blocked": {
+      "title": "QR-Code scannen",
+      "instruction1": "Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.",
+      "websiteLabel": "Website:",
+      "instruction2": "Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App."
+    },
+    "selfId": "Deine ID: {{id}}",
+    "qr": {
+      "detected": "QR erkannt",
+      "session": "Session:",
+      "seed": "Seed:",
+      "readSession": "Session einlesen",
+      "sendOwnSession": "Eigene Session senden",
+      "offerSent": "Angebot gesendet",
+      "offerSentStatus": "Session-Angebot gesendet",
+      "scanActive": "QR-Scan aktiv",
+      "recognized": "QR erkannt: {{session}}"
+    },
+    "controls": {
+      "gallery": "Galerie",
+      "qrBadge": "QR Mode",
+      "startCamera": "Kamera starten",
+      "starting": "Startet...",
+      "tapToRelease": "Tippe, um die Kamera freizugeben"
+    },
+    "gallery": {
+      "title": "Galerie",
+      "empty": "Noch keine Fotos in dieser Session.",
+      "swipeBack": "Swipe nach rechts zurueck zur Kamera."
+    },
+    "quality": {
+      "label": "Aufloesung"
+    }
+  },
+  "desktop": {
+    "hero": {
+      "tagline": "Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher - ganz ohne Account."
+    },
+    "upload": {
+      "title": "Fotos hinzufuegen",
+      "uploadImage": "Bild hochladen",
+      "loadClipboard": "Clipboard laden",
+      "clipboardPreview": "Clipboard-Vorschau",
+      "sendPreview": "Vorschau senden",
+      "mutedText": "Bilder werden innerhalb dieser Session geteilt."
+    },
+    "qr": {
+      "label": "Scanne den QR-Code",
+      "pairMore": "Weitere Geräte koppeln"
+    },
+    "canvas": {
+      "ready": "Bereit, Fotos zu empfangen",
+      "hint": "Scanne den QR-Code mit deinem Handy und tippe auf den Auslöser."
+    },
+    "peers": {
+      "title": "Verbundene Geräte",
+      "connected": "Gerät(e) verbunden",
+      "waiting": "Wartet auf Verbindung",
+      "empty": "Verbinde ein Gerät, um neue Fotos zu senden."
+    }
+  },
+  "offer": {
+    "wantsToJoin": "{{device}} möchte Ihrer Session beitreten",
+    "invitesYou": "{{device}} möchte Sie zu einer Session einladen",
+    "newRequest": "Neue Anfrage",
+    "modalTitle": "Session wechseln?",
+    "wantsToJoinModal": "{{device}} möchte Ihrer Session beitreten.",
+    "invitesYouModal": "{{device}} möchte Sie zu einer Session einladen."
+  },
+  "status": {
+    "noSession": "Kein Session-Parameter im QR",
+    "sessionTaken": "Session uebernommen",
+    "offerIncomplete": "Offer unvollstaendig",
+    "offerReceived": "Offer eingegangen",
+    "offerUnreadable": "Offer nicht lesbar",
+    "offerRejected": "Offer abgelehnt",
+    "offerAccepted": "Offer bernommen"
+  },
+  "errors": {
+    "noKey": "Kein Key - Foto nicht gesendet",
+    "onlyImageDataUrls": "Nur Bild-Data-URLs erlaubt",
+    "svgNotSent": "SVG wird nicht gesendet",
+    "noKeyToDecrypt": "Kein Key zum Entschlsseln",
+    "decryptFailed": "Decrypt fehlgeschlagen",
+    "invalidSource": "Ungltige Quelle",
+    "uploadFailed": "Upload fehlgeschlagen",
+    "noVideoFrame": "No video frame yet - versuche erneut",
+    "cameraPermissionDenied": "Camera permission denied"
+  },
+  "clipboard": {
+    "decryptedImported": "Entschlsselt importiert",
+    "noImage": "Kein Bild",
+    "jpegCopied": "JPEG kopiert",
+    "pngCopied": "PNG kopiert",
+    "jpegFallbackPng": "JPEG-Clipboard fehlgeschlagen, versuche PNG:",
+    "imageFallbackText": "Bild-Clipboard fehlgeschlagen, falle zurueck auf Text:",
+    "linkCopiedBlocked": "Link kopiert (Bild-Clipboard blockiert)",
+    "linkCopiedUnsupported": "Link kopiert (Bild-Clipboard nicht unterstuetzt)",
+    "copyNotPossible": "Kopieren nicht moeglich",
+    "dataUrlCopied": "Data-URL kopiert",
+    "noKeyEncrypted": "Kein Key - verschluesselt nicht kopiert",
+    "encryptedCopied": "Verschluesselt kopiert",
+    "encryptedCopyFailed": "Verschluesseltes Kopieren fehlgeschlagen",
+    "saveNotPossible": "Speichern nicht moeglich",
+    "saveFailed": "Speichern fehlgeschlagen:",
+    "notSupported": "Bild-Clipboard nicht unterstuetzt",
+    "noImageData": "Keine Bilddaten im Clipboard",
+    "notReadable": "Clipboard nicht lesbar",
+    "loaded": "Clipboard geladen",
+    "imageSent": "Clipboard-Bild gesendet",
+    "sendFailed": "Senden fehlgeschlagen"
+  },
+  "debug": {
+    "insertDataUrl": "Debug Data-URL einfuegen",
+    "seedLabel": "Seed (Desktop):"
+  },
+  "footer": {
+    "copyright": "(c) 2025 Snap2Desk. Alle Rechte vorbehalten.",
+    "debug": "Debug",
+    "privacy": "Datenschutz",
+    "cookies": "Cookies",
+    "terms": "Nutzungsbedingungen",
+    "impressum": "Impressum",
+    "locale": "Schweiz"
+  },
+  "lightbox": {
+    "altText": "Vergroessertes Foto"
+  },
+  "legal": {
+    "pageShell": {
+      "heroTagline": "Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher - ganz ohne Account."
+    },
+    "privacy": {
+      "title": "Datenschutz",
+      "general": {
+        "heading": "1. Allgemeines",
+        "text": "Der Schutz Ihrer persönlichen Daten ist dem Betreiber dieser Website ein wichtiges Anliegen. Diese Website kann grundsätzlich <strong>ohne Konto und ohne aktive Eingabe personenbezogener Daten</strong> genutzt werden."
+      },
+      "dataProcessing": {
+        "heading": "2. Verarbeitung personenbezogener Daten",
+        "intro": "Es werden <strong>keine Benutzerkonten geführt und keine Daten dauerhaft gespeichert</strong>. Technisch notwendig ist die kurzzeitige Verarbeitung folgender Verbindungsdaten:",
+        "item1": "IP-Adresse für die Dauer der Verbindung",
+        "item2": "Sitzungskennung (sessionId) und Gerätename zum Koppeln der Geräte",
+        "volatile": "Diese Daten werden ausschließlich flüchtig verarbeitet und nicht persistiert.",
+        "noTracking": "Es kommen <strong>keine Analyse- oder Tracking-Tools</strong> zum Einsatz und es werden <strong>keine Cookies für Marketing- oder Analysezwecke</strong> gesetzt."
+      },
+      "transferredContent": {
+        "heading": "3. Übertragene Inhalte (Fotos)",
+        "intro": "Fotos, die über diese Website übertragen werden, dienen ausschließlich der <strong>temporären Übertragung zwischen verbundenen Geräten</strong>.",
+        "item1": "Die übertragenen Daten werden <strong>nicht dauerhaft gespeichert</strong>.",
+        "item2": "Es erfolgt <strong>keine Weitergabe an Dritte</strong> (außer an die von Ihnen verbundene Gegenstelle).",
+        "item3": "Die Übertragung erfolgt <strong>Ende-zu-Ende-verschlüsselt</strong>; der Server sieht nur chiffrierte Nutzlasten."
+      }
+    },
+    "terms": {
+      "title": "Nutzungsbedingungen",
+      "scope": {
+        "heading": "1. Geltungsbereich",
+        "text": "Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>Snap2Desk</strong> und der darüber bereitgestellten Funktionen zur Übertragung von Bildern zwischen Geräten. Mit der Nutzung erklären Sie sich mit diesen Nutzungsbedingungen einverstanden."
+      },
+      "serviceDescription": {
+        "heading": "2. Leistungsbeschreibung",
+        "text": "Snap2Desk ermöglicht die <strong>temporäre Übertragung von Bildern</strong> zwischen verbundenen Geräten über eine Weboberfläche. Der Dienst wird <strong>ohne Registrierung</strong> und <strong>ohne dauerhafte Speicherung</strong> der übertragenen Inhalte bereitgestellt. Ein Anspruch auf bestimmte Funktionen oder eine dauerhafte Verfügbarkeit besteht nicht (Best-Effort)."
+      },
+      "ownResponsibility": {
+        "heading": "3. Nutzung auf eigene Verantwortung",
+        "intro": "Die Nutzung des Dienstes erfolgt <strong>auf eigene Verantwortung</strong>. Der Betreiber übernimmt keine Gewähr für:",
+        "item1": "die ständige Verfügbarkeit des Dienstes",
+        "item2": "die fehlerfreie Übertragung von Daten",
+        "item3": "den Verlust oder die Beschädigung übertragener Inhalte"
+      },
+      "prohibitedUse": {
+        "heading": "4. Unzulässige Nutzung",
+        "intro": "Die Nutzung des Dienstes für rechtswidrige Zwecke ist untersagt. Insbesondere ist es nicht gestattet:",
+        "item1": "rechtswidrige, beleidigende oder schädigende Inhalte zu übertragen",
+        "item2": "den Dienst zur Verbreitung von Schadsoftware zu nutzen",
+        "item3": "die technische Infrastruktur missbräuchlich zu verwenden"
+      },
+      "liability": {
+        "heading": "5. Haftungsbeschränkung",
+        "text": "Der Betreiber haftet nicht für direkte oder indirekte Schäden, die aus der Nutzung oder Nichtnutzung des Dienstes entstehen, soweit dies gesetzlich zulässig ist. Zwingende Haftungstatbestände (z. B. Vorsatz oder grobe Fahrlässigkeit) bleiben unberührt."
+      },
+      "changes": {
+        "heading": "6. Änderungen der Nutzungsbedingungen",
+        "text": "Der Betreiber behält sich vor, diese Nutzungsbedingungen jederzeit anzupassen. Die aktuelle Version ist auf dieser Website abrufbar."
+      },
+      "law": {
+        "heading": "7. Anwendbares Recht",
+        "text": "Es gilt das <strong>Schweizer Recht</strong>."
+      }
+    },
+    "cookies": {
+      "title": "Cookies",
+      "general": {
+        "heading": "1. Allgemeines",
+        "noCookies": "Diese Website verwendet derzeit <strong>keine Cookies</strong>.",
+        "explanation": "Cookies sind kleine Textdateien, die auf Ihrem Endgerät gespeichert werden und bestimmte Informationen enthalten können. Sie dienen häufig dazu, Websites benutzerfreundlicher, effektiver und sicherer zu machen."
+      },
+      "currentStatus": {
+        "heading": "2. Aktueller Stand",
+        "item1": "❌ Es werden <strong>keine Cookies</strong> gesetzt",
+        "item2": "❌ Es werden <strong>keine Tracking- oder Analyse-Tools</strong> eingesetzt",
+        "item3": "❌ Es findet <strong>kein Nutzer-Tracking</strong> statt",
+        "summary": "Die Nutzung dieser Website ist vollständig <strong>ohne Cookies</strong> möglich."
+      },
+      "futureUse": {
+        "heading": "3. Zukünftige Nutzung von Cookies",
+        "text": "Sollten in Zukunft Cookies eingesetzt werden (z. B. für funktionale Zwecke oder optionale Erweiterungen), wird diese Cookie-Richtlinie entsprechend angepasst. Erforderliche Einwilligungen werden dann vor dem Setzen entsprechender Cookies eingeholt."
+      },
+      "contact": {
+        "heading": "4. Kontakt",
+        "intro": "Bei Fragen zur Verwendung von Cookies auf dieser Website können Sie sich jederzeit an den Betreiber wenden:",
+        "email": "E-Mail:",
+        "emailAddress": "kontakt@snap2desk.com"
+      }
+    },
+    "impressum": {
+      "title": "Impressum",
+      "operator": {
+        "heading": "Betreiber der Website",
+        "name": "Björn Glienke",
+        "address1": "Erlenmattstrasse 79",
+        "address2": "4058 Basel-Stadt",
+        "country": "Schweiz",
+        "email": "E-Mail:",
+        "emailAddress": "kontakt@snap2desk.com"
+      },
+      "disclaimer": {
+        "heading": "Haftungsausschluss",
+        "text": "Der Betreiber übernimmt keine Gewähr für die Richtigkeit, Vollständigkeit und Aktualität der bereitgestellten Inhalte. Haftungsansprüche gegen den Betreiber wegen Schäden materieller oder immaterieller Art, die aus dem Zugriff oder der Nutzung bzw. Nichtnutzung der veröffentlichten Informationen entstanden sind, werden ausgeschlossen."
+      },
+      "linksLiability": {
+        "heading": "Haftung für Links",
+        "text": "Diese Website kann Links zu externen Websites Dritter enthalten, auf deren Inhalte kein Einfluss besteht. Für diese fremden Inhalte wird keine Gewähr übernommen. Für die Inhalte der verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich."
+      }
+    }
+  }
+}
