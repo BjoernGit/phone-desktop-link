@@ -3,6 +3,7 @@ import { MobileDebugPill } from "./components/MobileDebugPill";
 import { MobileControls } from "./components/MobileControls";
 import { SessionOfferModal } from "./components/SessionOfferModal";
 import { PhotoGrid } from "./components/PhotoGrid";
+import { PendingApprovals } from "./components/PendingApprovals";
 
 export function MobileApp({
   sessionId,
@@ -43,6 +44,9 @@ export function MobileApp({
   saveImage,
   copyPlainUrl,
   copyEncrypted,
+  pendingPeers = [],
+  approvePeer,
+  rejectPeer,
 }) {
   return (
     <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -58,6 +62,8 @@ export function MobileApp({
           onSeedChange={handleSeedInput}
         />
       </div>
+
+      <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
 
       <MobileControls
         videoRef={videoRef}

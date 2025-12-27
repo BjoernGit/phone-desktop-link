@@ -7,6 +7,7 @@ import { PairingRow } from "./components/PairingRow";
 import { DesktopCanvas } from "./components/DesktopCanvas";
 import { Lightbox } from "./components/Lightbox";
 import { FooterBar } from "./components/FooterBar";
+import { PendingApprovals } from "./components/PendingApprovals";
 
 export function DesktopApp({
   sessionId,
@@ -50,6 +51,9 @@ export function DesktopApp({
   legalContent,
   navigate,
   allowDebug,
+  pendingPeers = [],
+  approvePeer,
+  rejectPeer,
 }) {
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -156,6 +160,7 @@ export function DesktopApp({
 
           {hasActiveUI && (
             <>
+              <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
               <PairingRow
                 uploadPanel={uploadPanel}
                 qrSize={qrSize}

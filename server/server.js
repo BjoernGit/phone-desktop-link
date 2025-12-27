@@ -71,6 +71,16 @@ function isValidMime(mime) {
   return typeof mime === "string" && /^image\\//.test(mime) && mime.length < 64;
 }
 
+const sessionState = new Map();
+
+function getSessionState(sessionId) {
+  const existing = sessionState.get(sessionId);
+  if (existing) return existing;
+  const fresh = { approved: new Set(), rejected: new Set(), pending: new Set() };
+  sessionState.set(sessionId, fresh);
+  return fresh;
+}
+
 function inRoom(socket, sid) {
   const room = roomName(sid);
   return socket.rooms.has(room);
@@ -118,6 +128,32 @@ io.on("connection", (socket) => {
     socket.data.deviceName = deviceName;
     socket.data.clientUuid = clientUuid;
 
+    const state = getSessionState(sid);
+    const emitStatus = (uuid, status) => io.to(room).emit("peer-status", { clientUuid: uuid, status });
+
+    if (!state.approved.size) {
+      state.approved.add(clientUuid);
+      state.pending.delete?.(clientUuid);
+      state.rejected.delete?.(clientUuid);
+      emitStatus(clientUuid, "approved");
+    } else if (state.rejected.has(clientUuid)) {
+      emitStatus(clientUuid, "rejected");
+    } else {
+      state.pending.add(clientUuid);
+      emitStatus(clientUuid, "pending");
+    }
+
+    // teile dem neuen Socket bestehende Stati mit
+    state.approved.forEach((uuid) => {
+      if (uuid !== clientUuid) socket.emit("peer-status", { clientUuid: uuid, status: "approved" });
+    });
+    state.rejected.forEach((uuid) => {
+      if (uuid !== clientUuid) socket.emit("peer-status", { clientUuid: uuid, status: "rejected" });
+    });
+    state.pending.forEach((uuid) => {
+      if (uuid !== clientUuid) socket.emit("peer-status", { clientUuid: uuid, status: "pending" });
+    });
+
     // Bestehende Peers an den Joiner senden
     const roomInfo = io.sockets.adapter.rooms.get(room);
     if (roomInfo && roomInfo.size > 1) {
@@ -149,7 +185,11 @@ io.on("connection", (socket) => {
     }
     if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, 8192)) return;
     if (mime && !isValidMime(mime)) return;
-    io.to(roomName(sid)).emit("photo", { iv, ciphertext, mime });
+    const state = getSessionState(sid);
+    const senderUuid = socket.data.clientUuid;
+    if (!state.approved.has(senderUuid)) return;
+    if (state.rejected.has(senderUuid)) return;
+    io.to(roomName(sid)).emit("photo", { iv, ciphertext, mime, senderUuid });
   });
 
   socket.on("session-offer", ({ sessionId, offer, target, targetUuid }) => {
@@ -181,6 +221,29 @@ io.on("connection", (socket) => {
       sockets.forEach((s) => s.emit("session-offer", payload));
     } else if (dest) {
       socket.to(roomName(dest)).emit("session-offer", payload);
+    }
+  });
+
+  socket.on("peer-decision", ({ targetUuid, decision }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+    if (!isValidSessionId(sid)) return;
+    const state = getSessionState(sid);
+    const actorUuid = socket.data.clientUuid;
+    if (!state.approved.has(actorUuid)) return; // nur approvte duerfen entscheiden
+    const room = roomName(sid);
+    const emitStatus = (uuid, status) => io.to(room).emit("peer-status", { clientUuid: uuid, status });
+
+    if (decision === "approve") {
+      state.pending.delete(targetUuid);
+      state.rejected.delete(targetUuid);
+      state.approved.add(targetUuid);
+      emitStatus(targetUuid, "approved");
+    } else if (decision === "reject") {
+      state.pending.delete(targetUuid);
+      state.approved.delete(targetUuid);
+      state.rejected.add(targetUuid);
+      emitStatus(targetUuid, "rejected");
     }
   });
 

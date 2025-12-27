@@ -29,6 +29,7 @@ export default function App() {
   const [showQualityPicker, setShowQualityPicker] = useState(false);
   const fileInputRef = useRef(null);
   const sessionKeyRef = useRef(null);
+  const [peerStatuses, setPeerStatuses] = useState({});
   const host = window.location.hostname || "";
   const isLocalHost =
     host === "localhost" ||
@@ -137,6 +138,7 @@ export default function App() {
     addLocalPhoto,
     sendSessionOffer,
     setSessionId: overrideSessionId,
+    sendPeerDecision,
   } = useSessionSockets({
     isMobile,
     deviceName,
@@ -150,7 +152,33 @@ export default function App() {
         from: payload.fromDevice || payload.fromRole || "Peer",
       });
     },
+    onPeerStatus: (payload) => {
+      if (!payload?.clientUuid || !payload?.status) return;
+      setPeerStatuses((prev) => {
+        const next = { ...prev };
+        if (payload.status === "left") {
+          delete next[payload.clientUuid];
+        } else {
+          next[payload.clientUuid] = payload.status;
+        }
+        return next;
+      });
+    },
   });
+
+  const approvePeer = useCallback(
+    (uuid) => {
+      sendPeerDecision(uuid, "approve");
+    },
+    [sendPeerDecision]
+  );
+
+  const rejectPeer = useCallback(
+    (uuid) => {
+      sendPeerDecision(uuid, "reject");
+    },
+    [sendPeerDecision]
+  );
 
   const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 
@@ -260,6 +288,13 @@ export default function App() {
 
   const isTouch = useMemo(() => (navigator?.maxTouchPoints || 0) > 1, []);
   const missingSeed = (!sessionId || !sessionSeed) && (isMobile || isTouch);
+  const pendingPeers = useMemo(
+    () =>
+      Object.entries(peerStatuses)
+        .filter(([uuid, status]) => status === "pending" && uuid !== clientUuid)
+        .map(([uuid]) => uuid),
+    [clientUuid, peerStatuses]
+  );
   const legalContentMap = useMemo(
     () => ({
       "/datenschutz": <PrivacyContent />,
@@ -451,11 +486,14 @@ export default function App() {
       setLightboxSrc={setLightboxSrc}
       qrPanelRef={qrPanelRef}
       peerPanelRef={peerPanelRef}
-      panelHeights={panelHeights}
+    panelHeights={panelHeights}
     legalOpen={legalOpen}
     legalContent={legalContent}
     navigate={navigate}
     allowDebug={allowDebug}
+    pendingPeers={pendingPeers}
+    approvePeer={approvePeer}
+    rejectPeer={rejectPeer}
   />
 );
 }
@@ -519,6 +557,9 @@ if (missingSeed) {
       saveImage={saveImage}
       copyPlainUrl={copyPlainUrl}
       copyEncrypted={copyEncrypted}
+      pendingPeers={pendingPeers}
+      approvePeer={approvePeer}
+      rejectPeer={rejectPeer}
     />
   );
 }

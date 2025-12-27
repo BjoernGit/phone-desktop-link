@@ -19,7 +19,7 @@ function getSocketUrl() {
   return window.location.origin;
 }
 
-export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer }) {
+export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onPeerStatus }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketStatus, setSocketStatus] = useState("connecting");
@@ -171,14 +171,18 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       console.log("session-offer received", payload);
       onSessionOffer?.(payload);
     });
+    socket.on("peer-status", (payload) => {
+      onPeerStatus?.(payload);
+    });
 
     return () => {
       socket.off("peer-joined", onPeerJoined);
       socket.off("peer-left", onPeerLeft);
       socket.off("photo", onPhoto);
       socket.off("session-offer");
+      socket.off("peer-status");
     };
-  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer]);
+  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer, onPeerStatus]);
 
   // emit join when sessionId changes and Socket ist verbunden
   useEffect(() => {
@@ -228,6 +232,14 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     [sessionId, socket]
   );
 
+  const sendPeerDecision = useCallback(
+    (targetUuid, decision) => {
+      if (!sessionId || !targetUuid || !decision) return;
+      socket.emit("peer-decision", { targetUuid, decision });
+    },
+    [sessionId, socket]
+  );
+
   const addLocalPhoto = useCallback((src) => {
     if (!src) return;
     setPhotos((prev) => [src, ...prev]);
@@ -245,5 +257,6 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     sendSessionOffer,
     setSessionId,
     forceJoin,
+    sendPeerDecision,
   };
 }
