@@ -693,6 +693,17 @@
 }
 
 /* Session Offer Bar (Desktop) */
+.pendingApprovals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.pendingBar {
+  width: 100%;
+}
+
 .sessionOfferBar {
   background: rgba(28, 35, 54, 0.9);
   border: 1px solid rgba(255, 255, 255, 0.08);
