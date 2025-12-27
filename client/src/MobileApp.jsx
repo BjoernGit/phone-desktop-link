@@ -47,6 +47,7 @@ export function MobileApp({
   pendingPeers = [],
   approvePeer,
   rejectPeer,
+  clientUuid,
 }) {
   return (
     <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -62,6 +63,8 @@ export function MobileApp({
           onSeedChange={handleSeedInput}
         />
       </div>
+
+      <div className="selfIdBadge">Deine ID: {clientUuid ? clientUuid.slice(0, 6) : "n/a"}</div>
 
       <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
 
@@ -144,7 +147,12 @@ export function MobileApp({
 
           <SessionOfferModal
             offer={incomingOffer}
-            onDecline={() => setIncomingOffer(null)}
+            onDecline={() => {
+              if (incomingOffer?.fromUuid) {
+                rejectPeer(incomingOffer.fromUuid);
+              }
+              setIncomingOffer(null);
+            }}
             onAccept={() => {
               applyQrOffer(incomingOffer);
             }}

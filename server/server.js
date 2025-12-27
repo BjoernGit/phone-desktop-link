@@ -239,11 +239,19 @@ io.on("connection", (socket) => {
       state.rejected.delete(targetUuid);
       state.approved.add(targetUuid);
       emitStatus(targetUuid, "approved");
-    } else if (decision === "reject") {
+    } else if (decision === "reject" || decision === "reject-offer") {
       state.pending.delete(targetUuid);
       state.approved.delete(targetUuid);
       state.rejected.add(targetUuid);
       emitStatus(targetUuid, "rejected");
+      const room = roomName(sid);
+      const rejectedSockets = Array.from(io.sockets.sockets.values()).filter(
+        (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+      );
+      rejectedSockets.forEach((s) => {
+        s.leave(room);
+        s.disconnect(true);
+      });
     }
   });
 

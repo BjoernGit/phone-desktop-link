@@ -128,6 +128,9 @@ export function DesktopApp({
             <SessionOfferBar
               offer={incomingOffer}
               onDecline={() => {
+                if (incomingOffer?.fromUuid) {
+                  rejectPeer(incomingOffer.fromUuid);
+                }
                 setIncomingOffer(null);
                 setOfferStatus("Offer abgelehnt");
               }}

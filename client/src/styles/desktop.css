@@ -708,6 +708,7 @@
 
 .sessionOfferText {
   font-weight: 700;
+  font-size: 15px;
   line-height: 1.3;
 }
 
@@ -731,4 +732,13 @@
   background: transparent;
   color: #e9edf3;
   border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.offerSender {
+  font-family: inherit;
+  font-size: 15px;
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: #fff;
 }

@@ -118,38 +118,30 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
 
   const handleDesktopClipboardLoad = useCallback(async () => {
     try {
-      let found = false;
-      // Erst versuchen, echte Image-Items zu lesen
-      if (navigator.clipboard?.read) {
-        const items = await navigator.clipboard.read();
-        for (const item of items) {
-          const imgType = item.types.find((t) => t.startsWith("image/"));
-          if (imgType) {
-            const blob = await item.getType(imgType);
-            const dataUrl = await fileToDataUrl(blob);
-            if (dataUrl) {
-              setClipboardPreview({ type: "image", data: dataUrl });
-              setLightboxSrc?.(dataUrl);
-              setClipboardMode(true);
-              showCopyStatus("Clipboard geladen", 1200);
-              found = true;
-              break;
-            }
-          }
-        }
+      if (!navigator.clipboard?.read) {
+        showCopyStatus("Bild-Clipboard nicht unterstuetzt");
+        return;
       }
-      // Fallback: Text
-      if (!found) {
-        const txt = await navigator.clipboard.readText();
-        if (txt && (txt.startsWith("data:image") || txt.startsWith("http"))) {
-          setClipboardPreview({ type: "text", data: txt });
-          showCopyStatus("Clipboard geladen", 1200);
-          found = true;
-        }
+
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const imgType = item.types.find((t) => t.startsWith("image/"));
+        if (!imgType) continue;
+
+        const blob = await item.getType(imgType);
+        if (!blob?.type?.startsWith("image/")) continue;
+
+        const dataUrl = await fileToDataUrl(blob);
+        if (!dataUrl) continue;
+
+        setClipboardPreview({ type: "image", data: dataUrl });
+        setLightboxSrc?.(dataUrl);
+        setClipboardMode(true);
+        showCopyStatus("Clipboard geladen", 1200);
+        return;
       }
-      if (!found) {
-        showCopyStatus("Keine Bilddaten im Clipboard");
-      }
+
+      showCopyStatus("Keine Bilddaten im Clipboard");
     } catch (err) {
       console.warn("Clipboard read failed", err);
       showCopyStatus("Clipboard nicht lesbar");

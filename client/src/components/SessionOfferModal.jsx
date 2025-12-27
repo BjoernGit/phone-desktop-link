@@ -2,6 +2,8 @@ import React from "react";
 
 export function SessionOfferModal({ offer, onAccept, onDecline }) {
   if (!offer) return null;
+  const senderId = offer.fromUuid ? offer.fromUuid.slice(0, 6) : null;
+  const message = offer.isJoin ? "möchte Ihrer Session beitreten." : "möchte Sie zu einer Session einladen.";
 
   return (
     <div className="legalModal" onClick={onDecline}>
@@ -14,15 +16,13 @@ export function SessionOfferModal({ offer, onAccept, onDecline }) {
         <div className="legalModalBody">
           <h3>Session wechseln?</h3>
           <p>
-            {(offer.from || "Peer") + " bietet eine Session an:"}
-            <br />
-            <strong>{offer.session}</strong>
-            {offer.seed ? (
+            {senderId ? (
               <>
-                <br />
-                Seed: <code>{offer.seed}</code>
+                <code className="offerSender">{senderId}</code> {message}
               </>
-            ) : null}
+            ) : (
+              "Neue Anfrage"
+            )}
           </p>
           <div className="legalActions">
             <button type="button" className="legalClose" onClick={onDecline}>

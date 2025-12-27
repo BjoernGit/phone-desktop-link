@@ -150,6 +150,7 @@ export default function App() {
         session: payload.session,
         seed: payload.seed || "",
         from: payload.fromDevice || payload.fromRole || "Peer",
+        fromUuid: payload.fromUuid || "",
       });
     },
     onPeerStatus: (payload) => {
@@ -486,16 +487,17 @@ export default function App() {
       setLightboxSrc={setLightboxSrc}
       qrPanelRef={qrPanelRef}
       peerPanelRef={peerPanelRef}
-    panelHeights={panelHeights}
-    legalOpen={legalOpen}
-    legalContent={legalContent}
-    navigate={navigate}
-    allowDebug={allowDebug}
-    pendingPeers={pendingPeers}
-    approvePeer={approvePeer}
-    rejectPeer={rejectPeer}
-  />
-);
+      panelHeights={panelHeights}
+      legalOpen={legalOpen}
+      legalContent={legalContent}
+      navigate={navigate}
+      allowDebug={allowDebug}
+      pendingPeers={pendingPeers}
+      approvePeer={approvePeer}
+      rejectPeer={rejectPeer}
+      clientUuid={clientUuid}
+    />
+  );
 }
 
 if (missingSeed) {
@@ -560,6 +562,7 @@ if (missingSeed) {
       pendingPeers={pendingPeers}
       approvePeer={approvePeer}
       rejectPeer={rejectPeer}
+      clientUuid={clientUuid}
     />
   );
 }
