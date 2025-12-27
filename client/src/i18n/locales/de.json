@@ -57,6 +57,13 @@
       "empty": "Noch keine Fotos in dieser Session.",
       "swipeBack": "Swipe nach rechts zurueck zur Kamera."
     },
+    "qrDisplay": {
+      "title": "QR-Code anzeigen",
+      "instructions": "Scanne diesen QR-Code mit einem anderen Gerät, um es mit dieser Session zu verbinden.",
+      "sessionId": "Session-ID",
+      "deviceId": "Geräte-ID",
+      "swipeHint": "← Swipe nach rechts zur Kamera | Swipe nach links zur Galerie →"
+    },
     "quality": {
       "label": "Aufloesung"
     }

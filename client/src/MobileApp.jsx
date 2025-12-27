@@ -5,6 +5,7 @@ import { MobileControls } from "./components/MobileControls";
 import { SessionOfferModal } from "./components/SessionOfferModal";
 import { PhotoGrid } from "./components/PhotoGrid";
 import { PendingApprovals } from "./components/PendingApprovals";
+import { MobileQrDisplay } from "./components/MobileQrDisplay";
 
 export function MobileApp({
   sessionId,
@@ -50,6 +51,7 @@ export function MobileApp({
   approvePeer,
   rejectPeer,
   clientUuid,
+  qrUrl,
 }) {
   const { t } = useTranslation();
 
@@ -164,7 +166,7 @@ export function MobileApp({
             }}
           />
         </>
-      ) : (
+      ) : mobileView === "gallery" ? (
         <div className="mobileGalleryView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
           <div className="mobileGalleryPlaceholder">
             <h2>{t("mobile.gallery.title")}</h2>
@@ -188,6 +190,8 @@ export function MobileApp({
             )}
           </div>
         </div>
+      ) : (
+        <MobileQrDisplay url={qrUrl} sessionId={sessionId} clientUuid={clientUuid} />
       )}
     </div>
   );

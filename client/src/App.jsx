@@ -52,9 +52,16 @@ export default function App() {
   const [qrOffer, setQrOffer] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerStatus, setOfferStatus] = useState("idle");
-  const [mobileView, setMobileView] = useState("camera"); // camera | gallery
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Initialize mobileView based on whether we have a session
+  const initialMobileView = useMemo(() => {
+    const params = new URLSearchParams(window.location.search);
+    const hasSession = params.has("session");
+    return hasSession ? "camera" : "qrDisplay";
+  }, []);
+  const [mobileView, setMobileView] = useState(initialMobileView);
 
   const qrPanelRef = useRef(null);
   const peerPanelRef = useRef(null);
@@ -96,13 +103,19 @@ export default function App() {
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; // nur klare horizontale Swipes
+
+      // Three-view system: qrDisplay ← camera → gallery
       if (dx < -40) {
-        setMobileView("gallery");
+        // Swipe left (→ gallery)
+        if (mobileView === "camera") setMobileView("gallery");
+        else if (mobileView === "qrDisplay") setMobileView("camera");
       } else if (dx > 40) {
-        setMobileView("camera");
+        // Swipe right (← qrDisplay)
+        if (mobileView === "camera") setMobileView("qrDisplay");
+        else if (mobileView === "gallery") setMobileView("camera");
       }
     },
-    []
+    [mobileView]
   );
 
   const decryptPhoto = useCallback(
@@ -318,8 +331,6 @@ export default function App() {
     },
   });
 
-  const isTouch = useMemo(() => (navigator?.maxTouchPoints || 0) > 1, []);
-  const missingSeed = (!sessionId || !sessionSeed) && (isMobile || isTouch);
   const pendingPeers = useMemo(
     () =>
       Object.entries(peerStatuses)
@@ -482,6 +493,20 @@ export default function App() {
     [sendPhotoSecure, showCopyStatus, t]
   );
 
+  // Generate QR code URL for both mobile and desktop
+  const qrUrl = useMemo(() => {
+    if (!sessionId) return window.location.href;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("key");
+    params.set("session", sessionId);
+    if (clientUuid) params.set("uid", clientUuid);
+    const hashParams = new URLSearchParams();
+    if (sessionSeed) hashParams.set("seed", sessionSeed);
+    if (offerSecret) hashParams.set("ok", offerSecret);
+    const hash = hashParams.toString();
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash ? `#${hash}` : ""}`;
+  }, [clientUuid, offerSecret, sessionId, sessionSeed]);
+
   if (!isMobile) {
   return (
     <DesktopApp
@@ -533,24 +558,6 @@ export default function App() {
       clientUuid={clientUuid}
   />
 );
-}
-
-if (missingSeed) {
-    return (
-      <div className="mobileSimpleRoot" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-        <div className="mobileBlocked">
-          <h2>{t("mobile.blocked.title")}</h2>
-          <p>{t("mobile.blocked.instruction1")}</p>
-          <p>
-            {t("mobile.blocked.websiteLabel")}{" "}
-            <a className="mobileLink" href="https://snap2desk.com" target="_blank" rel="noreferrer">
-              snap2desk.com
-            </a>
-          </p>
-          <p>{t("mobile.blocked.instruction2")}</p>
-        </div>
-      </div>
-    );
   }
 
   return (
@@ -599,6 +606,7 @@ if (missingSeed) {
       approvePeer={approvePeer}
       rejectPeer={rejectPeer}
       clientUuid={clientUuid}
+      qrUrl={qrUrl}
     />
   );
 }

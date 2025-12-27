@@ -63,7 +63,8 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
 
   // determine session id based on role
   useEffect(() => {
-    const sid = isMobile ? getSessionIdFromUrl() ?? "" : ensureDesktopSessionId();
+    // Both mobile and desktop generate session ID if none exists
+    const sid = isMobile ? (getSessionIdFromUrl() ?? ensureDesktopSessionId()) : ensureDesktopSessionId();
     console.log("setSessionId derived", { sid, isMobile, fromUrl: window.location.search });
     if (!sid || sid === sessionId) return;
     // Sync state to external source (URL/session generator)
