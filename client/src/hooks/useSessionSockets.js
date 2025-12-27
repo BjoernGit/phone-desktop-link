@@ -224,8 +224,28 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     return () => window.removeEventListener("manual-join", handler);
   }, [forceJoin]);
 
-  // close socket on unmount
-  useEffect(() => () => socket.close(), [socket]);
+  // Emit leave-session before unload/unmount
+  useEffect(() => {
+    const leaveSession = () => {
+      if (sessionId && socket.connected) {
+        socket.emit("leave-session", { sessionId, clientUuid });
+      }
+    };
+
+    // Handle page unload (close tab, refresh, navigate away)
+    const handleBeforeUnload = () => {
+      leaveSession();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    // Handle component unmount
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      leaveSession();
+      socket.close();
+    };
+  }, [sessionId, socket, clientUuid]);
 
   const sendPhoto = useCallback(
     (payload) => {
