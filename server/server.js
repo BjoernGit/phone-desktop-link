@@ -3,6 +3,8 @@ const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
+const crypto = require("crypto");
+const fs = require("fs");
 
 const app = express();
 app.use(cors());
@@ -17,6 +19,15 @@ const ALLOWED_ORIGINS = [
   "http://127.0.0.1:3000",
 ];
 
+// Set HSTS when hinter HTTPS
+app.use((req, res, next) => {
+  const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
+  if (proto === "https") {
+    res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
+  next();
+});
+
 const io = new Server(server, {
   cors: {
     origin: ALLOWED_ORIGINS,
@@ -24,6 +35,10 @@ const io = new Server(server, {
   },
   maxHttpBufferSize: 10 * 1024 * 1024, // etwas grosszuegiger fuer groessere Bilder
 });
+
+const NONCE_TTL_MS = 5 * 60 * 1000; // 5 Minuten fuer Offers
+const BAN_DURATION_MS = 15 * 60 * 1000;
+const BAN_THRESHOLD = 5;
 
 function roomName(sessionId) {
   return `session:${sessionId}`;
@@ -73,6 +88,12 @@ function isValidMime(mime) {
   return typeof mime === "string" && /^image\//.test(mime) && mime.length < 64;
 }
 
+function isValidEncPayload(enc) {
+  if (!enc) return false;
+  const { iv, ciphertext } = enc;
+  return isValidBase64Url(iv, 8, 256) && isValidBase64Url(ciphertext, 16, 8192);
+}
+
 const sessionState = new Map();
 
 function getSessionState(sessionId) {
@@ -104,10 +125,85 @@ function createRateLimiter(limit, windowMs) {
 
 const allowPhoto = createRateLimiter(20, 60 * 1000); // 20 photos/minute per IP
 const allowOffer = createRateLimiter(10, 60 * 1000); // 10 offers/minute per IP
+const allowPhotoSession = createRateLimiter(120, 60 * 1000); // 120 photos/minute per Session
+const allowOfferSession = createRateLimiter(60, 60 * 1000); // 60 offers/minute per Session
+
+const offerNonces = new Map(); // sessionId -> Map(nonce -> ts)
+const banned = new Map(); // ip -> { until, strikes }
+
+function isBanned(ip) {
+  if (!ip) return false;
+  const entry = banned.get(ip);
+  if (!entry) return false;
+  if (Date.now() > entry.until) {
+    banned.delete(ip);
+    return false;
+  }
+  return true;
+}
+
+function registerStrike(ip, reason) {
+  if (!ip) return false;
+  const now = Date.now();
+  const entry = banned.get(ip) || { strikes: 0, until: 0 };
+  const strikes = entry.strikes + 1;
+  if (strikes >= BAN_THRESHOLD) {
+    banned.set(ip, { strikes, until: now + BAN_DURATION_MS });
+    auditLog("ban", { ip, reason, strikes });
+    return true;
+  }
+  banned.set(ip, { strikes, until: entry.until });
+  auditLog("strike", { ip, reason, strikes });
+  return false;
+}
+
+function cleanupNonces(sessionId) {
+  const map = offerNonces.get(sessionId);
+  if (!map) return;
+  const now = Date.now();
+  for (const [nonce, ts] of map.entries()) {
+    if (now - ts > NONCE_TTL_MS) map.delete(nonce);
+  }
+}
+
+function nonceSeen(sessionId, nonce, ts) {
+  if (!sessionId || !nonce || typeof ts !== "number") return true;
+  cleanupNonces(sessionId);
+  const map = offerNonces.get(sessionId) || new Map();
+  if (map.has(nonce)) return true;
+  map.set(nonce, ts);
+  offerNonces.set(sessionId, map);
+  return false;
+}
+
+function hmacValid(seedBase64Url, payload, signature) {
+  if (!seedBase64Url || !signature) return false;
+  try {
+    const base64 = seedBase64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    const key = Buffer.from(padded, "base64");
+    const mac = crypto.createHmac("sha256", key).update(payload).digest("base64url");
+    return crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(signature));
+  } catch {
+    return false;
+  }
+}
+
+function auditLog(event, data) {
+  const line = JSON.stringify({ ts: new Date().toISOString(), event, ...data }) + "\n";
+  fs.appendFile(path.join(__dirname, "security.log"), line, (err) => {
+    if (err) console.warn("auditLog write failed", err);
+  });
+}
 
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
   const ip = socket.handshake.address;
+  if (isBanned(ip)) {
+    console.warn("socket banned", { ip });
+    socket.disconnect(true);
+    return;
+  }
 
   socket.on("join-session", ({ sessionId, role, deviceName, clientUuid }) => {
     const sid = coerceSessionId(sessionId);
@@ -118,6 +214,7 @@ io.on("connection", (socket) => {
     }
     if (!allowJoin(ip)) {
       console.warn("join-session rate-limited", { ip, sid });
+      registerStrike(ip, "join-rate");
       socket.disconnect(true);
       return;
     }
@@ -182,11 +279,21 @@ io.on("connection", (socket) => {
     if (!inRoom(socket, sid)) return;
     if (!allowPhoto(ip)) {
       console.warn("photo rate-limited", { ip, sid });
+      registerStrike(ip, "photo-rate");
       socket.disconnect(true);
       return;
     }
-    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, MAX_CIPHER_BASE64)) return;
+    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, MAX_CIPHER_BASE64)) {
+      console.warn("[invalid] photo payload rejected", { ip, sid, ivLen: iv?.length, ctLen: ciphertext?.length });
+      registerStrike(ip, "photo-invalid");
+      return;
+    }
     if (mime && !isValidMime(mime)) return;
+    if (!allowPhotoSession(sid)) {
+      console.warn("photo rate-limited (session)", { sid });
+      socket.disconnect(true);
+      return;
+    }
     const state = getSessionState(sid);
     const senderUuid = socket.data.clientUuid;
     if (!state.approved.has(senderUuid)) return;
@@ -199,17 +306,42 @@ io.on("connection", (socket) => {
     if (!offer || !sid) return;
     if (socket.data.sessionId !== sid) return; // nicht aus fremder Session senden
     if (typeof offer !== "object") return;
-    if (offer.seed && !isValidBase64Url(offer.seed, 8, 256)) return;
-    if (offer.session && !isValidSessionId(offer.session)) return;
+    if (!isValidEncPayload(offer.enc)) {
+      console.warn("[invalid] session-offer enc payload", { ip, sid });
+      registerStrike(ip, "offer-enc");
+      return;
+    }
+    if (!offer.nonce || typeof offer.ts !== "number") {
+      console.warn("[invalid] session-offer missing nonce/ts", { ip, sid });
+      registerStrike(ip, "offer-missing-nonce");
+      return;
+    }
+    if (Date.now() - offer.ts > NONCE_TTL_MS) {
+      console.warn("[invalid] session-offer expired", { ip, sid });
+      registerStrike(ip, "offer-expired");
+      return;
+    }
+    if (nonceSeen(sid, offer.nonce, offer.ts)) {
+      console.warn("[invalid] session-offer nonce-reused", { ip, sid });
+      registerStrike(ip, "offer-reuse");
+      return;
+    }
     if (!inRoom(socket, sid)) return;
     if (!allowOffer(ip)) {
       console.warn("session-offer rate-limited", { ip, sid });
+      registerStrike(ip, "offer-rate");
+      socket.disconnect(true);
+      return;
+    }
+    if (!allowOfferSession(sid)) {
+      console.warn("session-offer rate-limited (session)", { sid });
       socket.disconnect(true);
       return;
     }
     const dest = coerceSessionId(target) || sid;
     if (!dest && !targetUuid) return;
     console.log(`session-offer from ${sid} to ${dest || targetUuid}`);
+    auditLog("offer", { fromSession: sid, to: dest || targetUuid, ip, nonce: offer.nonce, ts: offer.ts });
 
     const payload = {
       ...offer,

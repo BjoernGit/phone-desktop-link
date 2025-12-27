@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
+import { encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
 
 function getClientUuid() {
   const key = "snap2desk-client-id";
@@ -224,10 +225,28 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   );
 
   const sendSessionOffer = useCallback(
-    (offer, targetSessionId, targetUuid) => {
+    async (offer, targetSessionId, targetUuid, targetOfferSecret) => {
       if (!sessionId || !offer) return;
-      console.log("send session-offer", { from: sessionId, target: targetSessionId, targetUuid, offer });
-      socket.emit("session-offer", { sessionId, offer, target: targetSessionId, targetUuid });
+      if (!offer.session || !offer.seed || !targetOfferSecret) {
+        console.warn("sendSessionOffer missing data");
+        return;
+      }
+      const nonce = generateSeedBase64Url(12);
+      const ts = Date.now();
+      let enc;
+      try {
+        enc = await encryptJsonWithSecret(
+          targetOfferSecret,
+          { session: offer.session, seed: offer.seed, offerSecret: offer.offerSecret },
+          "offer-share"
+        );
+      } catch (e) {
+        console.warn("offer encrypt failed", e);
+        return;
+      }
+      const enrichedOffer = { enc, nonce, ts };
+      console.log("send session-offer", { from: sessionId, target: targetSessionId, targetUuid, offer: enrichedOffer });
+      socket.emit("session-offer", { sessionId, offer: enrichedOffer, target: targetSessionId, targetUuid });
     },
     [sessionId, socket]
   );

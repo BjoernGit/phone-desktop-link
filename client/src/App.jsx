@@ -7,7 +7,7 @@ import { useCameraCapture } from "./hooks/useCameraCapture";
 import { useStatusMessage } from "./hooks/useStatusMessage";
 import { useClipboardShare } from "./hooks/useClipboardShare";
 import { useQrScanner } from "./hooks/useQrScanner";
-import { decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
+import { decryptJsonWithSecret, decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
 import { useEncryption } from "./hooks/useEncryption";
 import { CookiesContent } from "./pages/CookiesPage";
 import { PrivacyContent } from "./pages/PrivacyPage";
@@ -24,6 +24,7 @@ export default function App() {
   const [showDebug, setShowDebug] = useState(false);
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
   const [sessionSeed, setSessionSeed] = useState("");
+  const [offerSecret, setOfferSecret] = useState("");
   const [encStatus, setEncStatus] = useState("idle");
   const [seedInitialized, setSeedInitialized] = useState(false);
   const [showQualityPicker, setShowQualityPicker] = useState(false);
@@ -144,14 +145,28 @@ export default function App() {
     deviceName,
     onDecryptPhoto: decryptPhoto,
     onSessionOffer: (payload) => {
-      if (!payload?.session && !payload?.seed) return;
-      setOfferStatus("Offer eingegangen");
-      setIncomingOffer({
-        session: payload.session,
-        seed: payload.seed || "",
-        from: payload.fromDevice || payload.fromRole || "Peer",
-        fromUuid: payload.fromUuid || "",
-      });
+      if (!payload?.enc) return;
+      const doDecrypt = async () => {
+        try {
+          const plain = await decryptJsonWithSecret(offerSecret, payload.enc, "offer-share");
+          if (!plain?.session || !plain?.seed) {
+            setOfferStatus("Offer unvollstaendig");
+            return;
+          }
+          setOfferStatus("Offer eingegangen");
+          setIncomingOffer({
+            session: plain.session,
+            seed: plain.seed || "",
+            offerSecret: plain.offerSecret || offerSecret,
+            from: payload.fromDevice || payload.fromRole || "Peer",
+            fromUuid: payload.fromUuid || "",
+          });
+        } catch (e) {
+          console.warn("Offer decrypt failed", e);
+          setOfferStatus("Offer nicht lesbar");
+        }
+      };
+      doDecrypt();
     },
     onPeerStatus: (payload) => {
       if (!payload?.clientUuid || !payload?.status) return;
@@ -191,6 +206,10 @@ export default function App() {
     async (seed, sessionOverride) => {
       setSessionSeed(seed);
       await applySeed(seed, sessionOverride);
+      if (window.location.hash) {
+        const search = window.location.search || "";
+        window.history.replaceState({}, "", `${window.location.pathname}${search}`);
+      }
     },
     [applySeed]
   );
@@ -204,10 +223,10 @@ export default function App() {
       const params = new URLSearchParams(window.location.search);
       params.set("session", offer.session);
       if (offer.targetUuid) params.set("uid", offer.targetUuid);
-      const hash = offer.seed ? `#seed=${offer.seed}` : "";
-      const newUrl = `${window.location.pathname}?${params.toString()}${hash}`;
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
       window.history.replaceState({}, "", newUrl);
       overrideSessionId?.(offer.session);
+      if (offer.offerSecret) setOfferSecret(offer.offerSecret);
       if (offer.seed) {
         applySeedAndStore(offer.seed, offer.session);
       }
@@ -223,6 +242,14 @@ export default function App() {
       if (!sessionKey) {
         setEncStatus("no-key");
         showCopyStatus("Kein Key - Foto nicht gesendet");
+        return;
+      }
+      if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
+        showCopyStatus("Nur Bild-Data-URLs erlaubt");
+        return;
+      }
+      if (/^data:image\/svg\+xml/i.test(imageDataUrl)) {
+        showCopyStatus("SVG wird nicht gesendet");
         return;
       }
       try {
@@ -355,6 +382,7 @@ export default function App() {
 
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const seedFromHash = hashParams.get("seed") || "";
+    const offerSecretFromHash = hashParams.get("ok") || "";
 
     const setup = async () => {
       if (!window.isSecureContext || !crypto?.subtle) {
@@ -365,6 +393,7 @@ export default function App() {
       }
 
       const seed = isMobile ? seedFromHash : sessionSeed || seedFromHash || generateSeedBase64Url(16);
+      const secret = offerSecret || offerSecretFromHash || generateSeedBase64Url(24);
       if (!seed) {
         setEncStatus("no-seed");
         setSeedInitialized(true);
@@ -372,11 +401,12 @@ export default function App() {
       }
 
       await applySeedAndStore(seed);
+      setOfferSecret(secret);
       setSeedInitialized(true);
     };
 
     setup();
-  }, [applySeedAndStore, clearKey, isMobile, seedInitialized, sessionId, sessionSeed]);
+  }, [applySeedAndStore, clearKey, isMobile, offerSecret, seedInitialized, sessionId, sessionSeed]);
 
   const handleSeedInput = useCallback(
     (value) => {
@@ -452,10 +482,11 @@ export default function App() {
   return (
     <DesktopApp
       sessionId={sessionId}
-      sessionSeed={sessionSeed}
-      sessionKeyB64={sessionKeyB64}
-      encStatus={encStatus}
-      offerStatus={offerStatus}
+    sessionSeed={sessionSeed}
+    offerSecret={offerSecret}
+    sessionKeyB64={sessionKeyB64}
+    encStatus={encStatus}
+    offerStatus={offerStatus}
       setOfferStatus={setOfferStatus}
       clientUuid={clientUuid}
       peers={peers}
@@ -494,10 +525,10 @@ export default function App() {
       allowDebug={allowDebug}
       pendingPeers={pendingPeers}
       approvePeer={approvePeer}
-      rejectPeer={rejectPeer}
+    rejectPeer={rejectPeer}
       clientUuid={clientUuid}
-    />
-  );
+  />
+);
 }
 
 if (missingSeed) {
@@ -522,6 +553,7 @@ if (missingSeed) {
     <MobileApp
       sessionId={sessionId}
       sessionSeed={sessionSeed}
+      offerSecret={offerSecret}
       sessionKeyB64={sessionKeyB64}
       encStatus={encStatus}
       offerStatus={allowDebug ? offerStatus : ""}

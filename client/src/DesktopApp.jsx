@@ -12,6 +12,7 @@ import { PendingApprovals } from "./components/PendingApprovals";
 export function DesktopApp({
   sessionId,
   sessionSeed,
+  offerSecret,
   sessionKeyB64,
   encStatus,
   offerStatus,
@@ -67,9 +68,12 @@ export function DesktopApp({
     params.delete("key");
     params.set("session", sessionId);
     if (clientUuid) params.set("uid", clientUuid);
-    const hash = sessionSeed ? `#seed=${sessionSeed}` : "";
-    return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash}`;
-  }, [clientUuid, sessionId, sessionSeed]);
+    const hashParams = new URLSearchParams();
+    if (sessionSeed) hashParams.set("seed", sessionSeed);
+    if (offerSecret) hashParams.set("ok", offerSecret);
+    const hash = hashParams.toString();
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash ? `#${hash}` : ""}`;
+  }, [clientUuid, offerSecret, sessionId, sessionSeed]);
 
   const qrBaseSize = 240;
   const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;

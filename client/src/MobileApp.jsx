@@ -8,6 +8,7 @@ import { PendingApprovals } from "./components/PendingApprovals";
 export function MobileApp({
   sessionId,
   sessionSeed,
+  offerSecret,
   sessionKeyB64,
   encStatus,
   offerStatus,
@@ -125,9 +126,11 @@ export function MobileApp({
                       {
                         session: sessionId,
                         seed: sessionSeed,
+                        offerSecret,
                       },
                       qrOffer.session,
-                      qrOffer.targetUuid
+                      qrOffer.targetUuid,
+                      qrOffer.offerSecret
                     );
                     setOfferStatus("Angebot gesendet");
                     setQrStatus("Session-Angebot gesendet");

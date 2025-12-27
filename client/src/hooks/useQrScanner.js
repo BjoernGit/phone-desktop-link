@@ -6,10 +6,12 @@ function parseQrUrl(raw) {
     const url = new URL(raw);
     const session = url.searchParams.get("session") || "";
     const targetUuid = url.searchParams.get("uid") || "";
-    const seed = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")).get("seed") || "" : "";
-    return { session, seed, targetUuid, raw };
+    const hashParams = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")) : new URLSearchParams();
+    const seed = hashParams.get("seed") || "";
+    const offerSecret = hashParams.get("ok") || "";
+    return { session, seed, targetUuid, offerSecret, raw };
   } catch {
-    return { session: "", seed: "", raw };
+    return { session: "", seed: "", offerSecret: "", raw };
   }
 }
 

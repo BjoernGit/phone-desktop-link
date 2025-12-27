@@ -25,6 +25,10 @@ export function base64UrlDecode(str) {
   return fromBase64(padded);
 }
 
+function stringToBytes(str) {
+  return new TextEncoder().encode(str);
+}
+
 export function generateSeedBase64Url(lenBytes = 16) {
   const bytes = crypto.getRandomValues(new Uint8Array(lenBytes));
   return base64UrlEncode(bytes);
@@ -85,4 +89,34 @@ export async function decryptToDataUrl(payload, key) {
   const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ivBytes }, key, cipherBytes);
   const plainBytes = new Uint8Array(plainBuf);
   return bytesToDataUrl(plainBytes, mime || "image/jpeg");
+}
+
+export async function hmacSignBase64Url(message, seedBase64Url) {
+  if (!message || !seedBase64Url) return "";
+  const keyBytes = base64UrlDecode(seedBase64Url);
+  const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const sigBuf = await crypto.subtle.sign("HMAC", cryptoKey, stringToBytes(message));
+  return base64UrlEncode(new Uint8Array(sigBuf));
+}
+
+export async function encryptJsonWithSecret(secretBase64Url, payload, info = "offer-share") {
+  if (!secretBase64Url || !payload) throw new Error("Missing secret or payload");
+  const key = await deriveAesKeyFromSeed(secretBase64Url, info);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = stringToBytes(JSON.stringify(payload));
+  const cipherBuf = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, data);
+  return {
+    iv: base64UrlEncode(iv),
+    ciphertext: base64UrlEncode(new Uint8Array(cipherBuf)),
+  };
+}
+
+export async function decryptJsonWithSecret(secretBase64Url, encPayload, info = "offer-share") {
+  if (!secretBase64Url || !encPayload?.iv || !encPayload?.ciphertext) throw new Error("Missing secret or payload");
+  const key = await deriveAesKeyFromSeed(secretBase64Url, info);
+  const iv = base64UrlDecode(encPayload.iv);
+  const cipherBytes = base64UrlDecode(encPayload.ciphertext);
+  const plainBuf = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipherBytes);
+  const text = new TextDecoder().decode(plainBuf);
+  return JSON.parse(text);
 }
