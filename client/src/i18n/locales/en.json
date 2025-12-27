@@ -62,7 +62,7 @@
       "instructions": "Scan this QR code with another device to connect it to this session.",
       "sessionId": "Session ID",
       "deviceId": "Device ID",
-      "swipeHint": "← Swipe right to camera | Swipe left to gallery →"
+      "swipeHint": "← Swipe left: gallery | Swipe right: camera →"
     },
     "quality": {
       "label": "Resolution"

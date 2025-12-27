@@ -142,7 +142,17 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     const onPeerJoined = ({ role: joinedRole, clientId, deviceName: joinedName, clientUuid: peerUuid }) => {
       console.log("peer-joined event", { joinedRole, clientId, joinedName, peerUuid });
       setPeers((prev) => {
-        if (prev.some((p) => p.id === clientId)) return prev;
+        // Don't add ourselves
+        if (peerUuid === clientUuid) return prev;
+        // Check for duplicates by clientUuid (stable ID) or clientId (socket ID)
+        if (prev.some((p) => p.clientUuid === peerUuid || p.id === clientId)) {
+          // Update existing peer's clientId if uuid matches (reconnect case)
+          return prev.map((p) =>
+            p.clientUuid === peerUuid
+              ? { ...p, id: clientId, role: joinedRole, name: joinedName || "Geraet" }
+              : p
+          );
+        }
         return [...prev, { id: clientId, role: joinedRole, name: joinedName || "Geraet", clientUuid: peerUuid }];
       });
     };

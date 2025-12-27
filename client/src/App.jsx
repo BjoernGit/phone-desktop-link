@@ -104,14 +104,17 @@ export default function App() {
       const dy = t.clientY - start.y;
       if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return; // nur klare horizontale Swipes
 
-      // Three-view system: qrDisplay ← camera → gallery
+      // Circular navigation: qrDisplay ← camera → gallery (and wraps around)
+      // Layout: [gallery] → [qrDisplay] ← [camera] → [gallery] (infinite loop)
       if (dx < -40) {
-        // Swipe left (→ gallery)
+        // Swipe left (finger moves left, content moves right)
         if (mobileView === "camera") setMobileView("gallery");
+        else if (mobileView === "gallery") setMobileView("qrDisplay");
         else if (mobileView === "qrDisplay") setMobileView("camera");
       } else if (dx > 40) {
-        // Swipe right (← qrDisplay)
+        // Swipe right (finger moves right, content moves left)
         if (mobileView === "camera") setMobileView("qrDisplay");
+        else if (mobileView === "qrDisplay") setMobileView("gallery");
         else if (mobileView === "gallery") setMobileView("camera");
       }
     },

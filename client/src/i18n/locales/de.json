@@ -62,10 +62,10 @@
       "instructions": "Scanne diesen QR-Code mit einem anderen Gerät, um es mit dieser Session zu verbinden.",
       "sessionId": "Session-ID",
       "deviceId": "Geräte-ID",
-      "swipeHint": "← Swipe nach rechts zur Kamera | Swipe nach links zur Galerie →"
+      "swipeHint": "← Swipe links: Galerie | Swipe rechts: Kamera →"
     },
     "quality": {
-      "label": "Aufloesung"
+      "label": "Auflösung"
     }
   },
   "desktop": {
@@ -73,7 +73,7 @@
       "tagline": "Fotos vom Handy direkt auf deinen Desktop. Schnell, einfach, sicher - ganz ohne Account."
     },
     "upload": {
-      "title": "Fotos hinzufuegen",
+      "title": "Fotos hinzufügen",
       "uploadImage": "Bild hochladen",
       "loadClipboard": "Clipboard laden",
       "clipboardPreview": "Clipboard-Vorschau",
