@@ -1,4 +1,4 @@
-const path = require("path");
+﻿const path = require("path");
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
@@ -9,9 +9,17 @@ app.use(cors());
 
 const server = http.createServer(app);
 
+const ALLOWED_ORIGINS = [
+  "https://snap2desk.com",
+  "https://www.snap2desk.com",
+  "https://snap2desk-dev.onrender.com",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
 const io = new Server(server, {
   cors: {
-    origin: "*",
+    origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"],
   },
   maxHttpBufferSize: 5 * 1024 * 1024, // 5 MB Payload-Limit fuer Photos
@@ -26,13 +34,82 @@ function coerceSessionId(raw) {
   return typeof raw === "string" ? raw : String(raw);
 }
 
+function isValidSessionId(id) {
+  return typeof id === "string" && id.length >= 8 && id.length <= 32 && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
+function isValidRole(role) {
+  return role === "mobile" || role === "desktop";
+}
+
+function isValidUuid(id) {
+  return typeof id === "string" && id.length >= 6 && id.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(id);
+}
+
+const joinCounters = new Map();
+const JOIN_LIMIT = 10; // joins per window
+const JOIN_WINDOW_MS = 60 * 1000;
+
+function allowJoin(ip) {
+  if (!ip) return false;
+  const now = Date.now();
+  const entry = joinCounters.get(ip) || { count: 0, ts: now };
+  const age = now - entry.ts;
+  const withinWindow = age < JOIN_WINDOW_MS;
+  const count = withinWindow ? entry.count + 1 : 1;
+  joinCounters.set(ip, { count, ts: withinWindow ? entry.ts : now });
+  return count <= JOIN_LIMIT;
+}
+
+function isValidBase64Url(str, minLen = 8, maxLen = 8192) {
+  if (typeof str !== "string") return false;
+  if (str.length < minLen || str.length > maxLen) return false;
+  return /^[A-Za-z0-9_-]+$/.test(str);
+}
+
+function isValidMime(mime) {
+  return typeof mime === "string" && /^image\\//.test(mime) && mime.length < 64;
+}
+
+function inRoom(socket, sid) {
+  const room = roomName(sid);
+  return socket.rooms.has(room);
+}
+
+function createRateLimiter(limit, windowMs) {
+  const map = new Map();
+  return (key) => {
+    if (!key) return false;
+    const now = Date.now();
+    const entry = map.get(key) || { count: 0, ts: now };
+    const age = now - entry.ts;
+    const withinWindow = age < windowMs;
+    const count = withinWindow ? entry.count + 1 : 1;
+    map.set(key, { count, ts: withinWindow ? entry.ts : now });
+    return count <= limit;
+  };
+}
+
+const allowPhoto = createRateLimiter(20, 60 * 1000); // 20 photos/minute per IP
+const allowOffer = createRateLimiter(10, 60 * 1000); // 10 offers/minute per IP
+
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
+  const ip = socket.handshake.address;
 
   socket.on("join-session", ({ sessionId, role, deviceName, clientUuid }) => {
     const sid = coerceSessionId(sessionId);
-    if (!sid) return;
-    console.log("join-session", { sessionId: sid, role, deviceName, clientUuid, socketId: socket.id });
+    if (!isValidSessionId(sid) || !isValidRole(role) || (clientUuid && !isValidUuid(clientUuid))) {
+      console.warn("join-session invalid payload", { sessionId, role, clientUuid });
+      socket.disconnect(true);
+      return;
+    }
+    if (!allowJoin(ip)) {
+      console.warn("join-session rate-limited", { ip, sid });
+      socket.disconnect(true);
+      return;
+    }
+    console.log("join-session", { sessionId: sid, role, deviceName, clientUuid, socketId: socket.id, ip });
 
     const room = roomName(sid);
     socket.join(room);
@@ -61,11 +138,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("photo", ({ sessionId, iv, ciphertext, mime }) => {
-    const sid = coerceSessionId(sessionId);
+    const sid = coerceSessionId(sessionId) || socket.data.sessionId;
     const activeSession = socket.data.sessionId;
     if (!sid || !activeSession || activeSession !== sid) return;
-    const hasEncrypted = iv && ciphertext;
-    if (!hasEncrypted) return;
+    if (!inRoom(socket, sid)) return;
+    if (!allowPhoto(ip)) {
+      console.warn("photo rate-limited", { ip, sid });
+      socket.disconnect(true);
+      return;
+    }
+    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, 8192)) return;
+    if (mime && !isValidMime(mime)) return;
     io.to(roomName(sid)).emit("photo", { iv, ciphertext, mime });
   });
 
@@ -73,6 +156,15 @@ io.on("connection", (socket) => {
     const sid = coerceSessionId(sessionId) || socket.data.sessionId;
     if (!offer || !sid) return;
     if (socket.data.sessionId !== sid) return; // nicht aus fremder Session senden
+    if (typeof offer !== "object") return;
+    if (offer.seed && !isValidBase64Url(offer.seed, 8, 256)) return;
+    if (offer.session && !isValidSessionId(offer.session)) return;
+    if (!inRoom(socket, sid)) return;
+    if (!allowOffer(ip)) {
+      console.warn("session-offer rate-limited", { ip, sid });
+      socket.disconnect(true);
+      return;
+    }
     const dest = coerceSessionId(target) || sid;
     if (!dest && !targetUuid) return;
     console.log(`session-offer from ${sid} to ${dest || targetUuid}`);
