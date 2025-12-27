@@ -22,7 +22,7 @@ const io = new Server(server, {
     origin: ALLOWED_ORIGINS,
     methods: ["GET", "POST"],
   },
-  maxHttpBufferSize: 5 * 1024 * 1024, // 5 MB Payload-Limit fuer Photos
+  maxHttpBufferSize: 10 * 1024 * 1024, // etwas grosszuegiger fuer groessere Bilder
 });
 
 function roomName(sessionId) {
@@ -66,6 +66,8 @@ function isValidBase64Url(str, minLen = 8, maxLen = 8192) {
   if (str.length < minLen || str.length > maxLen) return false;
   return /^[A-Za-z0-9_-]+$/.test(str);
 }
+
+const MAX_CIPHER_BASE64 = 8_000_000; // groessere Photos erlauben (ca. 6-7 MB Base64)
 
 function isValidMime(mime) {
   return typeof mime === "string" && /^image\//.test(mime) && mime.length < 64;
@@ -183,7 +185,7 @@ io.on("connection", (socket) => {
       socket.disconnect(true);
       return;
     }
-    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, 8192)) return;
+    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, MAX_CIPHER_BASE64)) return;
     if (mime && !isValidMime(mime)) return;
     const state = getSessionState(sid);
     const senderUuid = socket.data.clientUuid;
