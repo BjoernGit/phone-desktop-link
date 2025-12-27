@@ -68,7 +68,7 @@ function isValidBase64Url(str, minLen = 8, maxLen = 8192) {
 }
 
 function isValidMime(mime) {
-  return typeof mime === "string" && /^image\\//.test(mime) && mime.length < 64;
+  return typeof mime === "string" && /^image\//.test(mime) && mime.length < 64;
 }
 
 const sessionState = new Map();
