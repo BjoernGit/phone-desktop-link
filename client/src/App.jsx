@@ -238,6 +238,18 @@ export default function App() {
         setQrStatus(t("status.noSession"));
         return;
       }
+
+      // Validate QR code TTL (10 minutes = 600000ms)
+      const QR_TTL_MS = 10 * 60 * 1000;
+      if (offer.timestamp) {
+        const age = Date.now() - Number(offer.timestamp);
+        if (age > QR_TTL_MS) {
+          setQrStatus(t("status.qrExpired"));
+          setTimeout(() => setQrStatus(""), 3000);
+          return;
+        }
+      }
+
       const params = new URLSearchParams(window.location.search);
       params.set("session", offer.session);
       if (offer.targetUuid) params.set("uid", offer.targetUuid);
@@ -496,7 +508,7 @@ export default function App() {
     [sendPhotoSecure, showCopyStatus, t]
   );
 
-  // Generate QR code URL for both mobile and desktop
+  // Generate QR code URL for both mobile and desktop with TTL
   const qrUrl = useMemo(() => {
     if (!sessionId) return window.location.href;
     const params = new URLSearchParams(window.location.search);
@@ -506,6 +518,8 @@ export default function App() {
     const hashParams = new URLSearchParams();
     if (sessionSeed) hashParams.set("seed", sessionSeed);
     if (offerSecret) hashParams.set("ok", offerSecret);
+    // Add timestamp for TTL validation (10 minutes)
+    hashParams.set("t", Date.now().toString());
     const hash = hashParams.toString();
     return `${window.location.origin}${window.location.pathname}?${params.toString()}${hash ? `#${hash}` : ""}`;
   }, [clientUuid, offerSecret, sessionId, sessionSeed]);

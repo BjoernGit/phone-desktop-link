@@ -294,6 +294,50 @@
   padding: 10px;
 }
 
+.qrHiddenState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 32px 24px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  min-width: 240px;
+}
+
+.qrHiddenMessage {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.qrShowButton {
+  padding: 12px 24px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--milkText);
+  background: var(--milk);
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+}
+
+.qrShowButton:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.qrShowButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
 .qrSession {
   margin-top: 10px;
   color: var(--muted);

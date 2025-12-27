@@ -62,7 +62,9 @@
       "instructions": "Scanne diesen QR-Code mit einem anderen Gerät, um es mit dieser Session zu verbinden.",
       "sessionId": "Session-ID",
       "deviceId": "Geräte-ID",
-      "swipeHint": "← Swipe links: Galerie | Swipe rechts: Kamera →"
+      "swipeHint": "← Swipe links: Galerie | Swipe rechts: Kamera →",
+      "hiddenForSecurity": "QR-Code aus Sicherheitsgründen ausgeblendet",
+      "showQr": "QR-Code anzeigen"
     },
     "quality": {
       "label": "Auflösung"
@@ -106,6 +108,7 @@
   "status": {
     "noSession": "Kein Session-Parameter im QR",
     "sessionTaken": "Session uebernommen",
+    "qrExpired": "QR-Code abgelaufen (max. 10 Min.)",
     "offerIncomplete": "Offer unvollstaendig",
     "offerReceived": "Offer eingegangen",
     "offerUnreadable": "Offer nicht lesbar",

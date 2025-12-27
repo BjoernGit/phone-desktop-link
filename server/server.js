@@ -237,6 +237,9 @@ io.on("connection", (socket) => {
       emitStatus(clientUuid, "approved");
     } else if (state.rejected.has(clientUuid)) {
       emitStatus(clientUuid, "rejected");
+    } else if (state.approved.has(clientUuid)) {
+      // Already approved - reconnect case, just re-emit approved status
+      emitStatus(clientUuid, "approved");
     } else {
       state.pending.add(clientUuid);
       emitStatus(clientUuid, "pending");
@@ -387,6 +390,22 @@ io.on("connection", (socket) => {
         s.disconnect(true);
       });
     }
+  });
+
+  socket.on("leave-session", ({ sessionId, clientUuid }) => {
+    const sid = coerceSessionId(sessionId);
+    if (!sid || !clientUuid) return;
+    if (socket.data.sessionId !== sid || socket.data.clientUuid !== clientUuid) return;
+
+    console.log("leave-session", { sessionId: sid, clientUuid, socketId: socket.id });
+    const room = roomName(sid);
+    socket.to(room).emit("peer-left", {
+      role: socket.data.role,
+      clientId: socket.id,
+      deviceName: socket.data.deviceName,
+      clientUuid: socket.data.clientUuid,
+    });
+    socket.leave(room);
   });
 
   socket.on("disconnect", () => {

@@ -329,6 +329,50 @@
   word-spacing: 0.1em;
 }
 
+.mobileQrHiddenState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 40px 20px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  width: 100%;
+}
+
+.mobileQrHiddenMessage {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--muted);
+  margin: 0;
+  text-align: center;
+}
+
+.mobileQrShowButton {
+  padding: 14px 28px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--milkText);
+  background: var(--milk);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.15);
+}
+
+.mobileQrShowButton:hover {
+  background: rgba(255, 255, 255, 0.85);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(255, 255, 255, 0.2);
+}
+
+.mobileQrShowButton:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.1);
+}
+
 .mobileBackBtn {
   margin-bottom: 12px;
   border: 0;

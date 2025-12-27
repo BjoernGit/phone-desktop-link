@@ -9,9 +9,10 @@ function parseQrUrl(raw) {
     const hashParams = url.hash ? new URLSearchParams(url.hash.replace(/^#/, "")) : new URLSearchParams();
     const seed = hashParams.get("seed") || "";
     const offerSecret = hashParams.get("ok") || "";
-    return { session, seed, targetUuid, offerSecret, raw };
+    const timestamp = hashParams.get("t") || "";
+    return { session, seed, targetUuid, offerSecret, timestamp, raw };
   } catch {
-    return { session: "", seed: "", offerSecret: "", raw };
+    return { session: "", seed: "", offerSecret: "", timestamp: "", raw };
   }
 }
 
