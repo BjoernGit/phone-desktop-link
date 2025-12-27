@@ -1,15 +1,19 @@
 import { Link } from "react-router-dom";
 
-export function FooterBar({ onToggleDebug = () => {} }) {
+export function FooterBar({ onToggleDebug }) {
   return (
     <footer className="footer">
       <div className="footerInner">
         <div className="footerMeta">(c) 2025 Snap2Desk. Alle Rechte vorbehalten.</div>
         <div className="footerLinks">
-          <button type="button" className="footerLinkBtn" onClick={onToggleDebug}>
-            Debug
-          </button>
-          <span>-</span>
+          {typeof onToggleDebug === "function" ? (
+            <>
+              <button type="button" className="footerLinkBtn" onClick={onToggleDebug}>
+                Debug
+              </button>
+              <span>-</span>
+            </>
+          ) : null}
           <Link to="/datenschutz" aria-label="Datenschutz">
             Datenschutz
           </Link>

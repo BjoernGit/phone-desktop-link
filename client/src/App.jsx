@@ -29,6 +29,20 @@ export default function App() {
   const [showQualityPicker, setShowQualityPicker] = useState(false);
   const fileInputRef = useRef(null);
   const sessionKeyRef = useRef(null);
+  const host = window.location.hostname || "";
+  const isLocalHost =
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.endsWith(".local") ||
+    host.startsWith("192.168.") ||
+    host.startsWith("10.") ||
+    host.startsWith("172.16.") ||
+    host.startsWith("172.17.") ||
+    host.startsWith("172.18.") ||
+    host.startsWith("172.19.") ||
+    host.startsWith("172.2") ||
+    host.startsWith("172.3");
+  const allowDebug = isLocalHost && import.meta.env.VITE_LOCAL_DEBUG === "1";
   const [qrMode, setQrMode] = useState(false);
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
@@ -409,13 +423,13 @@ export default function App() {
       setOfferStatus={setOfferStatus}
       clientUuid={clientUuid}
       peers={peers}
-      photos={photos}
-      showDebug={showDebug}
-      setShowDebug={setShowDebug}
+    photos={photos}
+    showDebug={allowDebug && showDebug}
+    setShowDebug={allowDebug ? setShowDebug : undefined}
       debugDataUrl={debugDataUrl}
       setDebugDataUrl={setDebugDataUrl}
       injectDebugPhoto={injectDebugPhoto}
-      copyStatus={copyStatus}
+      copyStatus={allowDebug ? copyStatus : ""}
       qrStatus={qrStatus}
       handleSeedInput={handleSeedInput}
       applyQrOffer={applyQrOffer}
@@ -438,11 +452,12 @@ export default function App() {
       qrPanelRef={qrPanelRef}
       peerPanelRef={peerPanelRef}
       panelHeights={panelHeights}
-      legalOpen={legalOpen}
-      legalContent={legalContent}
-      navigate={navigate}
-    />
-  );
+    legalOpen={legalOpen}
+    legalContent={legalContent}
+    navigate={navigate}
+    allowDebug={allowDebug}
+  />
+);
 }
 
 if (missingSeed) {
@@ -469,7 +484,7 @@ if (missingSeed) {
       sessionSeed={sessionSeed}
       sessionKeyB64={sessionKeyB64}
       encStatus={encStatus}
-      offerStatus={offerStatus}
+      offerStatus={allowDebug ? offerStatus : ""}
       qrStatus={qrStatus}
       handleSeedInput={handleSeedInput}
       videoRef={videoRef}

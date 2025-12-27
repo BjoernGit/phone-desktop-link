@@ -49,6 +49,7 @@ export function DesktopApp({
   legalOpen,
   legalContent,
   navigate,
+  allowDebug,
 }) {
   const peerCount = peers.length;
   const hasPhotos = photos.length > 0;
@@ -134,7 +135,7 @@ export function DesktopApp({
             />
           )}
 
-          {showDebug && (
+          {allowDebug && showDebug && (
             <DebugPanel
               value={debugDataUrl}
               onChange={setDebugDataUrl}
@@ -218,7 +219,7 @@ export function DesktopApp({
           }
         />
 
-        <FooterBar onToggleDebug={() => setShowDebug((v) => !v)} />
+        <FooterBar onToggleDebug={allowDebug ? () => setShowDebug((v) => !v) : undefined} />
       </div>
 
       {legalOpen && (
