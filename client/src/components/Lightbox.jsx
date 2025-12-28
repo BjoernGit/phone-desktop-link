@@ -6,7 +6,8 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
   const [dim, setDim] = useState("");
   if (!src) return null;
   return (
-    <div className="lightbox" onClick={onClose}>
+    <div className="lightbox">
+      <div className="lightboxBackdrop" onClick={onClose} />
       <img
         className="lightboxImg"
         src={src}
@@ -16,9 +17,10 @@ export function Lightbox({ src, onClose, onCopy, onSave, showDebug, onCopyPlain,
           const h = e.currentTarget.naturalHeight;
           if (w && h) setDim(`${w}x${h}`);
         }}
+        onClick={(e) => e.stopPropagation()}
       />
       {dim && (
-        <div className="lightboxMeta">
+        <div className="lightboxMeta" onClick={(e) => e.stopPropagation()}>
           <span className="metaBadge">{dim}</span>
         </div>
       )}
