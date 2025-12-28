@@ -9,3 +9,4 @@ start-client.bat
 start-server.bat
 client/localhost*.pem
 client/localhost*-key.pem
+*.log
