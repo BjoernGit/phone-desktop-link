@@ -123,7 +123,22 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
         return;
       }
 
+      // Request clipboard permission explicitly for Safari
+      let permissionStatus;
+      try {
+        permissionStatus = await navigator.permissions.query({ name: "clipboard-read" });
+      } catch (e) {
+        // Safari doesn't support permissions.query for clipboard
+        console.log("Clipboard permission query not supported, trying direct read");
+      }
+
       const items = await navigator.clipboard.read();
+
+      if (!items || items.length === 0) {
+        showCopyStatus(t("clipboard.noImageData"));
+        return;
+      }
+
       for (const item of items) {
         const imgType = item.types.find((t) => t.startsWith("image/"));
         if (!imgType) continue;
@@ -144,7 +159,15 @@ export function useClipboardShare({ sessionKey, showCopyStatus, sendPhotoSecure,
       showCopyStatus(t("clipboard.noImageData"));
     } catch (err) {
       console.warn("Clipboard read failed", err);
-      showCopyStatus(t("clipboard.notReadable"));
+
+      // More specific error messages for Safari
+      if (err.name === "NotAllowedError") {
+        showCopyStatus("Clipboard-Zugriff verweigert. Bitte erlaube den Zugriff.", 3000);
+      } else if (err.name === "NotFoundError") {
+        showCopyStatus(t("clipboard.noImageData"));
+      } else {
+        showCopyStatus(t("clipboard.notReadable"));
+      }
     }
   }, [fileToDataUrl, setLightboxSrc, showCopyStatus, t]);
 

@@ -532,6 +532,7 @@
 
 .footerLinks span {
   color: var(--muted);
+  margin: 0 10px;  /* Explicit margin for Safari compatibility */
 }
 
 .footerLinkBtn {
