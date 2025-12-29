@@ -47,6 +47,7 @@ export function FileGallery({
   peers = [],
   clientUuid,
   onDownload,
+  onRemoveFile,
   transfers = new Map(),
   connectionStates = new Map(),
 }) {
@@ -144,19 +145,26 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColAction">
-                  {!isOwn && !transfer && (
+                  {isOwn ? (
+                    <button
+                      className="fileRemoveBtn"
+                      onClick={() => onRemoveFile && onRemoveFile(file.id)}
+                      title={t("desktop.fileUpload.remove", "Entfernen")}
+                    >
+                      ✕
+                    </button>
+                  ) : !transfer ? (
                     <button
                       className="fileDownloadBtn"
                       onClick={() => onDownload(file)}
                     >
                       {t("desktop.fileGallery.download", "Download")}
                     </button>
-                  )}
-                  {transfer && transfer.status === "completed" && (
+                  ) : transfer.status === "completed" ? (
                     <span className="transferComplete">
                       {t("desktop.fileGallery.completed", "✓")}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );

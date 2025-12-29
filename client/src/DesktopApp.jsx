@@ -9,6 +9,8 @@ import { DesktopCanvas } from "./components/DesktopCanvas";
 import { Lightbox } from "./components/Lightbox";
 import { FooterBar } from "./components/FooterBar";
 import { PendingApprovals } from "./components/PendingApprovals";
+import { FileUploadPanel } from "./components/FileUploadPanel";
+import { FileGallery } from "./components/FileGallery";
 
 export function DesktopApp({
   sessionId,
@@ -56,6 +58,13 @@ export function DesktopApp({
   pendingPeers = [],
   approvePeer,
   rejectPeer,
+  sharedFiles = [],
+  onSharedFilesChange,
+  allFiles = [],
+  onFileDownload,
+  onRemoveFile,
+  fileTransfers = new Map(),
+  webRTCConnections = new Map(),
 }) {
   const { t } = useTranslation();
   const peerCount = peers.length;
@@ -124,6 +133,10 @@ export function DesktopApp({
     </div>
   );
 
+  const fileUploadPanel = (
+    <FileUploadPanel sharedFiles={sharedFiles} onFilesChange={onSharedFilesChange} disabled={!hasConnection} />
+  );
+
   return (
     <>
       <div className="desktopShell">
@@ -172,6 +185,7 @@ export function DesktopApp({
               <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
               <PairingRow
                 uploadPanel={uploadPanel}
+                fileUploadPanel={fileUploadPanel}
                 qrSize={qrSize}
                 qrDocked={qrDocked}
                 url={url}
@@ -193,6 +207,16 @@ export function DesktopApp({
                   onCopyEncrypted={copyEncrypted}
                 />
               </main>
+
+              <FileGallery
+                files={allFiles}
+                peers={peers}
+                clientUuid={clientUuid}
+                onDownload={onFileDownload}
+                onRemoveFile={onRemoveFile}
+                transfers={fileTransfers}
+                connectionStates={webRTCConnections}
+              />
             </>
           )}
         </div>

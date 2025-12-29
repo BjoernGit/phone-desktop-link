@@ -95,6 +95,24 @@
       "connected": "Device(s) connected",
       "waiting": "Waiting for connection",
       "empty": "Connect a device to send new photos."
+    },
+    "fileUpload": {
+      "title": "Share Files",
+      "selectFiles": "Select Files",
+      "hint": "Choose files you want to share with others",
+      "remove": "Remove",
+      "fileCount": "{{count}} file(s) shared"
+    },
+    "fileGallery": {
+      "title": "Available Files",
+      "empty": "No files available. Add files in the upload panel or wait for other participants to share files.",
+      "fileName": "Name",
+      "fileSize": "Size",
+      "fileOwner": "Owner",
+      "fileStatus": "Status",
+      "available": "Available",
+      "download": "Download",
+      "completed": "✓"
     }
   },
   "offer": {

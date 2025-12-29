@@ -150,6 +150,19 @@ export default function App() {
     [] // key is taken from ref; setEncStatus is stable
   );
 
+  // Callback for peer file list updates
+  const handlePeerFileList = useCallback(({ fromUuid, files }) => {
+    setPeerFiles((prev) => {
+      const next = new Map(prev);
+      if (files && files.length > 0) {
+        next.set(fromUuid, files);
+      } else {
+        next.delete(fromUuid);
+      }
+      return next;
+    });
+  }, []);
+
   const {
     socket,
     sessionId,
@@ -201,6 +214,7 @@ export default function App() {
         return next;
       });
     },
+    onPeerFileList: handlePeerFileList,
   });
 
   const approvePeer = useCallback(
@@ -230,6 +244,263 @@ export default function App() {
   });
 
   const fileTransfer = useFileTransfer();
+
+  // Note: WebRTC connections are now created on-demand when downloading files
+  // This avoids unnecessary connection attempts and errors when no transfer is needed
+
+  // Broadcast own file list to peers when it changes
+  useEffect(() => {
+    if (isMobile || !socket || !socket.connected) return;
+
+    const fileMetadata = sharedFiles.map((f) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      ownerUuid: clientUuid,
+    }));
+
+    socket.emit("file-list-update", { files: fileMetadata });
+  }, [sharedFiles, socket, clientUuid, isMobile]);
+
+  // Socket.io fallback: Handle file requests
+  useEffect(() => {
+    if (isMobile || !socket) return;
+
+    const handleFileRequestSocketio = async ({ fromUuid, fileId }) => {
+      const fileToSend = sharedFiles.find((f) => f.id === fileId);
+      if (!fileToSend || !fileToSend.file) return;
+
+      // Send file in chunks via Socket.io
+      const CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
+      const totalChunks = Math.ceil(fileToSend.file.size / CHUNK_SIZE);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, fileToSend.file.size);
+        const chunk = fileToSend.file.slice(start, end);
+        const arrayBuffer = await chunk.arrayBuffer();
+        const base64Chunk = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+        socket.emit("file-transfer-socketio", {
+          targetUuid: fromUuid,
+          fileId,
+          chunk: base64Chunk,
+          chunkIndex: i,
+          totalChunks,
+          fileName: fileToSend.name,
+          fileSize: fileToSend.size,
+          fileType: fileToSend.type,
+        });
+      }
+    };
+
+    socket.on("file-request-socketio", handleFileRequestSocketio);
+
+    return () => {
+      socket.off("file-request-socketio", handleFileRequestSocketio);
+    };
+  }, [socket, isMobile, sharedFiles]);
+
+  // Socket.io fallback: Receive file chunks
+  useEffect(() => {
+    if (isMobile || !socket) return;
+
+    const fileChunks = new Map(); // fileId -> { chunks: [], fileName, fileSize, fileType, totalChunks }
+
+    const handleFileTransferSocketio = ({ fileId, chunk, chunkIndex, totalChunks, fileName, fileSize, fileType }) => {
+      if (!fileChunks.has(fileId)) {
+        fileChunks.set(fileId, {
+          chunks: [],
+          fileName,
+          fileSize,
+          fileType,
+          totalChunks,
+        });
+      }
+
+      const transfer = fileChunks.get(fileId);
+      transfer.chunks[chunkIndex] = chunk;
+
+      // Check if all chunks received
+      const receivedCount = transfer.chunks.filter(Boolean).length;
+      if (receivedCount === totalChunks) {
+        // Decode and assemble chunks
+        const binaryChunks = transfer.chunks.map((base64) => {
+          const binary = atob(base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes;
+        });
+
+        const blob = new Blob(binaryChunks, { type: fileType });
+
+        // Auto-download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        fileChunks.delete(fileId);
+      }
+    };
+
+    socket.on("file-transfer-socketio", handleFileTransferSocketio);
+
+    return () => {
+      socket.off("file-transfer-socketio", handleFileTransferSocketio);
+    };
+  }, [socket, isMobile]);
+
+  // Setup file receiver on data channels
+  useEffect(() => {
+    if (isMobile) return;
+
+    webRTC.dataChannels.forEach((dataChannel, peerUuid) => {
+      fileTransfer.setupReceiver(dataChannel, ({ fileName, blob, transferId }) => {
+        // Save received blob
+        setReceivedBlobs((prev) => {
+          const next = new Map(prev);
+          next.set(transferId, { fileName, blob });
+          return next;
+        });
+
+        // Auto-download
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    });
+  }, [webRTC.dataChannels, fileTransfer, isMobile]);
+
+  // Setup sender-side listener for file requests
+  useEffect(() => {
+    if (isMobile) return;
+
+    const listeners = new Map();
+
+    webRTC.dataChannels.forEach((dataChannel, peerUuid) => {
+      // Remove existing listener if any
+      const existingListener = listeners.get(peerUuid);
+      if (existingListener) {
+        dataChannel.removeEventListener("message", existingListener);
+      }
+
+      // Create new listener
+      const messageListener = (event) => {
+        if (typeof event.data === "string") {
+          try {
+            const msg = JSON.parse(event.data);
+
+            // Handle file download request
+            if (msg.type === "file-request" && msg.fileId) {
+              const fileToSend = sharedFiles.find((f) => f.id === msg.fileId);
+
+              if (fileToSend && fileToSend.file) {
+                // Send the file via WebRTC
+                fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid);
+              } else {
+                console.error("Requested file not found or File object missing:", msg.fileId);
+              }
+            }
+          } catch (e) {
+            // Not JSON or parsing error - ignore (could be file transfer control messages)
+          }
+        }
+      };
+
+      dataChannel.addEventListener("message", messageListener);
+      listeners.set(peerUuid, messageListener);
+    });
+
+    // Cleanup
+    return () => {
+      listeners.forEach((listener, peerUuid) => {
+        const dataChannel = webRTC.dataChannels.get(peerUuid);
+        if (dataChannel) {
+          dataChannel.removeEventListener("message", listener);
+        }
+      });
+    };
+  }, [webRTC.dataChannels, sharedFiles, fileTransfer, isMobile]);
+
+  // Handle file download (initiate transfer)
+  const handleFileDownload = useCallback(
+    async (file) => {
+      if (isMobile || !file.ownerUuid) return;
+
+      const peerUuid = file.ownerUuid;
+      let dataChannel = webRTC.dataChannels.get(peerUuid);
+
+      // If no data channel exists, create WebRTC connection
+      if (!dataChannel) {
+        await webRTC.createOffer(peerUuid);
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        dataChannel = webRTC.dataChannels.get(peerUuid);
+      }
+
+      if (!dataChannel || dataChannel.readyState !== "open") {
+        // Fallback: Request file via Socket.io
+        socket.emit("file-request-socketio", {
+          targetUuid: peerUuid,
+          fileId: file.id,
+        });
+        return;
+      }
+
+      // Send file download request via DataChannel
+      const request = {
+        type: "file-request",
+        fileId: file.id,
+      };
+      dataChannel.send(JSON.stringify(request));
+    },
+    [isMobile, webRTC, peerFiles, socket]
+  );
+
+  // Handle own file list changes
+  const handleSharedFilesChange = useCallback((files) => {
+    setSharedFiles(files);
+  }, []);
+
+  // Handle removing a file from own shared files
+  const handleRemoveFile = useCallback((fileId) => {
+    setSharedFiles((prev) => prev.filter((f) => f.id !== fileId));
+  }, []);
+
+  // Combine all files for display (own + peer files)
+  const allFiles = useMemo(() => {
+    const combined = [];
+
+    // Add own files
+    sharedFiles.forEach((file) => {
+      combined.push({
+        ...file,
+        ownerUuid: clientUuid,
+      });
+    });
+
+    // Add peer files (excluding our own broadcasts)
+    peerFiles.forEach((fileList, peerUuid) => {
+      if (peerUuid === clientUuid) return;
+      fileList.forEach((file) => {
+        combined.push(file);
+      });
+    });
+
+    return combined;
+  }, [sharedFiles, peerFiles, clientUuid]);
 
   const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 
@@ -588,9 +859,15 @@ export default function App() {
       allowDebug={allowDebug}
       pendingPeers={pendingPeers}
       approvePeer={approvePeer}
-    rejectPeer={rejectPeer}
-      clientUuid={clientUuid}
-  />
+      rejectPeer={rejectPeer}
+      sharedFiles={sharedFiles}
+      onSharedFilesChange={handleSharedFilesChange}
+      allFiles={allFiles}
+      onFileDownload={handleFileDownload}
+      onRemoveFile={handleRemoveFile}
+      fileTransfers={fileTransfer.transfers}
+      webRTCConnections={webRTC.connectionStates}
+    />
 );
   }
 

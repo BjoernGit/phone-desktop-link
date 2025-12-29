@@ -5,6 +5,7 @@ import { QrPanel } from "./QrPanel";
 
 export function PairingRow({
   uploadPanel,
+  fileUploadPanel,
   qrSize,
   qrDocked,
   url,
@@ -23,6 +24,7 @@ export function PairingRow({
       }}
     >
       {uploadPanel ? <div className="uploadPanel">{uploadPanel}</div> : null}
+      {fileUploadPanel ? <div className="uploadPanel">{fileUploadPanel}</div> : null}
       <PeerPanel
         ref={peerPanelRef}
         peers={peers}

@@ -462,10 +462,68 @@ io.on("connection", (socket) => {
     const sid = socket.data.sessionId;
     if (!sid) return;
 
-    // Broadcast to all peers in session
-    socket.to(roomName(sid)).emit("peer-file-list", {
-      fromUuid: socket.data.clientUuid,
+    const room = roomName(sid);
+    const senderUuid = socket.data.clientUuid;
+
+    // Check if sender is approved (like photo handler does)
+    const state = getSessionState(sid);
+    if (!state.approved.has(senderUuid)) {
+      console.warn("[file-list-update] sender not approved", { senderUuid, sid });
+      return;
+    }
+    if (state.rejected.has(senderUuid)) {
+      console.warn("[file-list-update] sender rejected", { senderUuid, sid });
+      return;
+    }
+
+    console.log(`[File Broadcast Server] From ${senderUuid} in room ${room}, broadcasting ${files?.length || 0} files`);
+
+    // Broadcast to all peers in session (including sender's other tabs)
+    // Use io.to() instead of socket.to() to match photo behavior
+    io.to(room).emit("peer-file-list", {
+      fromUuid: senderUuid,
       files,
+    });
+  });
+
+  // Socket.io fallback for file transfer (when WebRTC fails)
+  socket.on("file-request-socketio", ({ targetUuid, fileId }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    console.log(`[File Request Socket.io] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}`);
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("file-request-socketio", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
+      });
+    });
+  });
+
+  socket.on("file-transfer-socketio", ({ targetUuid, fileId, chunk, chunkIndex, totalChunks, fileName, fileSize, fileType }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("file-transfer-socketio", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
+        chunk,
+        chunkIndex,
+        totalChunks,
+        fileName,
+        fileSize,
+        fileType,
+      });
     });
   });
 

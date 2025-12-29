@@ -11,10 +11,12 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
   const connectionsRef = useRef(new Map());
   const dataChannelsRef = useRef(new Map());
 
-  // ICE servers configuration (STUN server for NAT traversal)
+  // ICE servers configuration
+  // Note: For production with real P2P between different networks,
+  // you may need to add your own TURN server here.
+  // For now, we rely on STUN for localhost and Socket.io fallback for reliability.
   const iceServers = [
     { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
   ];
 
   // Create a new RTCPeerConnection for a peer
@@ -22,7 +24,14 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
     (peerUuid) => {
       if (!enabled || !socket) return null;
 
-      const pc = new RTCPeerConnection({ iceServers });
+      const pc = new RTCPeerConnection({
+        iceServers,
+        iceCandidatePoolSize: 10,
+        // For localhost testing, force using host candidates (direct connection)
+        // This works when both browsers are on the same machine
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+      });
 
       // Handle ICE candidates
       pc.onicecandidate = (event) => {
@@ -36,7 +45,6 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
       // Track connection state
       pc.onconnectionstatechange = () => {
-        console.log(`WebRTC connection to ${peerUuid}: ${pc.connectionState}`);
         setConnectionStates((prev) => {
           const next = new Map(prev);
           next.set(peerUuid, pc.connectionState);
@@ -44,7 +52,6 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
         });
 
         if (pc.connectionState === "failed" || pc.connectionState === "closed") {
-          // Cleanup on failure
           closeConnection(peerUuid);
         }
       };
@@ -73,19 +80,20 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       });
 
       dc.onopen = () => {
-        console.log(`Data channel to ${peerUuid} opened`);
         dataChannelsRef.current.set(peerUuid, dc);
         setDataChannels(new Map(dataChannelsRef.current));
       };
 
       dc.onclose = () => {
-        console.log(`Data channel to ${peerUuid} closed`);
         dataChannelsRef.current.delete(peerUuid);
         setDataChannels(new Map(dataChannelsRef.current));
       };
 
       // Create and send offer
-      const offer = await pc.createOffer();
+      const offer = await pc.createOffer({
+        offerToReceiveAudio: false,
+        offerToReceiveVideo: false,
+      });
       await pc.setLocalDescription(offer);
 
       socket.emit("webrtc-offer", {
@@ -109,16 +117,13 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       // Handle incoming data channel
       pc.ondatachannel = (event) => {
         const dc = event.channel;
-        console.log(`Data channel from ${fromUuid} received`);
 
         dc.onopen = () => {
-          console.log(`Data channel from ${fromUuid} opened`);
           dataChannelsRef.current.set(fromUuid, dc);
           setDataChannels(new Map(dataChannelsRef.current));
         };
 
         dc.onclose = () => {
-          console.log(`Data channel from ${fromUuid} closed`);
           dataChannelsRef.current.delete(fromUuid);
           setDataChannels(new Map(dataChannelsRef.current));
         };
@@ -153,7 +158,11 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       const pc = connectionsRef.current.get(fromUuid);
       if (!pc) return;
 
-      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.error(`[WebRTC] Error adding ICE candidate:`, error);
+      }
     },
     []
   );

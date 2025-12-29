@@ -61,10 +61,6 @@ export function FileUploadPanel({ sharedFiles = [], onFilesChange, disabled = fa
     }
   };
 
-  const handleRemoveFile = (fileId) => {
-    onFilesChange(sharedFiles.filter((f) => f.id !== fileId));
-  };
-
   const handleSelectClick = () => {
     if (!disabled && fileInputRef.current) {
       fileInputRef.current.click();
@@ -95,42 +91,17 @@ export function FileUploadPanel({ sharedFiles = [], onFilesChange, disabled = fa
           {t("desktop.fileUpload.selectFiles", "Dateien auswählen")}
         </button>
 
-        {sharedFiles.length === 0 ? (
-          <p className="uploadPanelHint">
-            {t(
-              "desktop.fileUpload.hint",
-              "Wähle Dateien aus, die du mit anderen teilen möchtest"
-            )}
-          </p>
-        ) : (
-          <div className="uploadPanelFileList">
-            {sharedFiles.map((file) => (
-              <div key={file.id} className="uploadPanelFileItem">
-                <span className="uploadFileIcon">{getFileIcon(file.name)}</span>
-                <div className="uploadFileInfo">
-                  <div className="uploadFileName">{file.name}</div>
-                  <div className="uploadFileSize">{formatFileSize(file.size)}</div>
-                </div>
-                <button
-                  className="uploadFileRemove"
-                  onClick={() => handleRemoveFile(file.id)}
-                  title={t("desktop.fileUpload.remove", "Entfernen")}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {sharedFiles.length > 0 && (
-          <div className="uploadPanelStats">
-            {t("desktop.fileUpload.fileCount", {
-              count: sharedFiles.length,
-              defaultValue: `${sharedFiles.length} Datei(en) geteilt`,
-            })}
-          </div>
-        )}
+        <p className="uploadPanelHint">
+          {sharedFiles.length > 0
+            ? t("desktop.fileUpload.fileCount", {
+                count: sharedFiles.length,
+                defaultValue: `${sharedFiles.length} Datei(en) geteilt`,
+              })
+            : t(
+                "desktop.fileUpload.hint",
+                "Wähle Dateien aus, die du mit anderen teilen möchtest"
+              )}
+        </p>
       </div>
     </div>
   );

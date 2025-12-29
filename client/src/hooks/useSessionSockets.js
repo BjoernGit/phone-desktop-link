@@ -20,7 +20,7 @@ function getSocketUrl() {
   return window.location.origin;
 }
 
-export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onPeerStatus }) {
+export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onPeerStatus, onPeerFileList }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketStatus, setSocketStatus] = useState("connecting");
@@ -186,6 +186,10 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     socket.on("peer-status", (payload) => {
       onPeerStatus?.(payload);
     });
+    socket.on("peer-file-list", (payload) => {
+      console.log("[useSessionSockets] peer-file-list received", payload);
+      onPeerFileList?.(payload);
+    });
 
     return () => {
       socket.off("peer-joined", onPeerJoined);
@@ -193,8 +197,9 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       socket.off("photo", onPhoto);
       socket.off("session-offer");
       socket.off("peer-status");
+      socket.off("peer-file-list");
     };
-  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer, onPeerStatus]);
+  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer, onPeerStatus, onPeerFileList]);
 
   // emit join when sessionId changes and Socket ist verbunden
   useEffect(() => {
