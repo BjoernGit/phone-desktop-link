@@ -128,6 +128,27 @@ const allowOffer = createRateLimiter(10, 60 * 1000); // 10 offers/minute per IP
 const allowPhotoSession = createRateLimiter(120, 60 * 1000); // 120 photos/minute per Session
 const allowOfferSession = createRateLimiter(60, 60 * 1000); // 60 offers/minute per Session
 
+// Socket.io file transfer rate limiting
+// Limit: 100MB total data per IP per minute (prevents server overload)
+const SOCKETIO_TRANSFER_LIMIT_BYTES = 100 * 1024 * 1024; // 100 MB per minute
+const SOCKETIO_TRANSFER_WINDOW_MS = 60 * 1000;
+const transferBytesMap = new Map(); // ip -> { bytes, ts }
+
+function allowTransferBytes(ip, bytes) {
+  if (!ip || typeof bytes !== "number") return false;
+  const now = Date.now();
+  const entry = transferBytesMap.get(ip) || { bytes: 0, ts: now };
+  const age = now - entry.ts;
+  const withinWindow = age < SOCKETIO_TRANSFER_WINDOW_MS;
+  const totalBytes = withinWindow ? entry.bytes + bytes : bytes;
+  transferBytesMap.set(ip, { bytes: totalBytes, ts: withinWindow ? entry.ts : now });
+  return totalBytes <= SOCKETIO_TRANSFER_LIMIT_BYTES;
+}
+
+// Also limit concurrent transfers per IP
+const MAX_CONCURRENT_TRANSFERS = 3;
+const activeTransfersMap = new Map(); // ip -> Set of fileIds
+
 const offerNonces = new Map(); // sessionId -> Map(nonce -> ts)
 const banned = new Map(); // ip -> { until, strikes }
 
@@ -506,9 +527,55 @@ io.on("connection", (socket) => {
   });
 
   // File transfer start (metadata)
+  // Server-side limit for Socket.io file transfers to protect server resources
+  const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB - same as client limit
+
   socket.on("file-transfer-socketio-start", ({ targetUuid, fileId, fileName, fileSize, fileType, totalChunks }) => {
     const sid = socket.data.sessionId;
     if (!sid || !isValidUuid(targetUuid)) return;
+
+    // Enforce server-side file size limit
+    if (typeof fileSize !== "number" || fileSize > SOCKETIO_MAX_FILE_SIZE) {
+      const sizeMB = fileSize ? (fileSize / (1024 * 1024)).toFixed(1) : "unknown";
+      const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+      console.warn(`[File Transfer Socket.io] REJECTED: File too large (${sizeMB}MB > ${limitMB}MB limit) from ${socket.data.clientUuid}`);
+      socket.emit("file-transfer-socketio-error", {
+        fileId,
+        error: "file_too_large",
+        message: `File size (${sizeMB}MB) exceeds server limit of ${limitMB}MB for Socket.io transfers. Please use WebRTC for larger files.`,
+        maxSize: SOCKETIO_MAX_FILE_SIZE,
+      });
+      return;
+    }
+
+    // Check rate limit (100MB/minute per IP)
+    if (!allowTransferBytes(ip, fileSize)) {
+      const limitMB = (SOCKETIO_TRANSFER_LIMIT_BYTES / (1024 * 1024)).toFixed(0);
+      console.warn(`[File Transfer Socket.io] RATE LIMITED: ${ip} exceeded ${limitMB}MB/minute transfer limit`);
+      socket.emit("file-transfer-socketio-error", {
+        fileId,
+        error: "rate_limited",
+        message: `Transfer rate limit exceeded (${limitMB}MB per minute). Please wait before transferring more files.`,
+      });
+      registerStrike(ip, "transfer-rate");
+      return;
+    }
+
+    // Check concurrent transfer limit
+    const activeSet = activeTransfersMap.get(ip) || new Set();
+    if (activeSet.size >= MAX_CONCURRENT_TRANSFERS) {
+      console.warn(`[File Transfer Socket.io] REJECTED: Too many concurrent transfers from ${ip}`);
+      socket.emit("file-transfer-socketio-error", {
+        fileId,
+        error: "too_many_transfers",
+        message: `Maximum ${MAX_CONCURRENT_TRANSFERS} concurrent transfers allowed. Please wait for current transfers to complete.`,
+      });
+      return;
+    }
+
+    // Track this transfer as active
+    activeSet.add(fileId);
+    activeTransfersMap.set(ip, activeSet);
 
     console.log(`[File Transfer Socket.io Start] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileName} (${fileSize} bytes)`);
 
@@ -551,6 +618,15 @@ io.on("connection", (socket) => {
   socket.on("file-transfer-socketio-complete", ({ targetUuid, fileId }) => {
     const sid = socket.data.sessionId;
     if (!sid || !isValidUuid(targetUuid)) return;
+
+    // Remove from active transfers
+    const activeSet = activeTransfersMap.get(ip);
+    if (activeSet) {
+      activeSet.delete(fileId);
+      if (activeSet.size === 0) {
+        activeTransfersMap.delete(ip);
+      }
+    }
 
     console.log(`[File Transfer Socket.io Complete] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}`);
 

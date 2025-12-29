@@ -245,8 +245,49 @@ export default function App() {
 
   const fileTransfer = useFileTransfer();
 
-  // Note: WebRTC connections are now created on-demand when downloading files
-  // This avoids unnecessary connection attempts and errors when no transfer is needed
+  // Track peers we've already initiated WebRTC connections to
+  const webRTCInitiatedRef = useRef(new Set());
+
+  // Eager WebRTC: Initiate connection to new peers immediately on join
+  // This ensures DataChannel is ready before user clicks download
+  useEffect(() => {
+    if (isMobile || !socket || !socket.connected) return;
+
+    // Find peers we haven't connected to yet
+    for (const peer of peers) {
+      const peerUuid = peer.clientUuid;
+
+      // Skip if already initiated or already have open channel
+      if (webRTCInitiatedRef.current.has(peerUuid)) continue;
+      if (webRTC.dataChannels.get(peerUuid)?.readyState === "open") continue;
+
+      // Mark as initiated to prevent duplicate attempts
+      webRTCInitiatedRef.current.add(peerUuid);
+
+      console.log(`[App] Eager WebRTC: Initiating connection to peer ${peerUuid}`);
+
+      // Fire and forget - don't await, let it connect in background
+      webRTC.createOffer(peerUuid, 30000).then((dc) => {
+        if (dc) {
+          console.log(`[App] Eager WebRTC: Connection established to ${peerUuid}`);
+        } else {
+          console.warn(`[App] Eager WebRTC: Connection failed to ${peerUuid}`);
+          // Remove from initiated set so we can retry later
+          webRTCInitiatedRef.current.delete(peerUuid);
+        }
+      }).catch((err) => {
+        console.error(`[App] Eager WebRTC: Error connecting to ${peerUuid}:`, err);
+        webRTCInitiatedRef.current.delete(peerUuid);
+      });
+    }
+
+    // Clean up initiated set for peers that left
+    for (const peerUuid of webRTCInitiatedRef.current) {
+      if (!peers.some(p => p.clientUuid === peerUuid)) {
+        webRTCInitiatedRef.current.delete(peerUuid);
+      }
+    }
+  }, [peers, socket, isMobile, webRTC]);
 
   // Broadcast own file list to peers when it changes
   useEffect(() => {
@@ -386,14 +427,24 @@ export default function App() {
       fileChunks.delete(fileId);
     };
 
+    const handleFileTransferError = ({ fileId, error, message }) => {
+      console.error(`[Socket.io] File transfer error for ${fileId}: ${error} - ${message}`);
+      // Clean up any partial transfer
+      fileChunks.delete(fileId);
+      // Show error to user
+      alert(`File transfer failed: ${message}`);
+    };
+
     socket.on("file-transfer-socketio-start", handleFileTransferStart);
     socket.on("file-transfer-socketio", handleFileTransferSocketio);
     socket.on("file-transfer-socketio-complete", handleFileTransferComplete);
+    socket.on("file-transfer-socketio-error", handleFileTransferError);
 
     return () => {
       socket.off("file-transfer-socketio-start", handleFileTransferStart);
       socket.off("file-transfer-socketio", handleFileTransferSocketio);
       socket.off("file-transfer-socketio-complete", handleFileTransferComplete);
+      socket.off("file-transfer-socketio-error", handleFileTransferError);
     };
   }, [socket, isMobile]);
 
@@ -507,11 +558,11 @@ export default function App() {
       // Check if Socket.io fallback is allowed
       const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
 
-      // If no data channel exists, create WebRTC connection
+      // If no data channel exists (eager connection failed or pending), try to create one
       if (!dataChannel || dataChannel.readyState !== "open") {
-        console.log(`[App] Initiating WebRTC connection to ${peerUuid} for file download`);
+        console.log(`[App] WebRTC channel not ready for ${peerUuid}, attempting connection...`);
 
-        // createOffer now returns a Promise that resolves when DataChannel is open
+        // createOffer returns a Promise that resolves when DataChannel is open
         dataChannel = await webRTC.createOffer(peerUuid, 15000);
 
         if (dataChannel) {
@@ -527,8 +578,18 @@ export default function App() {
           return;
         }
 
+        // Socket.io fallback has a size limit to protect server resources
+        const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+        if (file.size > SOCKETIO_MAX_FILE_SIZE) {
+          const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+          const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+          console.error(`[App] File too large for Socket.io fallback: ${sizeMB}MB > ${limitMB}MB limit`);
+          alert(`WebRTC connection failed and file is too large (${sizeMB}MB) for Socket.io fallback.\nMaximum size for fallback: ${limitMB}MB.\n\nPlease try again or check your network connection.`);
+          return;
+        }
+
         // Fallback: Request file via Socket.io
-        console.log(`[App] WebRTC not available for ${peerUuid}, using Socket.io fallback`);
+        console.log(`[App] WebRTC not available for ${peerUuid}, using Socket.io fallback for ${(file.size / (1024 * 1024)).toFixed(1)}MB file`);
         socket.emit("file-request-socketio", {
           targetUuid: peerUuid,
           fileId: file.id,

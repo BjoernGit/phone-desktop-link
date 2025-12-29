@@ -119,6 +119,13 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
     async (peerUuid, timeoutMs = 15000) => {
       if (!enabled || !socket) return null;
 
+      // Check if we already have an open DataChannel (e.g., from receiving an offer)
+      const existingDc = dataChannelsRef.current.get(peerUuid);
+      if (existingDc && existingDc.readyState === "open") {
+        console.log(`[WebRTC] Already have open DataChannel for ${peerUuid}, skipping offer`);
+        return existingDc;
+      }
+
       console.log(`[WebRTC] Creating offer for ${peerUuid}`);
 
       let pc = connectionsRef.current.get(peerUuid);
