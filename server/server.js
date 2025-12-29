@@ -505,7 +505,31 @@ io.on("connection", (socket) => {
     });
   });
 
-  socket.on("file-transfer-socketio", ({ targetUuid, fileId, chunk, chunkIndex, totalChunks, fileName, fileSize, fileType }) => {
+  // File transfer start (metadata)
+  socket.on("file-transfer-socketio-start", ({ targetUuid, fileId, fileName, fileSize, fileType, totalChunks }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    console.log(`[File Transfer Socket.io Start] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileName} (${fileSize} bytes)`);
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("file-transfer-socketio-start", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
+        fileName,
+        fileSize,
+        fileType,
+        totalChunks,
+      });
+    });
+  });
+
+  // File transfer chunk (binary data)
+  socket.on("file-transfer-socketio", ({ targetUuid, fileId, chunk, chunkIndex }) => {
     const sid = socket.data.sessionId;
     if (!sid || !isValidUuid(targetUuid)) return;
 
@@ -517,12 +541,27 @@ io.on("connection", (socket) => {
       s.emit("file-transfer-socketio", {
         fromUuid: socket.data.clientUuid,
         fileId,
-        chunk,
+        chunk, // Binary data passed through
         chunkIndex,
-        totalChunks,
-        fileName,
-        fileSize,
-        fileType,
+      });
+    });
+  });
+
+  // File transfer complete
+  socket.on("file-transfer-socketio-complete", ({ targetUuid, fileId }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    console.log(`[File Transfer Socket.io Complete] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}`);
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("file-transfer-socketio-complete", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
       });
     });
   });

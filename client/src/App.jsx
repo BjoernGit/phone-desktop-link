@@ -25,16 +25,6 @@ export default function App() {
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const { message: copyStatus, show: showCopyStatus } = useStatusMessage();
   const [debugDataUrl, setDebugDataUrl] = useState("");
-  const [showDebug, setShowDebug] = useState(false);
-  const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
-  const [sessionSeed, setSessionSeed] = useState("");
-  const [offerSecret, setOfferSecret] = useState("");
-  const [encStatus, setEncStatus] = useState("idle");
-  const [seedInitialized, setSeedInitialized] = useState(false);
-  const [showQualityPicker, setShowQualityPicker] = useState(false);
-  const fileInputRef = useRef(null);
-  const sessionKeyRef = useRef(null);
-  const [peerStatuses, setPeerStatuses] = useState({});
   const host = window.location.hostname || "";
   const isLocalHost =
     host === "localhost" ||
@@ -49,6 +39,16 @@ export default function App() {
     host.startsWith("172.2") ||
     host.startsWith("172.3");
   const allowDebug = isLocalHost && import.meta.env.VITE_LOCAL_DEBUG === "1";
+  const [showDebug, setShowDebug] = useState(allowDebug); // Auto-show if debug enabled
+  const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
+  const [sessionSeed, setSessionSeed] = useState("");
+  const [offerSecret, setOfferSecret] = useState("");
+  const [encStatus, setEncStatus] = useState("idle");
+  const [seedInitialized, setSeedInitialized] = useState(false);
+  const [showQualityPicker, setShowQualityPicker] = useState(false);
+  const fileInputRef = useRef(null);
+  const sessionKeyRef = useRef(null);
+  const [peerStatuses, setPeerStatuses] = useState({});
   const [qrMode, setQrMode] = useState(false);
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
@@ -271,28 +271,40 @@ export default function App() {
       const fileToSend = sharedFiles.find((f) => f.id === fileId);
       if (!fileToSend || !fileToSend.file) return;
 
-      // Send file in chunks via Socket.io
+      // Send file metadata first
+      const totalChunks = Math.ceil(fileToSend.file.size / (64 * 1024));
+      socket.emit("file-transfer-socketio-start", {
+        targetUuid: fromUuid,
+        fileId,
+        fileName: fileToSend.name,
+        fileSize: fileToSend.file.size,
+        fileType: fileToSend.type,
+        totalChunks,
+      });
+
+      // Send file in chunks via Socket.io using binary frames (no base64)
       const CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
-      const totalChunks = Math.ceil(fileToSend.file.size / CHUNK_SIZE);
 
       for (let i = 0; i < totalChunks; i++) {
         const start = i * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, fileToSend.file.size);
         const chunk = fileToSend.file.slice(start, end);
         const arrayBuffer = await chunk.arrayBuffer();
-        const base64Chunk = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
 
+        // Send binary data directly (Socket.io supports binary)
         socket.emit("file-transfer-socketio", {
           targetUuid: fromUuid,
           fileId,
-          chunk: base64Chunk,
+          chunk: arrayBuffer, // Send as ArrayBuffer directly
           chunkIndex: i,
-          totalChunks,
-          fileName: fileToSend.name,
-          fileSize: fileToSend.size,
-          fileType: fileToSend.type,
         });
       }
+
+      // Send completion signal
+      socket.emit("file-transfer-socketio-complete", {
+        targetUuid: fromUuid,
+        fileId,
+      });
     };
 
     socket.on("file-request-socketio", handleFileRequestSocketio);
@@ -306,134 +318,174 @@ export default function App() {
   useEffect(() => {
     if (isMobile || !socket) return;
 
-    const fileChunks = new Map(); // fileId -> { chunks: [], fileName, fileSize, fileType, totalChunks }
+    const fileChunks = new Map(); // fileId -> { chunks: Map, fileName, fileSize, fileType, totalChunks }
 
-    const handleFileTransferSocketio = ({ fileId, chunk, chunkIndex, totalChunks, fileName, fileSize, fileType }) => {
-      if (!fileChunks.has(fileId)) {
-        fileChunks.set(fileId, {
-          chunks: [],
-          fileName,
-          fileSize,
-          fileType,
-          totalChunks,
-        });
-      }
-
-      const transfer = fileChunks.get(fileId);
-      transfer.chunks[chunkIndex] = chunk;
-
-      // Check if all chunks received
-      const receivedCount = transfer.chunks.filter(Boolean).length;
-      if (receivedCount === totalChunks) {
-        // Decode and assemble chunks
-        const binaryChunks = transfer.chunks.map((base64) => {
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-          return bytes;
-        });
-
-        const blob = new Blob(binaryChunks, { type: fileType });
-
-        // Auto-download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-
-        fileChunks.delete(fileId);
-      }
+    const handleFileTransferStart = ({ fileId, fileName, fileSize, fileType, totalChunks }) => {
+      console.log(`[Socket.io] Receiving file ${fileName} (${fileSize} bytes, ${totalChunks} chunks)`);
+      fileChunks.set(fileId, {
+        chunks: new Map(), // Use Map for indexed chunks
+        fileName,
+        fileSize,
+        fileType,
+        totalChunks,
+      });
     };
 
+    const handleFileTransferSocketio = ({ fileId, chunk, chunkIndex }) => {
+      const transfer = fileChunks.get(fileId);
+      if (!transfer) {
+        console.warn(`[Socket.io] Received chunk for unknown file ${fileId}`);
+        return;
+      }
+
+      // Store chunk at correct index (supports out-of-order arrival)
+      transfer.chunks.set(chunkIndex, chunk);
+
+      console.log(`[Socket.io] Received chunk ${chunkIndex + 1}/${transfer.totalChunks} for ${transfer.fileName}`);
+    };
+
+    const handleFileTransferComplete = ({ fileId }) => {
+      const transfer = fileChunks.get(fileId);
+      if (!transfer) {
+        console.warn(`[Socket.io] Received completion for unknown file ${fileId}`);
+        return;
+      }
+
+      // Check if all chunks received
+      if (transfer.chunks.size !== transfer.totalChunks) {
+        console.error(`[Socket.io] Missing chunks: received ${transfer.chunks.size}/${transfer.totalChunks}`);
+        fileChunks.delete(fileId);
+        return;
+      }
+
+      // Assemble chunks in order
+      const orderedChunks = [];
+      for (let i = 0; i < transfer.totalChunks; i++) {
+        const chunk = transfer.chunks.get(i);
+        if (!chunk) {
+          console.error(`[Socket.io] Missing chunk ${i} for ${transfer.fileName}`);
+          fileChunks.delete(fileId);
+          return;
+        }
+        orderedChunks.push(chunk);
+      }
+
+      const blob = new Blob(orderedChunks, { type: transfer.fileType });
+
+      // Auto-download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = transfer.fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      console.log(`[Socket.io] File ${transfer.fileName} downloaded successfully`);
+      fileChunks.delete(fileId);
+    };
+
+    socket.on("file-transfer-socketio-start", handleFileTransferStart);
     socket.on("file-transfer-socketio", handleFileTransferSocketio);
+    socket.on("file-transfer-socketio-complete", handleFileTransferComplete);
 
     return () => {
+      socket.off("file-transfer-socketio-start", handleFileTransferStart);
       socket.off("file-transfer-socketio", handleFileTransferSocketio);
+      socket.off("file-transfer-socketio-complete", handleFileTransferComplete);
     };
   }, [socket, isMobile]);
 
-  // Setup file receiver on data channels
+  // Track which peers have handlers set up to avoid duplicate registrations
+  const registeredHandlersRef = useRef(new Map()); // peerUuid -> cleanup function
+  const sharedFilesRef = useRef(sharedFiles);
+  sharedFilesRef.current = sharedFiles; // Keep ref updated for use in callbacks
+
+  // Setup file receiver and sender on data channels
+  // Uses registerMessageCallback to handle ALL messages (including buffered ones)
+  // IMPORTANT: We use ONE unified handler per peer to ensure shared state (activeTransfers)
   useEffect(() => {
     if (isMobile) return;
 
+    // Get current set of peer UUIDs
+    const currentPeers = new Set(webRTC.dataChannels.keys());
+    const registeredPeers = new Set(registeredHandlersRef.current.keys());
+
+    // Remove handlers for peers that are no longer connected
+    for (const peerUuid of registeredPeers) {
+      if (!currentPeers.has(peerUuid)) {
+        console.log(`[App] Removing handler for disconnected peer ${peerUuid}`);
+        const cleanup = registeredHandlersRef.current.get(peerUuid);
+        if (cleanup) cleanup();
+        registeredHandlersRef.current.delete(peerUuid);
+      }
+    }
+
+    // Add handlers for new peers only
     webRTC.dataChannels.forEach((dataChannel, peerUuid) => {
-      fileTransfer.setupReceiver(dataChannel, ({ fileName, blob, transferId }) => {
-        // Save received blob
-        setReceivedBlobs((prev) => {
-          const next = new Map(prev);
-          next.set(transferId, { fileName, blob });
-          return next;
-        });
-
-        // Auto-download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      });
-    });
-  }, [webRTC.dataChannels, fileTransfer, isMobile]);
-
-  // Setup sender-side listener for file requests
-  useEffect(() => {
-    if (isMobile) return;
-
-    const listeners = new Map();
-
-    webRTC.dataChannels.forEach((dataChannel, peerUuid) => {
-      // Remove existing listener if any
-      const existingListener = listeners.get(peerUuid);
-      if (existingListener) {
-        dataChannel.removeEventListener("message", existingListener);
+      // Skip if already registered
+      if (registeredHandlersRef.current.has(peerUuid)) {
+        return;
       }
 
-      // Create new listener
-      const messageListener = (event) => {
-        if (typeof event.data === "string") {
-          try {
-            const msg = JSON.parse(event.data);
+      console.log(`[App] Setting up handler for new peer ${peerUuid}`);
 
-            // Handle file download request
-            if (msg.type === "file-request" && msg.fileId) {
-              const fileToSend = sharedFiles.find((f) => f.id === msg.fileId);
+      // Create a unified message handler using createMessageHandler
+      // This ensures file-start, file-chunk, and file-complete share the same activeTransfers Map
+      const fileTransferHandler = fileTransfer.createMessageHandler(
+        // onFileReceived callback
+        ({ fileName, blob, transferId }) => {
+          // Save received blob
+          setReceivedBlobs((prev) => {
+            const next = new Map(prev);
+            next.set(transferId, { fileName, blob });
+            return next;
+          });
 
-              if (fileToSend && fileToSend.file) {
-                // Send the file via WebRTC
-                fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid);
-              } else {
-                console.error("Requested file not found or File object missing:", msg.fileId);
-              }
-            }
-          } catch (e) {
-            // Not JSON or parsing error - ignore (could be file transfer control messages)
+          // Auto-download
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        },
+        // onFileRequest callback - use ref to always get latest sharedFiles
+        (fileId) => {
+          const fileToSend = sharedFilesRef.current.find((f) => f.id === fileId);
+          if (fileToSend && fileToSend.file) {
+            console.log(`[App] Sending file ${fileToSend.name} via WebRTC to ${peerUuid}`);
+            fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid);
+          } else {
+            console.error(`[App] Requested file not found or File object missing: ${fileId}`);
           }
         }
-      };
+      );
 
-      dataChannel.addEventListener("message", messageListener);
-      listeners.set(peerUuid, messageListener);
+      // Register the unified handler with WebRTC's callback system
+      // This ensures buffered messages are delivered to the SAME handler
+      // that will process file-start/chunk/complete with shared state
+      const callbackCleanup = webRTC.registerMessageCallback(peerUuid, fileTransferHandler);
+
+      registeredHandlersRef.current.set(peerUuid, callbackCleanup);
     });
 
-    // Cleanup
+    // Cleanup on unmount only - don't clean up on every re-render
     return () => {
-      listeners.forEach((listener, peerUuid) => {
-        const dataChannel = webRTC.dataChannels.get(peerUuid);
-        if (dataChannel) {
-          dataChannel.removeEventListener("message", listener);
-        }
-      });
+      // Only cleanup everything on unmount (when isMobile changes or component unmounts)
     };
-  }, [webRTC.dataChannels, sharedFiles, fileTransfer, isMobile]);
+  }, [webRTC.dataChannels, webRTC.registerMessageCallback, fileTransfer, isMobile]);
+
+  // Cleanup all handlers on unmount
+  useEffect(() => {
+    return () => {
+      registeredHandlersRef.current.forEach((cleanup) => cleanup());
+      registeredHandlersRef.current.clear();
+    };
+  }, []);
 
   // Handle file download (initiate transfer)
   const handleFileDownload = useCallback(
@@ -441,38 +493,30 @@ export default function App() {
       if (isMobile || !file.ownerUuid) return;
 
       const peerUuid = file.ownerUuid;
+
+      // Validate peer is still in session (peers use clientUuid property)
+      const peerExists = peers.some(p => p.clientUuid === peerUuid);
+      if (!peerExists) {
+        console.error(`[App] Peer ${peerUuid} is no longer in session`);
+        alert("The peer who owns this file is no longer connected.");
+        return;
+      }
+
       let dataChannel = webRTC.dataChannels.get(peerUuid);
 
       // Check if Socket.io fallback is allowed
       const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
 
       // If no data channel exists, create WebRTC connection
-      if (!dataChannel) {
+      if (!dataChannel || dataChannel.readyState !== "open") {
         console.log(`[App] Initiating WebRTC connection to ${peerUuid} for file download`);
-        await webRTC.createOffer(peerUuid);
 
-        // Wait for DataChannel to open using event-based approach
-        const startTime = Date.now();
-        const timeout = 20000; // 20 seconds max wait time
+        // createOffer now returns a Promise that resolves when DataChannel is open
+        dataChannel = await webRTC.createOffer(peerUuid, 15000);
 
-        // Create a promise that resolves when DataChannel opens or timeout occurs
-        const waitForDataChannel = new Promise((resolve) => {
-          const checkInterval = setInterval(() => {
-            const dc = webRTC.dataChannels.get(peerUuid);
-            if (dc && dc.readyState === "open") {
-              clearInterval(checkInterval);
-              const elapsed = Date.now() - startTime;
-              console.log(`[App] WebRTC DataChannel opened after ${elapsed}ms`);
-              resolve(dc);
-            } else if (Date.now() - startTime >= timeout) {
-              clearInterval(checkInterval);
-              console.warn(`[App] DataChannel timeout after ${timeout}ms`);
-              resolve(null);
-            }
-          }, 100);
-        });
-
-        dataChannel = await waitForDataChannel;
+        if (dataChannel) {
+          console.log(`[App] WebRTC DataChannel ready for ${peerUuid}`);
+        }
       }
 
       if (!dataChannel || dataChannel.readyState !== "open") {
@@ -500,7 +544,7 @@ export default function App() {
       };
       dataChannel.send(JSON.stringify(request));
     },
-    [isMobile, webRTC, peerFiles, socket]
+    [isMobile, webRTC, peers, socket]
   );
 
   // Handle own file list changes
