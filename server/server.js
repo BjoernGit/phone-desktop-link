@@ -408,6 +408,67 @@ io.on("connection", (socket) => {
     socket.leave(room);
   });
 
+  // WebRTC Signaling for P2P file transfer
+  socket.on("webrtc-offer", ({ targetUuid, sdp }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("webrtc-offer", {
+        fromUuid: socket.data.clientUuid,
+        sdp,
+      });
+    });
+  });
+
+  socket.on("webrtc-answer", ({ targetUuid, sdp }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("webrtc-answer", {
+        fromUuid: socket.data.clientUuid,
+        sdp,
+      });
+    });
+  });
+
+  socket.on("webrtc-ice-candidate", ({ targetUuid, candidate }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    const sockets = Array.from(io.sockets.sockets.values()).filter(
+      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
+    );
+
+    sockets.forEach((s) => {
+      s.emit("webrtc-ice-candidate", {
+        fromUuid: socket.data.clientUuid,
+        candidate,
+      });
+    });
+  });
+
+  // File metadata broadcast
+  socket.on("file-list-update", ({ files }) => {
+    const sid = socket.data.sessionId;
+    if (!sid) return;
+
+    // Broadcast to all peers in session
+    socket.to(roomName(sid)).emit("peer-file-list", {
+      fromUuid: socket.data.clientUuid,
+      files,
+    });
+  });
+
   socket.on("disconnect", () => {
     const sessionId = socket.data.sessionId;
     const role = socket.data.role;

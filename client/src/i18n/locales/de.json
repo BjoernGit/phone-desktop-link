@@ -95,6 +95,24 @@
       "connected": "Gerät(e) verbunden",
       "waiting": "Wartet auf Verbindung",
       "empty": "Verbinde ein Gerät, um neue Fotos zu senden."
+    },
+    "fileUpload": {
+      "title": "Dateien teilen",
+      "selectFiles": "Dateien auswählen",
+      "hint": "Wähle Dateien aus, die du mit anderen teilen möchtest",
+      "remove": "Entfernen",
+      "fileCount": "{{count}} Datei(en) geteilt"
+    },
+    "fileGallery": {
+      "title": "Verfügbare Dateien",
+      "empty": "Keine Dateien verfügbar. Füge Dateien im Upload-Panel hinzu oder warte bis andere Teilnehmer Dateien teilen.",
+      "fileName": "Name",
+      "fileSize": "Größe",
+      "fileOwner": "Besitzer",
+      "fileStatus": "Status",
+      "available": "Verfügbar",
+      "download": "Download",
+      "completed": "✓"
     }
   },
   "offer": {

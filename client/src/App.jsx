@@ -8,6 +8,8 @@ import { useCameraCapture } from "./hooks/useCameraCapture";
 import { useStatusMessage } from "./hooks/useStatusMessage";
 import { useClipboardShare } from "./hooks/useClipboardShare";
 import { useQrScanner } from "./hooks/useQrScanner";
+import { useWebRTC } from "./hooks/useWebRTC";
+import { useFileTransfer } from "./hooks/useFileTransfer";
 import { decryptJsonWithSecret, decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
 import { useEncryption } from "./hooks/useEncryption";
 import { CookiesContent } from "./pages/CookiesPage";
@@ -149,6 +151,7 @@ export default function App() {
   );
 
   const {
+    socket,
     sessionId,
     clientUuid,
     peers,
@@ -213,6 +216,20 @@ export default function App() {
     },
     [sendPeerDecision]
   );
+
+  // File Transfer State
+  const [sharedFiles, setSharedFiles] = useState([]); // Own files to share
+  const [peerFiles, setPeerFiles] = useState(new Map()); // peerUuid -> file list
+  const [receivedBlobs, setReceivedBlobs] = useState(new Map()); // fileId -> blob
+
+  // WebRTC & File Transfer Hooks (only on desktop)
+  const webRTC = useWebRTC({
+    socket,
+    clientUuid,
+    enabled: !isMobile,
+  });
+
+  const fileTransfer = useFileTransfer();
 
   const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 

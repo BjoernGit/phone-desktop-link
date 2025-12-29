@@ -296,6 +296,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   }, []);
 
   return {
+    socket,
     sessionId,
     clientUuid,
     socketConnected,
