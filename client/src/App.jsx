@@ -443,15 +443,48 @@ export default function App() {
       const peerUuid = file.ownerUuid;
       let dataChannel = webRTC.dataChannels.get(peerUuid);
 
+      // Check if Socket.io fallback is allowed
+      const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
+
       // If no data channel exists, create WebRTC connection
       if (!dataChannel) {
+        console.log(`[App] Initiating WebRTC connection to ${peerUuid} for file download`);
         await webRTC.createOffer(peerUuid);
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        dataChannel = webRTC.dataChannels.get(peerUuid);
+
+        // Wait for DataChannel to open using event-based approach
+        const startTime = Date.now();
+        const timeout = 20000; // 20 seconds max wait time
+
+        // Create a promise that resolves when DataChannel opens or timeout occurs
+        const waitForDataChannel = new Promise((resolve) => {
+          const checkInterval = setInterval(() => {
+            const dc = webRTC.dataChannels.get(peerUuid);
+            if (dc && dc.readyState === "open") {
+              clearInterval(checkInterval);
+              const elapsed = Date.now() - startTime;
+              console.log(`[App] WebRTC DataChannel opened after ${elapsed}ms`);
+              resolve(dc);
+            } else if (Date.now() - startTime >= timeout) {
+              clearInterval(checkInterval);
+              console.warn(`[App] DataChannel timeout after ${timeout}ms`);
+              resolve(null);
+            }
+          }, 100);
+        });
+
+        dataChannel = await waitForDataChannel;
       }
 
       if (!dataChannel || dataChannel.readyState !== "open") {
+        if (forceWebRTC) {
+          // WebRTC-only mode: do not fallback to Socket.io
+          console.error(`[App] WebRTC not available for ${peerUuid} and Socket.io fallback is disabled (VITE_FORCE_WEBRTC=true)`);
+          alert("WebRTC connection failed. Socket.io fallback is disabled in development mode.");
+          return;
+        }
+
         // Fallback: Request file via Socket.io
+        console.log(`[App] WebRTC not available for ${peerUuid}, using Socket.io fallback`);
         socket.emit("file-request-socketio", {
           targetUuid: peerUuid,
           fileId: file.id,
@@ -460,6 +493,7 @@ export default function App() {
       }
 
       // Send file download request via DataChannel
+      console.log(`[App] Requesting file via WebRTC DataChannel from ${peerUuid}`);
       const request = {
         type: "file-request",
         fileId: file.id,
