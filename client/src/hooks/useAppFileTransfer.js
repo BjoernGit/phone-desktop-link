@@ -36,6 +36,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
 
   // Refs
   const webRTCInitiatedRef = useRef(new Set());
+  const webRTCWaitingRef = useRef(new Set()); // Track peers we're waiting for (to avoid log spam)
   const registeredHandlersRef = useRef(new Map());
   const sharedFilesRef = useRef(sharedFiles);
   sharedFilesRef.current = sharedFiles;
@@ -68,7 +69,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       // Tie-breaker: only initiate if our UUID is "greater" than peer's
       // This ensures exactly one side initiates, avoiding glare conflicts
       if (clientUuid <= peerUuid) {
-        console.log(`[FileTransfer] Eager WebRTC: Waiting for peer ${peerUuid} to initiate (tie-breaker)`);
+        if (!webRTCWaitingRef.current.has(peerUuid)) {
+          webRTCWaitingRef.current.add(peerUuid);
+          console.log(`[FileTransfer] Eager WebRTC: Waiting for peer ${peerUuid} to initiate (tie-breaker)`);
+        }
         continue;
       }
 
@@ -88,10 +92,15 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       });
     }
 
-    // Clean up initiated set for peers that left
+    // Clean up refs for peers that left
     for (const peerUuid of webRTCInitiatedRef.current) {
       if (!peers.some(p => p.clientUuid === peerUuid)) {
         webRTCInitiatedRef.current.delete(peerUuid);
+      }
+    }
+    for (const peerUuid of webRTCWaitingRef.current) {
+      if (!peers.some(p => p.clientUuid === peerUuid)) {
+        webRTCWaitingRef.current.delete(peerUuid);
       }
     }
   }, [peers, socket, isMobile, webRTC, clientUuid]);
