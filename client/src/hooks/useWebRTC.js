@@ -239,11 +239,13 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
         // Check if there's an existing connection - for a new offer, we should start fresh
         let pc = connectionsRef.current.get(fromUuid);
         if (pc) {
-          // If we receive a new offer, the initiator has started over - we should too
-          const badStates = ["failed", "closed", "disconnected"];
-          const needsReset = badStates.includes(pc.connectionState) ||
-                            badStates.includes(pc.iceConnectionState) ||
-                            pc.signalingState !== "stable";
+          // Only reset if connection is truly dead or in conflicting signaling state
+          // "disconnected" is temporary and may recover, don't reset aggressively
+          const deadStates = ["failed", "closed"];
+          const signalingConflict = pc.signalingState !== "stable" && pc.signalingState !== "closed";
+          const needsReset = deadStates.includes(pc.connectionState) ||
+                            deadStates.includes(pc.iceConnectionState) ||
+                            signalingConflict;
 
           if (needsReset) {
             console.log(`[WebRTC] Resetting connection for new offer from ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
@@ -252,6 +254,8 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
             dataChannelsRef.current.delete(fromUuid);
             iceCandidateBufferRef.current.delete(fromUuid);
             pc = null;
+          } else {
+            console.log(`[WebRTC] Reusing existing connection for ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
           }
         }
 
