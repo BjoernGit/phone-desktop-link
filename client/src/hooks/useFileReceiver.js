@@ -81,6 +81,7 @@ export function useFileReceiver({
             // New file transfer starting
             const currentTransfer = {
               transferId: msg.transferId,
+              fileId: msg.fileId, // Original file ID for UI progress tracking
               fileName: msg.fileName,
               fileSize: msg.fileSize,
               fileType: msg.fileType,
@@ -208,8 +209,9 @@ export function useFileReceiver({
                 transferTimeoutsRef.current.delete(msg.transferId);
               }
 
-              // Schedule automatic cleanup
-              scheduleCleanup(msg.transferId);
+              // Don't auto-cleanup - keep completed transfers visible at 100%
+              // User can manually clear via clearCompletedTransfers if needed
+              // scheduleCleanup(msg.transferId);
             }
           }
         } else if (event.data instanceof ArrayBuffer) {

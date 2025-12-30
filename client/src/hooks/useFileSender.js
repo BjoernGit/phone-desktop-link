@@ -46,7 +46,7 @@ export function useFileSender({
   cleanupTimeoutsRef,
 }) {
   const sendFile = useCallback(
-    async (file, dataChannel, peerUuid, onProgress) => {
+    async (file, dataChannel, peerUuid, onProgress, fileId = null) => {
       if (!dataChannel || dataChannel.readyState !== "open") {
         throw new Error("Data channel is not open");
       }
@@ -60,10 +60,11 @@ export function useFileSender({
       const transferId = generateTransferId();
       const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
 
-      // Send file metadata first
+      // Send file metadata first (include fileId for receiver to track)
       const metadata = {
         type: FILE_MESSAGE_TYPES.FILE_START,
         transferId,
+        fileId, // Original file ID for progress tracking on receiver side
         fileName: file.name,
         fileSize: file.size,
         fileType: file.type,
@@ -158,7 +159,8 @@ export function useFileSender({
           clearTimeout(timeoutHandle);
           transferTimeoutsRef.current.delete(transferId);
 
-          scheduleCleanup();
+          // Don't auto-cleanup - keep completed transfers visible at 100%
+          // scheduleCleanup();
           return;
         }
 

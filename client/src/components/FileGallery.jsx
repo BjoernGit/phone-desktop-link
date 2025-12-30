@@ -11,9 +11,17 @@ function getDeviceName(ownerUuid, peers, clientUuid) {
 }
 
 function getTransferStatus(file, transfers) {
-  const transfer = transfers.get(file.id);
-  if (!transfer) return null;
-  return transfer;
+  // First try direct lookup by file.id (for sender-side transfers)
+  let transfer = transfers.get(file.id);
+  if (transfer) return transfer;
+
+  // Then search by fileId property (for receiver-side transfers)
+  for (const t of transfers.values()) {
+    if (t.fileId === file.id) {
+      return t;
+    }
+  }
+  return null;
 }
 
 export function FileGallery({

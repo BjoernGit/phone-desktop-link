@@ -1093,16 +1093,18 @@
 
 .transferProgress {
   flex: 1;
-  height: 6px;
+  height: 8px;
   background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
+  border-radius: 4px;
   overflow: hidden;
+  min-width: 120px;
 }
 
 .transferProgressBar {
   height: 100%;
-  background: var(--primary);
+  background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
   transition: width 0.3s ease;
+  border-radius: 4px;
 }
 
 .transferPercent {

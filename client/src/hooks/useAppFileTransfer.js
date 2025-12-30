@@ -298,7 +298,8 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
           const fileToSend = sharedFilesRef.current.find((f) => f.id === fileId);
           if (fileToSend && fileToSend.file) {
             if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Sending file ${fileToSend.name} via WebRTC to ${peerUuid}`);
-            fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid);
+            // Pass fileId so receiver can track progress in UI
+            fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid, null, fileId);
           } else {
             console.error(`[FileTransfer] Requested file not found: ${fileId}`);
           }

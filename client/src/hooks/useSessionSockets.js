@@ -3,6 +3,9 @@ import { io } from "socket.io-client";
 import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
 import { encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
 
+// Set to true for verbose socket debugging
+const DEBUG_SOCKETS = false;
+
 function getClientUuid() {
   const key = "snap2desk-client-id";
   try {
@@ -28,6 +31,19 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   const [photos, setPhotos] = useState([]);
   const joinedSessionRef = useRef("");
   const clientUuid = useMemo(() => getClientUuid(), []);
+
+  // Use refs for callbacks to avoid re-registering event listeners
+  const onDecryptPhotoRef = useRef(onDecryptPhoto);
+  const onSessionOfferRef = useRef(onSessionOffer);
+  const onPeerStatusRef = useRef(onPeerStatus);
+  const onPeerFileListRef = useRef(onPeerFileList);
+
+  useEffect(() => {
+    onDecryptPhotoRef.current = onDecryptPhoto;
+    onSessionOfferRef.current = onSessionOffer;
+    onPeerStatusRef.current = onPeerStatus;
+    onPeerFileListRef.current = onPeerFileList;
+  });
 
   const socket = useMemo(() => {
     const isSecure = window.location.protocol === "https:";
@@ -65,7 +81,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   useEffect(() => {
     // Both mobile and desktop generate session ID if none exists
     const sid = isMobile ? (getSessionIdFromUrl() ?? ensureDesktopSessionId()) : ensureDesktopSessionId();
-    console.log("setSessionId derived", { sid, isMobile, fromUrl: window.location.search });
+    if (DEBUG_SOCKETS) console.log("setSessionId derived", { sid, isMobile, fromUrl: window.location.search });
     if (!sid || sid === sessionId) return;
     // Sync state to external source (URL/session generator)
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -77,7 +93,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       if (!sessionId) return;
       if (!socket.connected) return;
       const role = isMobile ? "mobile" : "desktop";
-      console.log("emit join-session", { sessionId, role, deviceName, clientUuid, reason, socketId: socket.id });
+      if (DEBUG_SOCKETS) console.log("emit join-session", { sessionId, role, deviceName, clientUuid, reason, socketId: socket.id });
       socket.emit("join-session", { sessionId, role, deviceName, clientUuid });
       joinedSessionRef.current = sessionId;
     },
@@ -110,7 +126,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   // connect/disconnect bookkeeping
   useEffect(() => {
     const onConnect = () => {
-      console.log("socket connected (client)", { socketId: socket.id });
+      if (DEBUG_SOCKETS) console.log("socket connected (client)", { socketId: socket.id });
       setSocketConnected(true);
       setSocketStatus("connected");
       emitJoin("connect");
@@ -137,10 +153,10 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   useEffect(() => {
     if (!sessionId) return undefined;
     const role = isMobile ? "mobile" : "desktop";
-    console.log("socket effect (events) for session", sessionId, "role", role, "connected?", socketConnected);
+    if (DEBUG_SOCKETS) console.log("socket effect (events) for session", sessionId, "role", role, "connected?", socketConnected);
 
     const onPeerJoined = ({ role: joinedRole, clientId, deviceName: joinedName, clientUuid: peerUuid }) => {
-      console.log("peer-joined event", { joinedRole, clientId, joinedName, peerUuid });
+      if (DEBUG_SOCKETS) console.log("peer-joined event", { joinedRole, clientId, joinedName, peerUuid });
       setPeers((prev) => {
         // Don't add ourselves
         if (peerUuid === clientUuid) return prev;
@@ -162,9 +178,10 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     };
 
     const onPhoto = async (payload) => {
-      if (payload?.ciphertext && onDecryptPhoto) {
+      const currentOnDecryptPhoto = onDecryptPhotoRef.current;
+      if (payload?.ciphertext && currentOnDecryptPhoto) {
         try {
-          const decrypted = await onDecryptPhoto(payload);
+          const decrypted = await currentOnDecryptPhoto(payload);
           if (decrypted) {
             setPhotos((prev) => [decrypted, ...prev]);
           }
@@ -180,15 +197,15 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     socket.on("peer-left", onPeerLeft);
     socket.on("photo", onPhoto);
     socket.on("session-offer", (payload) => {
-      console.log("session-offer received", payload);
-      onSessionOffer?.(payload);
+      if (DEBUG_SOCKETS) console.log("session-offer received", payload);
+      onSessionOfferRef.current?.(payload);
     });
     socket.on("peer-status", (payload) => {
-      onPeerStatus?.(payload);
+      onPeerStatusRef.current?.(payload);
     });
     socket.on("peer-file-list", (payload) => {
-      console.log("[useSessionSockets] peer-file-list received", payload);
-      onPeerFileList?.(payload);
+      if (DEBUG_SOCKETS) console.log("[useSessionSockets] peer-file-list received", payload);
+      onPeerFileListRef.current?.(payload);
     });
 
     return () => {
@@ -199,7 +216,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       socket.off("peer-status");
       socket.off("peer-file-list");
     };
-  }, [deviceName, isMobile, sessionId, socket, socketConnected, onDecryptPhoto, onSessionOffer, onPeerStatus, onPeerFileList]);
+  }, [clientUuid, isMobile, sessionId, socket, socketConnected]);
 
   // emit join when sessionId changes and Socket ist verbunden
   useEffect(() => {
@@ -281,7 +298,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
         return;
       }
       const enrichedOffer = { enc, nonce, ts };
-      console.log("send session-offer", { from: sessionId, target: targetSessionId, targetUuid, offer: enrichedOffer });
+      if (DEBUG_SOCKETS) console.log("send session-offer", { from: sessionId, target: targetSessionId, targetUuid, offer: enrichedOffer });
       socket.emit("session-offer", { sessionId, offer: enrichedOffer, target: targetSessionId, targetUuid });
     },
     [sessionId, socket]
