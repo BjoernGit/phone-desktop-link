@@ -1,6 +1,6 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
-import heroLogo from "../assets/filebeacon.png";
+import heroLogo from "../assets/FileBeacon.png";
 
 export function DesktopHero() {
   const { t } = useTranslation();
