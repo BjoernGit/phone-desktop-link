@@ -129,15 +129,26 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
       console.log(`[WebRTC] Creating offer for ${peerUuid}`);
 
+      // Check if there's an existing connection in a bad state - close it first
       let pc = connectionsRef.current.get(peerUuid);
+      if (pc) {
+        const badStates = ["failed", "closed", "disconnected"];
+        if (badStates.includes(pc.connectionState) || badStates.includes(pc.iceConnectionState)) {
+          console.log(`[WebRTC] Closing stale connection for ${peerUuid} (state: ${pc.connectionState}, ice: ${pc.iceConnectionState})`);
+          pc.close();
+          connectionsRef.current.delete(peerUuid);
+          dataChannelsRef.current.delete(peerUuid);
+          iceCandidateBufferRef.current.delete(peerUuid);
+          pc = null;
+        }
+      }
+
       if (!pc) {
         pc = createConnection(peerUuid);
       }
 
-      // Initialize ICE candidate buffer for this peer
-      if (!iceCandidateBufferRef.current.has(peerUuid)) {
-        iceCandidateBufferRef.current.set(peerUuid, []);
-      }
+      // Initialize ICE candidate buffer for this peer (clear any old candidates)
+      iceCandidateBufferRef.current.set(peerUuid, []);
 
       // Create data channel BEFORE creating offer
       const dc = pc.createDataChannel("fileTransfer", { ordered: true });
@@ -225,17 +236,33 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
         console.log(`[WebRTC] Received offer from ${fromUuid}`);
 
+        // Check if there's an existing connection - for a new offer, we should start fresh
         let pc = connectionsRef.current.get(fromUuid);
+        if (pc) {
+          // If we receive a new offer, the initiator has started over - we should too
+          const badStates = ["failed", "closed", "disconnected"];
+          const needsReset = badStates.includes(pc.connectionState) ||
+                            badStates.includes(pc.iceConnectionState) ||
+                            pc.signalingState !== "stable";
+
+          if (needsReset) {
+            console.log(`[WebRTC] Resetting connection for new offer from ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
+            pc.close();
+            connectionsRef.current.delete(fromUuid);
+            dataChannelsRef.current.delete(fromUuid);
+            iceCandidateBufferRef.current.delete(fromUuid);
+            pc = null;
+          }
+        }
+
         if (!pc) {
           pc = createConnection(fromUuid);
         }
 
         if (abortController.signal.aborted) return;
 
-        // Initialize ICE candidate buffer
-        if (!iceCandidateBufferRef.current.has(fromUuid)) {
-          iceCandidateBufferRef.current.set(fromUuid, []);
-        }
+        // Initialize ICE candidate buffer (clear any old candidates for fresh start)
+        iceCandidateBufferRef.current.set(fromUuid, []);
 
         // Handle incoming data channel - MUST be set BEFORE setRemoteDescription
         pc.ondatachannel = (event) => {
@@ -362,9 +389,19 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
     // Remote description is set, add candidate immediately
     try {
+      // Check connection state before adding - ignore if connection is dead
+      if (pc.connectionState === "closed" || pc.connectionState === "failed") {
+        console.log(`[WebRTC] Ignoring ICE candidate for ${fromUuid} - connection ${pc.connectionState}`);
+        return;
+      }
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
       console.log(`[WebRTC] Added ICE candidate for ${fromUuid}`);
     } catch (error) {
+      // Ignore "Unknown ufrag" errors - they happen when candidates arrive for old sessions
+      if (error.message?.includes("Unknown ufrag") || error.message?.includes("unknown ufrag")) {
+        console.log(`[WebRTC] Ignoring stale ICE candidate for ${fromUuid} (unknown ufrag)`);
+        return;
+      }
       console.error(
         `[WebRTC] Error adding ICE candidate for ${fromUuid}:`,
         error

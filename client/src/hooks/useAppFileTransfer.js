@@ -54,8 +54,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   }, []);
 
   // Eager WebRTC: Initiate connection to new peers immediately on join
+  // Use UUID comparison as tie-breaker to avoid "glare" (both sides sending offers)
+  // Only the peer with the "higher" UUID initiates the connection
   useEffect(() => {
-    if (isMobile || !socket || !socket.connected) return;
+    if (isMobile || !socket || !socket.connected || !clientUuid) return;
 
     for (const peer of peers) {
       const peerUuid = peer.clientUuid;
@@ -63,8 +65,15 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       if (webRTCInitiatedRef.current.has(peerUuid)) continue;
       if (webRTC.dataChannels.get(peerUuid)?.readyState === "open") continue;
 
+      // Tie-breaker: only initiate if our UUID is "greater" than peer's
+      // This ensures exactly one side initiates, avoiding glare conflicts
+      if (clientUuid <= peerUuid) {
+        console.log(`[FileTransfer] Eager WebRTC: Waiting for peer ${peerUuid} to initiate (tie-breaker)`);
+        continue;
+      }
+
       webRTCInitiatedRef.current.add(peerUuid);
-      console.log(`[FileTransfer] Eager WebRTC: Initiating connection to peer ${peerUuid}`);
+      console.log(`[FileTransfer] Eager WebRTC: Initiating connection to peer ${peerUuid} (we are initiator)`);
 
       webRTC.createOffer(peerUuid, 30000).then((dc) => {
         if (dc) {
@@ -85,7 +94,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         webRTCInitiatedRef.current.delete(peerUuid);
       }
     }
-  }, [peers, socket, isMobile, webRTC]);
+  }, [peers, socket, isMobile, webRTC, clientUuid]);
 
   // Broadcast own file list to peers when it changes
   useEffect(() => {
