@@ -9,6 +9,9 @@ import {
 
 const ICE_CANDIDATE_STATS = new Map(); // Track dropped candidates per peer for debugging
 
+// Set to true for verbose WebRTC debugging
+export const DEBUG_WEBRTC = false;
+
 /**
  * WebRTC Hook for P2P file transfer
  * Manages RTCPeerConnection and DataChannel setup
@@ -35,52 +38,38 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       // Handle ICE candidates - send to peer via signaling
       pc.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log(`[WebRTC] Sending ICE candidate to ${peerUuid}`);
+          if (DEBUG_WEBRTC) console.log(`[WebRTC] Sending ICE candidate to ${peerUuid}`);
           socket.emit("webrtc-ice-candidate", {
             targetUuid: peerUuid,
             candidate: event.candidate,
           });
-        } else {
-          console.log(`[WebRTC] ICE gathering complete for ${peerUuid}`);
         }
       };
 
-      // Track ICE connection state for debugging
+      // Track ICE connection state
       pc.oniceconnectionstatechange = () => {
-        console.log(
-          `[WebRTC] ICE connection state for ${peerUuid}: ${pc.iceConnectionState}`
-        );
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] ICE state for ${peerUuid}: ${pc.iceConnectionState}`);
         if (pc.iceConnectionState === "failed") {
           console.error(`[WebRTC] ICE connection failed for ${peerUuid}`);
-        } else if (
-          pc.iceConnectionState === "connected" ||
-          pc.iceConnectionState === "completed"
-        ) {
-          console.log(`[WebRTC] ICE connection successful for ${peerUuid}`);
         }
       };
 
-      // Track ICE gathering state
-      pc.onicegatheringstatechange = () => {
-        console.log(
-          `[WebRTC] ICE gathering state for ${peerUuid}: ${pc.iceGatheringState}`
-        );
-      };
+      // Track ICE gathering state (verbose)
+      if (DEBUG_WEBRTC) {
+        pc.onicegatheringstatechange = () => {
+          console.log(`[WebRTC] ICE gathering state for ${peerUuid}: ${pc.iceGatheringState}`);
+        };
+      }
 
       // Track connection state
       pc.onconnectionstatechange = () => {
-        console.log(
-          `[WebRTC] Connection state for ${peerUuid}: ${pc.connectionState}`
-        );
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Connection state for ${peerUuid}: ${pc.connectionState}`);
         setConnectionStates((prev) => {
           const next = new Map(prev);
           next.set(peerUuid, pc.connectionState);
           return next;
         });
-        if (
-          pc.connectionState === "failed" ||
-          pc.connectionState === "closed"
-        ) {
+        if (pc.connectionState === "failed" || pc.connectionState === "closed") {
           closeConnection(peerUuid);
         }
       };
@@ -95,13 +84,13 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
   // Register a message callback for a peer's DataChannel
   const registerMessageCallback = useCallback((peerUuid, callback) => {
-    console.log(`[WebRTC] Registering message callback for ${peerUuid}`);
+    if (DEBUG_WEBRTC) console.log(`[WebRTC] Registering message callback for ${peerUuid}`);
     messageCallbacksRef.current.set(peerUuid, callback);
 
     // Deliver any buffered messages immediately
     const bufferedMessages = messageBufferRef.current.get(peerUuid) || [];
     if (bufferedMessages.length > 0) {
-      console.log(
+      if (DEBUG_WEBRTC) console.log(
         `[WebRTC] Delivering ${bufferedMessages.length} buffered messages for ${peerUuid}`
       );
       bufferedMessages.forEach((msg) => callback(msg));
@@ -121,20 +110,20 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       // Check if we already have an open DataChannel
       const existingDc = dataChannelsRef.current.get(peerUuid);
       if (existingDc && existingDc.readyState === "open") {
-        console.log(
+        if (DEBUG_WEBRTC) console.log(
           `[WebRTC] Already have open DataChannel for ${peerUuid}, skipping offer`
         );
         return existingDc;
       }
 
-      console.log(`[WebRTC] Creating offer for ${peerUuid}`);
+      if (DEBUG_WEBRTC) console.log(`[WebRTC] Creating offer for ${peerUuid}`);
 
       // Check if there's an existing connection in a bad state - close it first
       let pc = connectionsRef.current.get(peerUuid);
       if (pc) {
         const badStates = ["failed", "closed", "disconnected"];
         if (badStates.includes(pc.connectionState) || badStates.includes(pc.iceConnectionState)) {
-          console.log(`[WebRTC] Closing stale connection for ${peerUuid} (state: ${pc.connectionState}, ice: ${pc.iceConnectionState})`);
+          if (DEBUG_WEBRTC) console.log(`[WebRTC] Closing stale connection for ${peerUuid} (state: ${pc.connectionState}, ice: ${pc.iceConnectionState})`);
           pc.close();
           connectionsRef.current.delete(peerUuid);
           dataChannelsRef.current.delete(peerUuid);
@@ -152,7 +141,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
       // Create data channel BEFORE creating offer
       const dc = pc.createDataChannel("fileTransfer", { ordered: true });
-      console.log(
+      if (DEBUG_WEBRTC) console.log(
         `[WebRTC] DataChannel created for ${peerUuid}, initial state: ${dc.readyState}`
       );
 
@@ -212,7 +201,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       });
       await pc.setLocalDescription(offer);
 
-      console.log(`[WebRTC] Sending offer to ${peerUuid}`);
+      if (DEBUG_WEBRTC) console.log(`[WebRTC] Sending offer to ${peerUuid}`);
       socket.emit("webrtc-offer", {
         targetUuid: peerUuid,
         sdp: pc.localDescription,
@@ -234,7 +223,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       try {
         if (abortController.signal.aborted) return;
 
-        console.log(`[WebRTC] Received offer from ${fromUuid}`);
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Received offer from ${fromUuid}`);
 
         // Check if there's an existing connection - for a new offer, we should start fresh
         let pc = connectionsRef.current.get(fromUuid);
@@ -248,14 +237,14 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
                             signalingConflict;
 
           if (needsReset) {
-            console.log(`[WebRTC] Resetting connection for new offer from ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
+            if (DEBUG_WEBRTC) console.log(`[WebRTC] Resetting connection for new offer from ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
             pc.close();
             connectionsRef.current.delete(fromUuid);
             dataChannelsRef.current.delete(fromUuid);
             iceCandidateBufferRef.current.delete(fromUuid);
             pc = null;
           } else {
-            console.log(`[WebRTC] Reusing existing connection for ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
+            if (DEBUG_WEBRTC) console.log(`[WebRTC] Reusing existing connection for ${fromUuid} (signaling: ${pc.signalingState}, state: ${pc.connectionState})`);
           }
         }
 
@@ -271,7 +260,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
         // Handle incoming data channel - MUST be set BEFORE setRemoteDescription
         pc.ondatachannel = (event) => {
           const dc = event.channel;
-          console.log(
+          if (DEBUG_WEBRTC) console.log(
             `[WebRTC] Received DataChannel from ${fromUuid}, state: ${dc.readyState}`
           );
 
@@ -296,7 +285,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
         await pc.setRemoteDescription(new RTCSessionDescription(sdp));
         if (abortController.signal.aborted) return;
 
-        console.log(`[WebRTC] Remote description set for ${fromUuid}`);
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Remote description set for ${fromUuid}`);
 
         // Process buffered ICE candidates (extracted helper)
         await processBufferedIceCandidates(
@@ -314,7 +303,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
         if (abortController.signal.aborted) return;
 
-        console.log(`[WebRTC] Sending answer to ${fromUuid}`);
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Sending answer to ${fromUuid}`);
         socket.emit("webrtc-answer", {
           targetUuid: fromUuid,
           sdp: pc.localDescription,
@@ -338,9 +327,9 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       return;
     }
 
-    console.log(`[WebRTC] Received answer from ${fromUuid}`);
+    if (DEBUG_WEBRTC) console.log(`[WebRTC] Received answer from ${fromUuid}`);
     await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-    console.log(`[WebRTC] Remote description set for ${fromUuid}`);
+    if (DEBUG_WEBRTC) console.log(`[WebRTC] Remote description set for ${fromUuid}`);
 
     // Process buffered ICE candidates (extracted helper)
     await processBufferedIceCandidates(pc, fromUuid, iceCandidateBufferRef);
@@ -385,7 +374,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
       buffer.push(candidate);
       iceCandidateBufferRef.current.set(fromUuid, buffer);
-      console.log(
+      if (DEBUG_WEBRTC) console.log(
         `[WebRTC] Buffering ICE candidate for ${fromUuid} (${buffer.length}/${WEBRTC_CONFIG.MAX_ICE_CANDIDATES})`
       );
       return;
@@ -395,15 +384,15 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
     try {
       // Check connection state before adding - ignore if connection is dead
       if (pc.connectionState === "closed" || pc.connectionState === "failed") {
-        console.log(`[WebRTC] Ignoring ICE candidate for ${fromUuid} - connection ${pc.connectionState}`);
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Ignoring ICE candidate for ${fromUuid} - connection ${pc.connectionState}`);
         return;
       }
       await pc.addIceCandidate(new RTCIceCandidate(candidate));
-      console.log(`[WebRTC] Added ICE candidate for ${fromUuid}`);
+      if (DEBUG_WEBRTC) console.log(`[WebRTC] Added ICE candidate for ${fromUuid}`);
     } catch (error) {
       // Ignore "Unknown ufrag" errors - they happen when candidates arrive for old sessions
       if (error.message?.includes("Unknown ufrag") || error.message?.includes("unknown ufrag")) {
-        console.log(`[WebRTC] Ignoring stale ICE candidate for ${fromUuid} (unknown ufrag)`);
+        if (DEBUG_WEBRTC) console.log(`[WebRTC] Ignoring stale ICE candidate for ${fromUuid} (unknown ufrag)`);
         return;
       }
       console.error(
@@ -415,7 +404,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
   // Close connection to a peer with graceful DataChannel drain
   const closeConnection = useCallback((peerUuid, graceful = true) => {
-    console.log(
+    if (DEBUG_WEBRTC) console.log(
       `[WebRTC] Closing connection to ${peerUuid} (graceful: ${graceful})`
     );
 
@@ -451,12 +440,12 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
 
     // Graceful close with drain wait
     if (graceful && dc && dc.readyState === "open" && dc.bufferedAmount > 0) {
-      console.log(
+      if (DEBUG_WEBRTC) console.log(
         `[WebRTC] Waiting for DataChannel drain (${dc.bufferedAmount} bytes) for ${peerUuid}`
       );
 
       const drainTimeout = setTimeout(() => {
-        console.warn(
+        if (DEBUG_WEBRTC) console.warn(
           `[WebRTC] DataChannel drain timeout for ${peerUuid}, forcing close`
         );
         performCleanup();

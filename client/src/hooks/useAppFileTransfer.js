@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useWebRTC } from "./useWebRTC";
+import { useWebRTC, DEBUG_WEBRTC } from "./useWebRTC";
 import { useFileTransfer } from "./useFileTransfer";
 
 // Constants
 const SOCKETIO_CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
 const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+const DEBUG_FILE_TRANSFER = false; // Set to true for verbose file transfer logging
 
 /**
  * Hook that orchestrates all file transfer functionality:
@@ -71,17 +72,17 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       if (clientUuid <= peerUuid) {
         if (!webRTCWaitingRef.current.has(peerUuid)) {
           webRTCWaitingRef.current.add(peerUuid);
-          console.log(`[FileTransfer] Eager WebRTC: Waiting for peer ${peerUuid} to initiate (tie-breaker)`);
+          if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Waiting for peer ${peerUuid} to initiate (tie-breaker)`);
         }
         continue;
       }
 
       webRTCInitiatedRef.current.add(peerUuid);
-      console.log(`[FileTransfer] Eager WebRTC: Initiating connection to peer ${peerUuid} (we are initiator)`);
+      if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Initiating connection to peer ${peerUuid} (we are initiator)`);
 
       webRTC.createOffer(peerUuid, 30000).then((dc) => {
         if (dc) {
-          console.log(`[FileTransfer] Eager WebRTC: Connection established to ${peerUuid}`);
+          if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Connection established to ${peerUuid}`);
         } else {
           console.warn(`[FileTransfer] Eager WebRTC: Connection failed to ${peerUuid}`);
           webRTCInitiatedRef.current.delete(peerUuid);
@@ -260,7 +261,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     // Remove handlers for disconnected peers
     for (const peerUuid of registeredPeers) {
       if (!currentPeers.has(peerUuid)) {
-        console.log(`[FileTransfer] Removing handler for disconnected peer ${peerUuid}`);
+        if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Removing handler for disconnected peer ${peerUuid}`);
         const cleanup = registeredHandlersRef.current.get(peerUuid);
         if (cleanup) cleanup();
         registeredHandlersRef.current.delete(peerUuid);
@@ -271,7 +272,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     webRTC.dataChannels.forEach((dataChannel, peerUuid) => {
       if (registeredHandlersRef.current.has(peerUuid)) return;
 
-      console.log(`[FileTransfer] Setting up handler for new peer ${peerUuid}`);
+      if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Setting up handler for new peer ${peerUuid}`);
 
       const fileTransferHandler = fileTransfer.createMessageHandler(
         // onFileReceived
@@ -296,7 +297,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         (fileId) => {
           const fileToSend = sharedFilesRef.current.find((f) => f.id === fileId);
           if (fileToSend && fileToSend.file) {
-            console.log(`[FileTransfer] Sending file ${fileToSend.name} via WebRTC to ${peerUuid}`);
+            if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Sending file ${fileToSend.name} via WebRTC to ${peerUuid}`);
             fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid);
           } else {
             console.error(`[FileTransfer] Requested file not found: ${fileId}`);
@@ -335,9 +336,9 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
 
       if (!dataChannel || dataChannel.readyState !== "open") {
-        console.log(`[FileTransfer] WebRTC channel not ready for ${peerUuid}, attempting connection...`);
+        if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] WebRTC channel not ready for ${peerUuid}, attempting connection...`);
         dataChannel = await webRTC.createOffer(peerUuid, 15000);
-        if (dataChannel) {
+        if (dataChannel && DEBUG_FILE_TRANSFER) {
           console.log(`[FileTransfer] WebRTC DataChannel ready for ${peerUuid}`);
         }
       }
@@ -357,7 +358,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
           return;
         }
 
-        console.log(`[FileTransfer] Using Socket.io fallback for ${(file.size / (1024 * 1024)).toFixed(1)}MB file`);
+        if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Using Socket.io fallback for ${(file.size / (1024 * 1024)).toFixed(1)}MB file`);
         socket.emit("file-request-socketio", {
           targetUuid: peerUuid,
           fileId: file.id,
@@ -365,7 +366,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         return;
       }
 
-      console.log(`[FileTransfer] Requesting file via WebRTC from ${peerUuid}`);
+      if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Requesting file via WebRTC from ${peerUuid}`);
       dataChannel.send(JSON.stringify({
         type: "file-request",
         fileId: file.id,

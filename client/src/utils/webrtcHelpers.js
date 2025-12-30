@@ -3,6 +3,9 @@
  * Extracted common patterns from useWebRTC to reduce duplication
  */
 
+// Set to true for verbose WebRTC debugging (must match useWebRTC.js)
+const DEBUG_WEBRTC = false;
+
 /**
  * Setup DataChannel message listener with buffering support
  * Handles race condition where messages arrive before callback is registered
@@ -23,7 +26,7 @@ export function setupDataChannelMessageListener(
     if (callback) {
       callback(msgEvent);
     } else {
-      console.log(
+      if (DEBUG_WEBRTC) console.log(
         `[WebRTC] Buffering message for ${peerUuid} (no callback registered yet)`
       );
       const buffer = messageBufferRef.current.get(peerUuid) || [];
@@ -55,7 +58,7 @@ export function setupDataChannelEventHandlers(dc, peerUuid, options) {
   } = options;
 
   dc.onopen = () => {
-    console.log(`[WebRTC] DataChannel opened for ${peerUuid}`);
+    if (DEBUG_WEBRTC) console.log(`[WebRTC] DataChannel opened for ${peerUuid}`);
     dataChannelsRef.current.set(peerUuid, dc);
     setDataChannels(new Map(dataChannelsRef.current));
     if (onOpenCallback) {
@@ -64,7 +67,7 @@ export function setupDataChannelEventHandlers(dc, peerUuid, options) {
   };
 
   dc.onclose = () => {
-    console.log(`[WebRTC] DataChannel closed for ${peerUuid}`);
+    if (DEBUG_WEBRTC) console.log(`[WebRTC] DataChannel closed for ${peerUuid}`);
     dataChannelsRef.current.delete(peerUuid);
     setDataChannels(new Map(dataChannelsRef.current));
     messageBufferRef.current.delete(peerUuid);
@@ -76,7 +79,7 @@ export function setupDataChannelEventHandlers(dc, peerUuid, options) {
   };
 
   dc.onstatechange = () => {
-    console.log(
+    if (DEBUG_WEBRTC) console.log(
       `[WebRTC] DataChannel state changed for ${peerUuid}: ${dc.readyState}`
     );
   };
@@ -97,13 +100,13 @@ export async function processBufferedIceCandidates(
   abortSignal
 ) {
   const bufferedCandidates = iceCandidateBufferRef.current.get(peerUuid) || [];
-  console.log(
+  if (DEBUG_WEBRTC) console.log(
     `[WebRTC] Processing ${bufferedCandidates.length} buffered ICE candidates for ${peerUuid}`
   );
 
   for (const candidate of bufferedCandidates) {
     if (abortSignal?.aborted) {
-      console.log(`[WebRTC] ICE processing aborted for ${peerUuid}`);
+      if (DEBUG_WEBRTC) console.log(`[WebRTC] ICE processing aborted for ${peerUuid}`);
       return;
     }
 
