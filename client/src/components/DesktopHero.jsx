@@ -8,7 +8,7 @@ export function DesktopHero() {
   return (
     <header className="desktopHero">
       <div className="heroCopy">
-        <img className="heroLogo" src={heroLogo} alt="Snap2Desk Logo" />
+        <img className="heroLogo" src={heroLogo} alt="FileBeacon Logo" />
         <div className="heroSub">{t("desktop.hero.tagline")}</div>
       </div>
     </header>

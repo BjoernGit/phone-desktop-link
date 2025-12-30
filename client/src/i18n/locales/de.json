@@ -172,7 +172,7 @@
     "seedLabel": "Seed (Desktop):"
   },
   "footer": {
-    "copyright": "(c) 2025 Snap2Desk. Alle Rechte vorbehalten.",
+    "copyright": "(c) 2025 FileBeacon. Alle Rechte vorbehalten.",
     "debug": "Debug",
     "privacy": "Datenschutz",
     "cookies": "Cookies",
@@ -213,11 +213,11 @@
       "title": "Nutzungsbedingungen",
       "scope": {
         "heading": "1. Geltungsbereich",
-        "text": "Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>Snap2Desk</strong> und der darüber bereitgestellten Funktionen zur Übertragung von Bildern und Dateien zwischen Geräten. Mit der Nutzung erklären Sie sich mit diesen Nutzungsbedingungen einverstanden."
+        "text": "Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>FileBeacon</strong> und der darüber bereitgestellten Funktionen zur Übertragung von Bildern und Dateien zwischen Geräten. Mit der Nutzung erklären Sie sich mit diesen Nutzungsbedingungen einverstanden."
       },
       "serviceDescription": {
         "heading": "2. Leistungsbeschreibung",
-        "text": "Snap2Desk ermöglicht die <strong>temporäre Übertragung von Bildern und Dateien</strong> zwischen verbundenen Geräten über eine Weboberfläche. Der Dienst wird <strong>ohne Registrierung</strong> und <strong>ohne dauerhafte Speicherung</strong> der übertragenen Inhalte bereitgestellt. Ein Anspruch auf bestimmte Funktionen oder eine dauerhafte Verfügbarkeit besteht nicht (Best-Effort)."
+        "text": "FileBeacon ermöglicht die <strong>temporäre Übertragung von Bildern und Dateien</strong> zwischen verbundenen Geräten über eine Weboberfläche. Der Dienst wird <strong>ohne Registrierung</strong> und <strong>ohne dauerhafte Speicherung</strong> der übertragenen Inhalte bereitgestellt. Ein Anspruch auf bestimmte Funktionen oder eine dauerhafte Verfügbarkeit besteht nicht (Best-Effort)."
       },
       "ownResponsibility": {
         "heading": "3. Nutzung auf eigene Verantwortung",
@@ -268,7 +268,7 @@
         "heading": "4. Kontakt",
         "intro": "Bei Fragen zur Verwendung von Cookies auf dieser Website können Sie sich jederzeit an den Betreiber wenden:",
         "email": "E-Mail:",
-        "emailAddress": "kontakt@snap2desk.com"
+        "emailAddress": "kontakt@filebeacon.net"
       }
     },
     "impressum": {
@@ -280,7 +280,7 @@
         "address2": "4058 Basel-Stadt",
         "country": "Schweiz",
         "email": "E-Mail:",
-        "emailAddress": "kontakt@snap2desk.com"
+        "emailAddress": "kontakt@filebeacon.net"
       },
       "disclaimer": {
         "heading": "Haftungsausschluss",

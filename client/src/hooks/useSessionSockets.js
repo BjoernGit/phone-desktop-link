@@ -7,7 +7,7 @@ import { encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
 const DEBUG_SOCKETS = false;
 
 function getClientUuid() {
-  const key = "snap2desk-client-id";
+  const key = "filebeacon-client-id";
   try {
     const existing = sessionStorage.getItem(key);
     if (existing) return existing;

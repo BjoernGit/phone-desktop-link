@@ -29,7 +29,7 @@
   "mobile": {
     "blocked": {
       "title": "Scan QR Code",
-      "instruction1": "Please open Snap2Desk on your desktop/laptop and scan the QR code with your phone's camera.",
+      "instruction1": "Please open FileBeacon on your desktop/laptop and scan the QR code with your phone's camera.",
       "websiteLabel": "Website:",
       "instruction2": "Start the camera app on your phone, scan the code and follow the link. Then the app will appear here."
     },
@@ -172,7 +172,7 @@
     "seedLabel": "Seed (Desktop):"
   },
   "footer": {
-    "copyright": "(c) 2025 Snap2Desk. All rights reserved.",
+    "copyright": "(c) 2025 FileBeacon. All rights reserved.",
     "debug": "Debug",
     "privacy": "Privacy",
     "cookies": "Cookies",
@@ -213,11 +213,11 @@
       "title": "Terms of Service",
       "scope": {
         "heading": "1. Scope",
-        "text": "These Terms of Service govern the use of the website <strong>Snap2Desk</strong> and the functions provided for transferring images between devices. By using this service, you agree to these Terms of Service."
+        "text": "These Terms of Service govern the use of the website <strong>FileBeacon</strong> and the functions provided for transferring images between devices. By using this service, you agree to these Terms of Service."
       },
       "serviceDescription": {
         "heading": "2. Service Description",
-        "text": "Snap2Desk enables the <strong>temporary transfer of images</strong> between connected devices via a web interface. The service is provided <strong>without registration</strong> and <strong>without permanent storage</strong> of the transferred content. There is no entitlement to specific functions or permanent availability (best-effort)."
+        "text": "FileBeacon enables the <strong>temporary transfer of images</strong> between connected devices via a web interface. The service is provided <strong>without registration</strong> and <strong>without permanent storage</strong> of the transferred content. There is no entitlement to specific functions or permanent availability (best-effort)."
       },
       "ownResponsibility": {
         "heading": "3. Use at Your Own Risk",
@@ -268,7 +268,7 @@
         "heading": "4. Contact",
         "intro": "If you have any questions about the use of cookies on this website, you can contact the operator at any time:",
         "email": "Email:",
-        "emailAddress": "kontakt@snap2desk.com"
+        "emailAddress": "kontakt@filebeacon.net"
       }
     },
     "impressum": {
@@ -280,7 +280,7 @@
         "address2": "4058 Basel-Stadt",
         "country": "Switzerland",
         "email": "Email:",
-        "emailAddress": "kontakt@snap2desk.com"
+        "emailAddress": "kontakt@filebeacon.net"
       },
       "disclaimer": {
         "heading": "Disclaimer",

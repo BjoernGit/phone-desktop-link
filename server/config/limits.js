@@ -8,9 +8,9 @@ module.exports = {
   // CORS & Origins
   // =============================================================================
   ALLOWED_ORIGINS: [
-    "https://snap2desk.com",
-    "https://www.snap2desk.com",
-    "https://snap2desk-dev.onrender.com",
+    "https://filebeacon.net",
+    "https://www.filebeacon.net",
+    "https://filebeacon-dev.onrender.com",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
   ],
