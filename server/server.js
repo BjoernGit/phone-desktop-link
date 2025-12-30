@@ -1,25 +1,53 @@
-﻿const path = require("path");
+const path = require("path");
 const express = require("express");
 const http = require("http");
 const cors = require("cors");
 const { Server } = require("socket.io");
-const crypto = require("crypto");
-const fs = require("fs");
+
+// Config
+const config = require("./config/limits");
+
+// Session management
+const {
+  getSessionState,
+  roomName,
+  coerceSessionId,
+  inRoom,
+} = require("./session/sessionManager");
+
+// Rate limiting & security
+const {
+  allowJoin,
+  allowPhoto,
+  allowOffer,
+  allowPhotoSession,
+  allowOfferSession,
+  isBanned,
+  registerStrike,
+  nonceSeen,
+  auditLog,
+} = require("./middleware/rateLimiter");
+
+// Validation
+const {
+  isValidSessionId,
+  isValidRole,
+  isValidUuid,
+  isValidBase64Url,
+  isValidMime,
+  isValidEncPayload,
+} = require("./utils/validation");
+
+// Handlers
+const { registerWebRTCHandlers } = require("./handlers/webrtcSignaling");
+const { registerFileTransferHandlers } = require("./handlers/fileTransferHandler");
 
 const app = express();
 app.use(cors());
 
 const server = http.createServer(app);
 
-const ALLOWED_ORIGINS = [
-  "https://snap2desk.com",
-  "https://www.snap2desk.com",
-  "https://snap2desk-dev.onrender.com",
-  "http://localhost:3000",
-  "http://127.0.0.1:3000",
-];
-
-// Set HSTS when hinter HTTPS
+// Set HSTS when behind HTTPS
 app.use((req, res, next) => {
   const proto = req.headers["x-forwarded-proto"] || (req.connection && req.connection.encrypted ? "https" : "http");
   if (proto === "https") {
@@ -30,202 +58,23 @@ app.use((req, res, next) => {
 
 const io = new Server(server, {
   cors: {
-    origin: ALLOWED_ORIGINS,
+    origin: config.ALLOWED_ORIGINS,
     methods: ["GET", "POST"],
   },
-  maxHttpBufferSize: 10 * 1024 * 1024, // etwas grosszuegiger fuer groessere Bilder
+  maxHttpBufferSize: config.MAX_HTTP_BUFFER_SIZE,
 });
-
-const NONCE_TTL_MS = 5 * 60 * 1000; // 5 Minuten fuer Offers
-const BAN_DURATION_MS = 15 * 60 * 1000;
-const BAN_THRESHOLD = 5;
-
-function roomName(sessionId) {
-  return `session:${sessionId}`;
-}
-
-function coerceSessionId(raw) {
-  if (!raw) return "";
-  return typeof raw === "string" ? raw : String(raw);
-}
-
-function isValidSessionId(id) {
-  return typeof id === "string" && id.length >= 8 && id.length <= 32 && /^[a-zA-Z0-9_-]+$/.test(id);
-}
-
-function isValidRole(role) {
-  return role === "mobile" || role === "desktop";
-}
-
-function isValidUuid(id) {
-  return typeof id === "string" && id.length >= 6 && id.length <= 64 && /^[a-zA-Z0-9_-]+$/.test(id);
-}
-
-const joinCounters = new Map();
-const JOIN_LIMIT = 10; // joins per window
-const JOIN_WINDOW_MS = 60 * 1000;
-
-function allowJoin(ip) {
-  if (!ip) return false;
-  const now = Date.now();
-  const entry = joinCounters.get(ip) || { count: 0, ts: now };
-  const age = now - entry.ts;
-  const withinWindow = age < JOIN_WINDOW_MS;
-  const count = withinWindow ? entry.count + 1 : 1;
-  joinCounters.set(ip, { count, ts: withinWindow ? entry.ts : now });
-  return count <= JOIN_LIMIT;
-}
-
-function isValidBase64Url(str, minLen = 8, maxLen = 8192) {
-  if (typeof str !== "string") return false;
-  if (str.length < minLen || str.length > maxLen) return false;
-  return /^[A-Za-z0-9_-]+$/.test(str);
-}
-
-const MAX_CIPHER_BASE64 = 8_000_000; // groessere Photos erlauben (ca. 6-7 MB Base64)
-
-function isValidMime(mime) {
-  return typeof mime === "string" && /^image\//.test(mime) && mime.length < 64;
-}
-
-function isValidEncPayload(enc) {
-  if (!enc) return false;
-  const { iv, ciphertext } = enc;
-  return isValidBase64Url(iv, 8, 256) && isValidBase64Url(ciphertext, 16, 8192);
-}
-
-const sessionState = new Map();
-
-function getSessionState(sessionId) {
-  const existing = sessionState.get(sessionId);
-  if (existing) return existing;
-  const fresh = { approved: new Set(), rejected: new Set(), pending: new Set() };
-  sessionState.set(sessionId, fresh);
-  return fresh;
-}
-
-function inRoom(socket, sid) {
-  const room = roomName(sid);
-  return socket.rooms.has(room);
-}
-
-function createRateLimiter(limit, windowMs) {
-  const map = new Map();
-  return (key) => {
-    if (!key) return false;
-    const now = Date.now();
-    const entry = map.get(key) || { count: 0, ts: now };
-    const age = now - entry.ts;
-    const withinWindow = age < windowMs;
-    const count = withinWindow ? entry.count + 1 : 1;
-    map.set(key, { count, ts: withinWindow ? entry.ts : now });
-    return count <= limit;
-  };
-}
-
-const allowPhoto = createRateLimiter(20, 60 * 1000); // 20 photos/minute per IP
-const allowOffer = createRateLimiter(10, 60 * 1000); // 10 offers/minute per IP
-const allowPhotoSession = createRateLimiter(120, 60 * 1000); // 120 photos/minute per Session
-const allowOfferSession = createRateLimiter(60, 60 * 1000); // 60 offers/minute per Session
-
-// Socket.io file transfer rate limiting
-// Limit: 100MB total data per IP per minute (prevents server overload)
-const SOCKETIO_TRANSFER_LIMIT_BYTES = 100 * 1024 * 1024; // 100 MB per minute
-const SOCKETIO_TRANSFER_WINDOW_MS = 60 * 1000;
-const transferBytesMap = new Map(); // ip -> { bytes, ts }
-
-function allowTransferBytes(ip, bytes) {
-  if (!ip || typeof bytes !== "number") return false;
-  const now = Date.now();
-  const entry = transferBytesMap.get(ip) || { bytes: 0, ts: now };
-  const age = now - entry.ts;
-  const withinWindow = age < SOCKETIO_TRANSFER_WINDOW_MS;
-  const totalBytes = withinWindow ? entry.bytes + bytes : bytes;
-  transferBytesMap.set(ip, { bytes: totalBytes, ts: withinWindow ? entry.ts : now });
-  return totalBytes <= SOCKETIO_TRANSFER_LIMIT_BYTES;
-}
-
-// Also limit concurrent transfers per IP
-const MAX_CONCURRENT_TRANSFERS = 3;
-const activeTransfersMap = new Map(); // ip -> Set of fileIds
-
-const offerNonces = new Map(); // sessionId -> Map(nonce -> ts)
-const banned = new Map(); // ip -> { until, strikes }
-
-function isBanned(ip) {
-  if (!ip) return false;
-  const entry = banned.get(ip);
-  if (!entry) return false;
-  if (Date.now() > entry.until) {
-    banned.delete(ip);
-    return false;
-  }
-  return true;
-}
-
-function registerStrike(ip, reason) {
-  if (!ip) return false;
-  const now = Date.now();
-  const entry = banned.get(ip) || { strikes: 0, until: 0 };
-  const strikes = entry.strikes + 1;
-  if (strikes >= BAN_THRESHOLD) {
-    banned.set(ip, { strikes, until: now + BAN_DURATION_MS });
-    auditLog("ban", { ip, reason, strikes });
-    return true;
-  }
-  banned.set(ip, { strikes, until: entry.until });
-  auditLog("strike", { ip, reason, strikes });
-  return false;
-}
-
-function cleanupNonces(sessionId) {
-  const map = offerNonces.get(sessionId);
-  if (!map) return;
-  const now = Date.now();
-  for (const [nonce, ts] of map.entries()) {
-    if (now - ts > NONCE_TTL_MS) map.delete(nonce);
-  }
-}
-
-function nonceSeen(sessionId, nonce, ts) {
-  if (!sessionId || !nonce || typeof ts !== "number") return true;
-  cleanupNonces(sessionId);
-  const map = offerNonces.get(sessionId) || new Map();
-  if (map.has(nonce)) return true;
-  map.set(nonce, ts);
-  offerNonces.set(sessionId, map);
-  return false;
-}
-
-function hmacValid(seedBase64Url, payload, signature) {
-  if (!seedBase64Url || !signature) return false;
-  try {
-    const base64 = seedBase64Url.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const key = Buffer.from(padded, "base64");
-    const mac = crypto.createHmac("sha256", key).update(payload).digest("base64url");
-    return crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(signature));
-  } catch {
-    return false;
-  }
-}
-
-function auditLog(event, data) {
-  const line = JSON.stringify({ ts: new Date().toISOString(), event, ...data }) + "\n";
-  fs.appendFile(path.join(__dirname, "security.log"), line, (err) => {
-    if (err) console.warn("auditLog write failed", err);
-  });
-}
 
 io.on("connection", (socket) => {
   console.log("socket connected", socket.id, "origin:", socket.handshake.headers.origin);
   const ip = socket.handshake.address;
+
   if (isBanned(ip)) {
     console.warn("socket banned", { ip });
     socket.disconnect(true);
     return;
   }
 
+  // Session handlers
   socket.on("join-session", ({ sessionId, role, deviceName, clientUuid }) => {
     const sid = coerceSessionId(sessionId);
     if (!isValidSessionId(sid) || !isValidRole(role) || (clientUuid && !isValidUuid(clientUuid))) {
@@ -259,14 +108,13 @@ io.on("connection", (socket) => {
     } else if (state.rejected.has(clientUuid)) {
       emitStatus(clientUuid, "rejected");
     } else if (state.approved.has(clientUuid)) {
-      // Already approved - reconnect case, just re-emit approved status
       emitStatus(clientUuid, "approved");
     } else {
       state.pending.add(clientUuid);
       emitStatus(clientUuid, "pending");
     }
 
-    // teile dem neuen Socket bestehende Stati mit
+    // Send existing states to new socket
     state.approved.forEach((uuid) => {
       if (uuid !== clientUuid) socket.emit("peer-status", { clientUuid: uuid, status: "approved" });
     });
@@ -277,7 +125,7 @@ io.on("connection", (socket) => {
       if (uuid !== clientUuid) socket.emit("peer-status", { clientUuid: uuid, status: "pending" });
     });
 
-    // Bestehende Peers an den Joiner senden
+    // Send existing peers to joiner
     const roomInfo = io.sockets.adapter.rooms.get(room);
     if (roomInfo && roomInfo.size > 1) {
       roomInfo.forEach((id) => {
@@ -307,7 +155,7 @@ io.on("connection", (socket) => {
       socket.disconnect(true);
       return;
     }
-    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, MAX_CIPHER_BASE64)) {
+    if (!isValidBase64Url(iv, 8, 128) || !isValidBase64Url(ciphertext, 16, config.MAX_CIPHER_BASE64)) {
       console.warn("[invalid] photo payload rejected", { ip, sid, ivLen: iv?.length, ctLen: ciphertext?.length });
       registerStrike(ip, "photo-invalid");
       return;
@@ -328,7 +176,7 @@ io.on("connection", (socket) => {
   socket.on("session-offer", ({ sessionId, offer, target, targetUuid }) => {
     const sid = coerceSessionId(sessionId) || socket.data.sessionId;
     if (!offer || !sid) return;
-    if (socket.data.sessionId !== sid) return; // nicht aus fremder Session senden
+    if (socket.data.sessionId !== sid) return;
     if (typeof offer !== "object") return;
     if (!isValidEncPayload(offer.enc)) {
       console.warn("[invalid] session-offer enc payload", { ip, sid });
@@ -340,7 +188,7 @@ io.on("connection", (socket) => {
       registerStrike(ip, "offer-missing-nonce");
       return;
     }
-    if (Date.now() - offer.ts > NONCE_TTL_MS) {
+    if (Date.now() - offer.ts > config.NONCE_TTL_MS) {
       console.warn("[invalid] session-offer expired", { ip, sid });
       registerStrike(ip, "offer-expired");
       return;
@@ -388,7 +236,7 @@ io.on("connection", (socket) => {
     if (!isValidSessionId(sid)) return;
     const state = getSessionState(sid);
     const actorUuid = socket.data.clientUuid;
-    if (!state.approved.has(actorUuid)) return; // nur approvte duerfen entscheiden
+    if (!state.approved.has(actorUuid)) return;
     const room = roomName(sid);
     const emitStatus = (uuid, status) => io.to(room).emit("peer-status", { clientUuid: uuid, status });
 
@@ -402,7 +250,6 @@ io.on("connection", (socket) => {
       state.approved.delete(targetUuid);
       state.rejected.add(targetUuid);
       emitStatus(targetUuid, "rejected");
-      const room = roomName(sid);
       const rejectedSockets = Array.from(io.sockets.sockets.values()).filter(
         (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
       );
@@ -429,218 +276,9 @@ io.on("connection", (socket) => {
     socket.leave(room);
   });
 
-  // WebRTC Signaling for P2P file transfer
-  socket.on("webrtc-offer", ({ targetUuid, sdp }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("webrtc-offer", {
-        fromUuid: socket.data.clientUuid,
-        sdp,
-      });
-    });
-  });
-
-  socket.on("webrtc-answer", ({ targetUuid, sdp }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("webrtc-answer", {
-        fromUuid: socket.data.clientUuid,
-        sdp,
-      });
-    });
-  });
-
-  socket.on("webrtc-ice-candidate", ({ targetUuid, candidate }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("webrtc-ice-candidate", {
-        fromUuid: socket.data.clientUuid,
-        candidate,
-      });
-    });
-  });
-
-  // File metadata broadcast
-  socket.on("file-list-update", ({ files }) => {
-    const sid = socket.data.sessionId;
-    if (!sid) return;
-
-    const room = roomName(sid);
-    const senderUuid = socket.data.clientUuid;
-
-    // Check if sender is approved (like photo handler does)
-    const state = getSessionState(sid);
-    if (!state.approved.has(senderUuid)) {
-      console.warn("[file-list-update] sender not approved", { senderUuid, sid });
-      return;
-    }
-    if (state.rejected.has(senderUuid)) {
-      console.warn("[file-list-update] sender rejected", { senderUuid, sid });
-      return;
-    }
-
-    console.log(`[File Broadcast Server] From ${senderUuid} in room ${room}, broadcasting ${files?.length || 0} files`);
-
-    // Broadcast to all peers in session (including sender's other tabs)
-    // Use io.to() instead of socket.to() to match photo behavior
-    io.to(room).emit("peer-file-list", {
-      fromUuid: senderUuid,
-      files,
-    });
-  });
-
-  // Socket.io fallback for file transfer (when WebRTC fails)
-  socket.on("file-request-socketio", ({ targetUuid, fileId }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    console.log(`[File Request Socket.io] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}`);
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("file-request-socketio", {
-        fromUuid: socket.data.clientUuid,
-        fileId,
-      });
-    });
-  });
-
-  // File transfer start (metadata)
-  // Server-side limit for Socket.io file transfers to protect server resources
-  const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB - same as client limit
-
-  socket.on("file-transfer-socketio-start", ({ targetUuid, fileId, fileName, fileSize, fileType, totalChunks }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    // Enforce server-side file size limit
-    if (typeof fileSize !== "number" || fileSize > SOCKETIO_MAX_FILE_SIZE) {
-      const sizeMB = fileSize ? (fileSize / (1024 * 1024)).toFixed(1) : "unknown";
-      const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
-      console.warn(`[File Transfer Socket.io] REJECTED: File too large (${sizeMB}MB > ${limitMB}MB limit) from ${socket.data.clientUuid}`);
-      socket.emit("file-transfer-socketio-error", {
-        fileId,
-        error: "file_too_large",
-        message: `File size (${sizeMB}MB) exceeds server limit of ${limitMB}MB for Socket.io transfers. Please use WebRTC for larger files.`,
-        maxSize: SOCKETIO_MAX_FILE_SIZE,
-      });
-      return;
-    }
-
-    // Check rate limit (100MB/minute per IP)
-    if (!allowTransferBytes(ip, fileSize)) {
-      const limitMB = (SOCKETIO_TRANSFER_LIMIT_BYTES / (1024 * 1024)).toFixed(0);
-      console.warn(`[File Transfer Socket.io] RATE LIMITED: ${ip} exceeded ${limitMB}MB/minute transfer limit`);
-      socket.emit("file-transfer-socketio-error", {
-        fileId,
-        error: "rate_limited",
-        message: `Transfer rate limit exceeded (${limitMB}MB per minute). Please wait before transferring more files.`,
-      });
-      registerStrike(ip, "transfer-rate");
-      return;
-    }
-
-    // Check concurrent transfer limit
-    const activeSet = activeTransfersMap.get(ip) || new Set();
-    if (activeSet.size >= MAX_CONCURRENT_TRANSFERS) {
-      console.warn(`[File Transfer Socket.io] REJECTED: Too many concurrent transfers from ${ip}`);
-      socket.emit("file-transfer-socketio-error", {
-        fileId,
-        error: "too_many_transfers",
-        message: `Maximum ${MAX_CONCURRENT_TRANSFERS} concurrent transfers allowed. Please wait for current transfers to complete.`,
-      });
-      return;
-    }
-
-    // Track this transfer as active
-    activeSet.add(fileId);
-    activeTransfersMap.set(ip, activeSet);
-
-    console.log(`[File Transfer Socket.io Start] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileName} (${fileSize} bytes)`);
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("file-transfer-socketio-start", {
-        fromUuid: socket.data.clientUuid,
-        fileId,
-        fileName,
-        fileSize,
-        fileType,
-        totalChunks,
-      });
-    });
-  });
-
-  // File transfer chunk (binary data)
-  socket.on("file-transfer-socketio", ({ targetUuid, fileId, chunk, chunkIndex }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("file-transfer-socketio", {
-        fromUuid: socket.data.clientUuid,
-        fileId,
-        chunk, // Binary data passed through
-        chunkIndex,
-      });
-    });
-  });
-
-  // File transfer complete
-  socket.on("file-transfer-socketio-complete", ({ targetUuid, fileId }) => {
-    const sid = socket.data.sessionId;
-    if (!sid || !isValidUuid(targetUuid)) return;
-
-    // Remove from active transfers
-    const activeSet = activeTransfersMap.get(ip);
-    if (activeSet) {
-      activeSet.delete(fileId);
-      if (activeSet.size === 0) {
-        activeTransfersMap.delete(ip);
-      }
-    }
-
-    console.log(`[File Transfer Socket.io Complete] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}`);
-
-    const sockets = Array.from(io.sockets.sockets.values()).filter(
-      (s) => s.data.sessionId === sid && s.data.clientUuid === targetUuid
-    );
-
-    sockets.forEach((s) => {
-      s.emit("file-transfer-socketio-complete", {
-        fromUuid: socket.data.clientUuid,
-        fileId,
-      });
-    });
-  });
+  // Register modular handlers
+  registerWebRTCHandlers(socket, io);
+  registerFileTransferHandlers(socket, io, ip);
 
   socket.on("disconnect", () => {
     const sessionId = socket.data.sessionId;
@@ -648,7 +286,12 @@ io.on("connection", (socket) => {
     const deviceName = socket.data.deviceName;
     if (!sessionId || !role) return;
 
-    socket.to(roomName(sessionId)).emit("peer-left", { role, clientId: socket.id, deviceName, clientUuid: socket.data.clientUuid });
+    socket.to(roomName(sessionId)).emit("peer-left", {
+      role,
+      clientId: socket.id,
+      deviceName,
+      clientUuid: socket.data.clientUuid,
+    });
   });
 });
 
