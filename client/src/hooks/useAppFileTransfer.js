@@ -104,7 +104,21 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         webRTCWaitingRef.current.delete(peerUuid);
       }
     }
-  }, [peers, socket, isMobile, webRTC, clientUuid]);
+
+    // Clean up files from peers that left
+    setPeerFiles((prev) => {
+      const next = new Map(prev);
+      let hasChanges = false;
+      for (const peerUuid of next.keys()) {
+        if (!peers.some(p => p.clientUuid === peerUuid)) {
+          if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Removing files from disconnected peer ${peerUuid}`);
+          next.delete(peerUuid);
+          hasChanges = true;
+        }
+      }
+      return hasChanges ? next : prev;
+    });
+  }, [peers, socket, isMobile, webRTC.createOffer, webRTC.dataChannels, clientUuid]);
 
   // Broadcast own file list to peers when it changes
   useEffect(() => {

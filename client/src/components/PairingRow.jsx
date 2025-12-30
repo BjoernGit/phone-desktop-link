@@ -4,8 +4,6 @@ import { PeerPanel } from "./PeerPanel";
 import { QrPanel } from "./QrPanel";
 
 export function PairingRow({
-  uploadPanel,
-  fileUploadPanel,
   qrSize,
   qrDocked,
   url,
@@ -14,22 +12,26 @@ export function PairingRow({
   hasConnection,
   panelHeights,
   peers,
+  pendingPeers,
+  onApprovePeer,
+  onRejectPeer,
 }) {
   const { t } = useTranslation();
   return (
     <section
-      className={`pairingRow ${uploadPanel ? "withUpload" : ""}`}
+      className="pairingRow"
       style={{
         "--qr-size": `${qrSize}px`,
       }}
     >
-      {uploadPanel ? <div className="uploadPanel">{uploadPanel}</div> : null}
-      {fileUploadPanel ? <div className="uploadPanel">{fileUploadPanel}</div> : null}
       <PeerPanel
         ref={peerPanelRef}
         peers={peers}
         hasConnection={hasConnection}
         style={panelHeights?.qr ? { height: `${panelHeights.qr}px` } : undefined}
+        pendingPeers={pendingPeers}
+        onApprovePeer={onApprovePeer}
+        onRejectPeer={onRejectPeer}
       />
       <QrPanel
         ref={qrPanelRef}

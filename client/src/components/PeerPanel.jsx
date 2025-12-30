@@ -8,7 +8,14 @@ function getRoleIcon(role) {
   return "💻";
 }
 
-export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, style }, ref) {
+export const PeerPanel = forwardRef(function PeerPanel({
+  peers,
+  hasConnection,
+  style,
+  pendingPeers = [],
+  onApprovePeer,
+  onRejectPeer
+}, ref) {
   const { t } = useTranslation();
 
   return (
@@ -16,19 +23,40 @@ export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, s
       <div className="panelTitle">{t("desktop.peers.title")}</div>
       {hasConnection ? (
         <div className="peerListTable">
-          {peers.map((p) => (
-            <div key={p.id} className="peerListItem">
-              <span className="peerIcon" title={p.role}>
-                {getRoleIcon(p.role)}
-              </span>
-              <div className="peerInfo">
-                <div className="peerName">{p.name || "Gerät"}</div>
-                <div className="peerUuid" title={p.clientUuid}>
-                  {p.clientUuid || "N/A"}
+          {peers.map((p) => {
+            const isPending = pendingPeers.includes(p.clientUuid);
+            return (
+              <div key={p.id} className={`peerListItem ${isPending ? "pending" : ""}`}>
+                <span className="peerIcon" title={p.role}>
+                  {getRoleIcon(p.role)}
+                </span>
+                <div className="peerInfo">
+                  <div className="peerName">{p.name || "Gerät"}</div>
+                  <div className="peerUuid" title={p.clientUuid}>
+                    {p.clientUuid || "N/A"}
+                  </div>
                 </div>
+                {isPending && (
+                  <div className="peerActions">
+                    <button
+                      type="button"
+                      className="peerActionBtn rejectBtn"
+                      onClick={() => onRejectPeer?.(p.clientUuid)}
+                    >
+                      {t("common.buttons.reject", "Ablehnen")}
+                    </button>
+                    <button
+                      type="button"
+                      className="peerActionBtn approveBtn"
+                      onClick={() => onApprovePeer?.(p.clientUuid)}
+                    >
+                      {t("common.buttons.approve", "Zulassen")}
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="peerEmpty">{t("desktop.peers.empty")}</div>

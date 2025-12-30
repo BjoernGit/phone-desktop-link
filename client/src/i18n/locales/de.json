@@ -97,7 +97,7 @@
       "empty": "Verbinde ein Gerät, um neue Fotos zu senden."
     },
     "fileUpload": {
-      "title": "Dateien teilen",
+      "title": "Dateien",
       "selectFiles": "Dateien auswählen",
       "hint": "Wähle Dateien aus, die du mit anderen teilen möchtest",
       "remove": "Entfernen",
@@ -105,7 +105,7 @@
     },
     "fileGallery": {
       "title": "Verfügbare Dateien",
-      "empty": "Keine Dateien verfügbar. Füge Dateien im Upload-Panel hinzu oder warte bis andere Teilnehmer Dateien teilen.",
+      "empty": "Keine Dateien verfügbar. Klicke auf \"Dateien auswählen\" oder warte bis andere Teilnehmer Dateien bereitstellen.",
       "fileName": "Name",
       "fileSize": "Größe",
       "fileOwner": "Besitzer",

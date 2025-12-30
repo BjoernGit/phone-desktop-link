@@ -8,7 +8,6 @@ import { PairingRow } from "./components/PairingRow";
 import { DesktopCanvas } from "./components/DesktopCanvas";
 import { Lightbox } from "./components/Lightbox";
 import { FooterBar } from "./components/FooterBar";
-import { PendingApprovals } from "./components/PendingApprovals";
 import { FileUploadPanel } from "./components/FileUploadPanel";
 import { FileGallery } from "./components/FileGallery";
 
@@ -89,9 +88,8 @@ export function DesktopApp({
   const qrBaseSize = 240;
   const qrSize = hasActiveUI ? qrBaseSize * 0.8 : qrBaseSize;
 
-  const uploadPanel = (
-    <div>
-      <h3>{t("desktop.upload.title")}</h3>
+  const photoUploadControls = (
+    <>
       <div className="uploadActions">
         <button type="button" onClick={() => desktopFileInputRef.current?.click()}>
           {t("desktop.upload.uploadImage")}
@@ -129,8 +127,7 @@ export function DesktopApp({
           </div>
         </div>
       )}
-      <p className="mutedText">{t("desktop.upload.mutedText")}</p>
-    </div>
+    </>
   );
 
   const fileUploadPanel = (
@@ -182,10 +179,8 @@ export function DesktopApp({
 
           {hasActiveUI && (
             <>
-              <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
+              {/* Pairing Section: QR Code + Connected Devices */}
               <PairingRow
-                uploadPanel={uploadPanel}
-                fileUploadPanel={fileUploadPanel}
                 qrSize={qrSize}
                 qrDocked={qrDocked}
                 url={url}
@@ -194,29 +189,47 @@ export function DesktopApp({
                 hasConnection={hasConnection}
                 panelHeights={panelHeights}
                 peers={peers}
+                pendingPeers={pendingPeers}
+                onApprovePeer={approvePeer}
+                onRejectPeer={rejectPeer}
               />
 
-              <main className="desktopCanvas">
-                <DesktopCanvas
-                  photos={photos}
-                  onSelect={setLightboxSrc}
-                  onCopy={copyImageToClipboard}
-                  onSave={saveImage}
-                  showDebug={showDebug}
-                  onCopyPlain={copyPlainUrl}
-                  onCopyEncrypted={copyEncrypted}
-                />
-              </main>
+              {/* Photo Section: Upload + Gallery */}
+              <section className="contentSection photoSection">
+                <div className="sectionCard">
+                  <div className="sectionHeader">
+                    <h3 className="sectionTitle">{t("desktop.gallery.title", "Galerie")}</h3>
+                    {photoUploadControls}
+                  </div>
+                  <main className="desktopCanvas">
+                    <DesktopCanvas
+                      photos={photos}
+                      onSelect={setLightboxSrc}
+                      onCopy={copyImageToClipboard}
+                      onSave={saveImage}
+                      showDebug={showDebug}
+                      onCopyPlain={copyPlainUrl}
+                      onCopyEncrypted={copyEncrypted}
+                    />
+                  </main>
+                </div>
+              </section>
 
-              <FileGallery
-                files={allFiles}
-                peers={peers}
-                clientUuid={clientUuid}
-                onDownload={onFileDownload}
-                onRemoveFile={onRemoveFile}
-                transfers={fileTransfers}
-                connectionStates={webRTCConnections}
-              />
+              {/* File Section: Upload + Gallery */}
+              <section className="contentSection fileSection">
+                <div className="sectionCard">
+                  {fileUploadPanel}
+                  <FileGallery
+                    files={allFiles}
+                    peers={peers}
+                    clientUuid={clientUuid}
+                    onDownload={onFileDownload}
+                    onRemoveFile={onRemoveFile}
+                    transfers={fileTransfers}
+                    connectionStates={webRTCConnections}
+                  />
+                </div>
+              </section>
             </>
           )}
         </div>

@@ -34,12 +34,9 @@ export function FileUploadPanel({ sharedFiles = [], onFilesChange, disabled = fa
   };
 
   return (
-    <div className="uploadPanel">
-      <div className="panelHeader">
-        <h3>{t("desktop.fileUpload.title", "Dateien teilen")}</h3>
-      </div>
-
-      <div className="panelContent">
+    <div className="sectionHeader">
+      <h3 className="sectionTitle">{t("desktop.fileUpload.title", "Dateien")}</h3>
+      <div className="uploadActions">
         <input
           ref={fileInputRef}
           type="file"
@@ -48,26 +45,13 @@ export function FileUploadPanel({ sharedFiles = [], onFilesChange, disabled = fa
           onChange={handleFileSelect}
           disabled={disabled}
         />
-
         <button
-          className="uploadPanelButton"
+          type="button"
           onClick={handleSelectClick}
           disabled={disabled}
         >
           {t("desktop.fileUpload.selectFiles", "Dateien auswählen")}
         </button>
-
-        <p className="uploadPanelHint">
-          {sharedFiles.length > 0
-            ? t("desktop.fileUpload.fileCount", {
-                count: sharedFiles.length,
-                defaultValue: `${sharedFiles.length} Datei(en) geteilt`,
-              })
-            : t(
-                "desktop.fileUpload.hint",
-                "Wähle Dateien aus, die du mit anderen teilen möchtest"
-              )}
-        </p>
       </div>
     </div>
   );

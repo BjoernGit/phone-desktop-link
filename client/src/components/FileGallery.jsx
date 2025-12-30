@@ -38,13 +38,10 @@ export function FileGallery({
   if (files.length === 0) {
     return (
       <div className="fileGallery">
-        <div className="galleryHeader">
-          <h2>{t("desktop.fileGallery.title", "Verfügbare Dateien")}</h2>
-        </div>
         <div className="fileGalleryEmpty">
           {t(
             "desktop.fileGallery.empty",
-            "Keine Dateien verfügbar. Füge Dateien im Upload-Panel hinzu oder warte bis andere Teilnehmer Dateien teilen."
+            "Keine Dateien verfügbar. Klicke auf \"Dateien auswählen\" oder warte bis andere Teilnehmer Dateien bereitstellen."
           )}
         </div>
       </div>
@@ -53,13 +50,6 @@ export function FileGallery({
 
   return (
     <div className="fileGallery">
-      <div className="galleryHeader">
-        <h2>{t("desktop.fileGallery.title", "Verfügbare Dateien")}</h2>
-        <span className="fileCount">
-          {files.length} {files.length === 1 ? "Datei" : "Dateien"}
-        </span>
-      </div>
-
       <div className="fileTable">
         <div className="fileTableHeader">
           <div className="fileTableCol fileColIcon"></div>
