@@ -30,7 +30,8 @@ export default function App() {
   const host = window.location.hostname || "";
   const isLocalHost = isLocalNetwork(host);
   const allowDebug = isLocalHost && import.meta.env.VITE_LOCAL_DEBUG === "1";
-  const [showDebug, setShowDebug] = useState(allowDebug); // Auto-show if debug enabled
+  const forceDebugVisible = import.meta.env.VITE_FORCE_LOCAL_DEBUG_VISIBLE === "1";
+  const [showDebug, setShowDebug] = useState(allowDebug && forceDebugVisible); // Auto-show if debug enabled and forced visible
   const [panelHeights, setPanelHeights] = useState({ qr: 0, peer: 0 });
   const [sessionSeed, setSessionSeed] = useState("");
   const [offerSecret, setOfferSecret] = useState("");

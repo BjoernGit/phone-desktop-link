@@ -202,8 +202,8 @@
         "noTracking": "Es kommen <strong>keine Analyse- oder Tracking-Tools</strong> zum Einsatz und es werden <strong>keine Cookies für Marketing- oder Analysezwecke</strong> gesetzt."
       },
       "transferredContent": {
-        "heading": "3. Übertragene Inhalte (Fotos)",
-        "intro": "Fotos, die über diese Website übertragen werden, dienen ausschließlich der <strong>temporären Übertragung zwischen verbundenen Geräten</strong>.",
+        "heading": "3. Übertragene Inhalte (Fotos & Dateien)",
+        "intro": "Fotos und Dateien, die über diese Website übertragen werden, dienen ausschließlich der <strong>temporären Übertragung zwischen verbundenen Geräten</strong>.",
         "item1": "Die übertragenen Daten werden <strong>nicht dauerhaft gespeichert</strong>.",
         "item2": "Es erfolgt <strong>keine Weitergabe an Dritte</strong> (außer an die von Ihnen verbundene Gegenstelle).",
         "item3": "Die Übertragung erfolgt <strong>Ende-zu-Ende-verschlüsselt</strong>; der Server sieht nur chiffrierte Nutzlasten."
@@ -213,11 +213,11 @@
       "title": "Nutzungsbedingungen",
       "scope": {
         "heading": "1. Geltungsbereich",
-        "text": "Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>Snap2Desk</strong> und der darüber bereitgestellten Funktionen zur Übertragung von Bildern zwischen Geräten. Mit der Nutzung erklären Sie sich mit diesen Nutzungsbedingungen einverstanden."
+        "text": "Diese Nutzungsbedingungen regeln die Nutzung der Website <strong>Snap2Desk</strong> und der darüber bereitgestellten Funktionen zur Übertragung von Bildern und Dateien zwischen Geräten. Mit der Nutzung erklären Sie sich mit diesen Nutzungsbedingungen einverstanden."
       },
       "serviceDescription": {
         "heading": "2. Leistungsbeschreibung",
-        "text": "Snap2Desk ermöglicht die <strong>temporäre Übertragung von Bildern</strong> zwischen verbundenen Geräten über eine Weboberfläche. Der Dienst wird <strong>ohne Registrierung</strong> und <strong>ohne dauerhafte Speicherung</strong> der übertragenen Inhalte bereitgestellt. Ein Anspruch auf bestimmte Funktionen oder eine dauerhafte Verfügbarkeit besteht nicht (Best-Effort)."
+        "text": "Snap2Desk ermöglicht die <strong>temporäre Übertragung von Bildern und Dateien</strong> zwischen verbundenen Geräten über eine Weboberfläche. Der Dienst wird <strong>ohne Registrierung</strong> und <strong>ohne dauerhafte Speicherung</strong> der übertragenen Inhalte bereitgestellt. Ein Anspruch auf bestimmte Funktionen oder eine dauerhafte Verfügbarkeit besteht nicht (Best-Effort)."
       },
       "ownResponsibility": {
         "heading": "3. Nutzung auf eigene Verantwortung",
@@ -230,7 +230,7 @@
         "heading": "4. Unzulässige Nutzung",
         "intro": "Die Nutzung des Dienstes für rechtswidrige Zwecke ist untersagt. Insbesondere ist es nicht gestattet:",
         "item1": "rechtswidrige, beleidigende oder schädigende Inhalte zu übertragen",
-        "item2": "den Dienst zur Verbreitung von Schadsoftware zu nutzen",
+        "item2": "den Dienst zur Verbreitung von Schadsoftware, Viren oder schadhaften Dateien zu nutzen",
         "item3": "die technische Infrastruktur missbräuchlich zu verwenden"
       },
       "liability": {
