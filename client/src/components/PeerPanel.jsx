@@ -1,25 +1,33 @@
 import { forwardRef } from "react";
 import { useTranslation } from "react-i18next";
 
+function getRoleIcon(role) {
+  if (role === "mobile") {
+    return "📱";
+  }
+  return "💻";
+}
+
 export const PeerPanel = forwardRef(function PeerPanel({ peers, hasConnection, style }, ref) {
   const { t } = useTranslation();
-  const peerCount = peers.length;
 
   return (
     <div className="peerPanel" ref={ref} style={style}>
       <div className="panelTitle">{t("desktop.peers.title")}</div>
-      <div className="panelMeta">
-        <span className={`pill ${hasConnection ? "ok" : "wait"}`}>
-          <span className="dot" />
-          {hasConnection ? `${peerCount} ${t("desktop.peers.connected")}` : t("desktop.peers.waiting")}
-        </span>
-      </div>
       {hasConnection ? (
-        <div className="peerList">
+        <div className="peerListTable">
           {peers.map((p) => (
-            <span key={p.id} className="peerTag">
-              {(p.name || p.role) + (p.clientUuid ? ` (${p.clientUuid.slice(0, 6)})` : "")}
-            </span>
+            <div key={p.id} className="peerListItem">
+              <span className="peerIcon" title={p.role}>
+                {getRoleIcon(p.role)}
+              </span>
+              <div className="peerInfo">
+                <div className="peerName">{p.name || "Gerät"}</div>
+                <div className="peerUuid" title={p.clientUuid}>
+                  {p.clientUuid || "N/A"}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       ) : (
