@@ -178,20 +178,6 @@ export async function decryptToDataUrl(payload, key) {
 }
 
 /**
- * Create an HMAC-SHA256 signature
- * @param {string} message - The message to sign
- * @param {string} seedBase64Url - Base64url encoded key material
- * @returns {Promise<string>} Base64url encoded signature
- */
-export async function hmacSignBase64Url(message, seedBase64Url) {
-  if (!message || !seedBase64Url) return "";
-  const keyBytes = base64UrlDecode(seedBase64Url);
-  const cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
-  const sigBuf = await crypto.subtle.sign("HMAC", cryptoKey, stringToBytes(message));
-  return base64UrlEncode(new Uint8Array(sigBuf));
-}
-
-/**
  * Encrypt a JSON object with a shared secret
  * @param {string} secretBase64Url - Base64url encoded shared secret
  * @param {Object} payload - The JSON payload to encrypt

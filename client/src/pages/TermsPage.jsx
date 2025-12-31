@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { PageShell } from "./PrivacyPage";
 
 export function TermsContent() {
   const { t } = useTranslation();
@@ -49,15 +48,5 @@ export function TermsContent() {
       <h2 dangerouslySetInnerHTML={{ __html: t("legal.terms.law.heading") }} />
       <p dangerouslySetInnerHTML={{ __html: t("legal.terms.law.text") }} />
     </>
-  );
-}
-
-export default function TermsPage() {
-  const { t } = useTranslation();
-
-  return (
-    <PageShell title={t("legal.terms.title")}>
-      <TermsContent />
-    </PageShell>
   );
 }

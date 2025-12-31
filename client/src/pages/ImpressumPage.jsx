@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { PageShell } from "./PrivacyPage";
 
 export function ImpressumContent() {
   const { t } = useTranslation();
@@ -34,15 +33,5 @@ export function ImpressumContent() {
       <h2 dangerouslySetInnerHTML={{ __html: t("legal.impressum.linksLiability.heading") }} />
       <p dangerouslySetInnerHTML={{ __html: t("legal.impressum.linksLiability.text") }} />
     </>
-  );
-}
-
-export default function ImpressumPage() {
-  const { t } = useTranslation();
-
-  return (
-    <PageShell title={t("legal.impressum.title")}>
-      <ImpressumContent />
-    </PageShell>
   );
 }

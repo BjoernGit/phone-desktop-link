@@ -29,7 +29,7 @@
   "mobile": {
     "blocked": {
       "title": "QR-Code scannen",
-      "instruction1": "Bitte rufe Snap2Desk auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.",
+      "instruction1": "Bitte rufe FileBeacon auf deinem Desktop/Laptop auf und scanne dort den QR-Code mit deiner Handy-Kamera.",
       "websiteLabel": "Website:",
       "instruction2": "Starte die Kamera-App auf dem Handy, scanne den Code und folge dem Link. Dann erscheint hier die App."
     },

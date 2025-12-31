@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next";
-import { PageShell } from "./PrivacyPage";
 
 export function CookiesContent() {
   const { t } = useTranslation();
@@ -37,15 +36,5 @@ export function CookiesContent() {
         </a>
       </p>
     </>
-  );
-}
-
-export default function CookiesPage() {
-  const { t } = useTranslation();
-
-  return (
-    <PageShell title={t("legal.cookies.title")}>
-      <CookiesContent />
-    </PageShell>
   );
 }
