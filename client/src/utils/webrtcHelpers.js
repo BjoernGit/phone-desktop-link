@@ -126,9 +126,12 @@ export async function processBufferedIceCandidates(
  */
 export const WEBRTC_CONFIG = {
   MAX_ICE_CANDIDATES: 100,
-  // Empty for local network - host candidates are sufficient
-  // Add STUN/TURN servers for internet connectivity
-  ICE_SERVERS: [],
+  // Google STUN servers for internet connectivity (free, reliable)
+  // Only used for NAT traversal - actual data flows peer-to-peer
+  ICE_SERVERS: [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ],
   DEFAULT_OFFER_TIMEOUT_MS: 15000,
   DRAIN_TIMEOUT_MS: 5000,
   DRAIN_CHECK_INTERVAL_MS: 50,
