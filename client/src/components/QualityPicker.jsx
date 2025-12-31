@@ -10,7 +10,6 @@ const QUALITY_OPTIONS = [
 
 export function QualityPicker({ quality, open, onToggle, onSelect, options = QUALITY_OPTIONS, labelPrefix }) {
   const { t } = useTranslation();
-  const prefix = labelPrefix || t("mobile.quality.label");
   return (
     <div className="qualityPickerWrap">
       <button
@@ -20,8 +19,9 @@ export function QualityPicker({ quality, open, onToggle, onSelect, options = QUA
           e.stopPropagation();
           onToggle?.();
         }}
+        aria-label={`${t("mobile.quality.label")}: ${quality}`}
       >
-        {prefix}: {quality}
+        {quality}
       </button>
       {open && (
         <div className="qualityMenu" onClick={(e) => e.stopPropagation()}>

@@ -24,8 +24,10 @@ export function MobileApp({
   handleShutter,
   fileInputRef,
   handleFiles,
-  qrMode,
-  setQrMode,
+  qrDetected,
+  setQrDetected,
+  showQrDialog,
+  setShowQrDialog,
   qrOffer,
   setQrOffer,
   quality,
@@ -70,7 +72,7 @@ export function MobileApp({
         />
       </div>
 
-      <div className="selfIdBadge">{t("mobile.selfId", { id: clientUuid ? clientUuid.slice(0, 6) : "n/a" })}</div>
+      <div className="selfIdBadge">{t("mobile.selfId", { id: clientUuid ? clientUuid.slice(0, 8) : "n/a" })}</div>
 
       <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
 
@@ -83,8 +85,10 @@ export function MobileApp({
         handleShutter={handleShutter}
         fileInputRef={fileInputRef}
         handleFiles={handleFiles}
-        qrMode={qrMode}
-        setQrMode={setQrMode}
+        qrDetected={qrDetected}
+        setQrDetected={setQrDetected}
+        showQrDialog={showQrDialog}
+        setShowQrDialog={setShowQrDialog}
         setQrOffer={setQrOffer}
         handleStartQrCamera={handleStartCamera}
         quality={quality}
@@ -96,8 +100,20 @@ export function MobileApp({
 
       {mobileView === "camera" ? (
         <>
-          {qrOffer?.session && (
+          {showQrDialog && qrOffer?.session && (
             <div className="qrOfferPanel">
+              <button
+                type="button"
+                className="qrOfferClose"
+                onClick={() => {
+                  setShowQrDialog(false);
+                  setQrDetected(false);
+                  setQrOffer(null);
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
               <div className="qrOfferText">
                 {t("mobile.qr.detected")}
                 <div className="qrOfferMeta">
@@ -117,7 +133,8 @@ export function MobileApp({
                   onClick={() => {
                     applyQrOffer(qrOffer);
                     setQrOffer(null);
-                    setQrMode(false);
+                    setQrDetected(false);
+                    setShowQrDialog(false);
                   }}
                 >
                   {t("mobile.qr.readSession")}
@@ -126,7 +143,6 @@ export function MobileApp({
                   type="button"
                   className="qrOfferBtn ghost"
                   onClick={() => {
-                    if (!sendSessionOffer) return;
                     sendSessionOffer(
                       {
                         session: sessionId,
@@ -144,7 +160,8 @@ export function MobileApp({
                       setOfferStatus("idle");
                     }, 3000);
                     setQrOffer(null);
-                    setQrMode(false);
+                    setQrDetected(false);
+                    setShowQrDialog(false);
                   }}
                 >
                   {t("mobile.qr.sendOwnSession")}

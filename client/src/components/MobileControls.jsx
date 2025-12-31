@@ -11,8 +11,10 @@ export function MobileControls({
   handleShutter,
   fileInputRef,
   handleFiles,
-  qrMode,
-  setQrMode,
+  qrDetected,
+  setQrDetected,
+  showQrDialog,
+  setShowQrDialog,
   setQrOffer,
   handleStartQrCamera,
   quality,
@@ -43,23 +45,32 @@ export function MobileControls({
         onClick={() => fileInputRef.current?.click()}
         aria-label={t("common.aria.chooseFromGallery")}
       >
-        {t("mobile.controls.gallery")}
+        <span className="uploadIcon" />
       </button>
-      <button
-        type="button"
-        className={`qrToggle ${qrMode ? "active" : ""}`}
-        onClick={() => {
-          if (!cameraReady && handleStartQrCamera) {
-            handleStartQrCamera();
-          }
-          setQrMode((v) => !v);
-          setQrOffer(null);
-        }}
-        aria-label={t("common.aria.toggleQr")}
-      >
-        QR
-      </button>
-      {qrMode && <div className="qrBadge">{t("mobile.controls.qrBadge")}</div>}
+      {/* Auto-detected QR button - appears when QR is detected */}
+      {qrDetected && (
+        <button
+          type="button"
+          className="qrToggle detected"
+          onClick={() => {
+            if (!cameraReady && handleStartQrCamera) {
+              handleStartQrCamera();
+            }
+            if (showQrDialog) {
+              // Dialog is open, close it and ignore QR code
+              setShowQrDialog(false);
+              setQrDetected(false);
+              setQrOffer(null);
+            } else {
+              // Dialog is closed, open it
+              setShowQrDialog(true);
+            }
+          }}
+          aria-label={t("common.aria.openQr")}
+        >
+          <span className="qrButtonText">{t("common.aria.openQr")}</span>
+        </button>
+      )}
 
       {!cameraReady && (
         <>

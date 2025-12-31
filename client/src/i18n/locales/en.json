@@ -23,6 +23,7 @@
       "saveImage": "Save",
       "chooseFromGallery": "Choose image from gallery",
       "toggleQr": "Toggle QR mode",
+      "openQr": "Open QR code",
       "takePhoto": "Take photo and send"
     }
   },

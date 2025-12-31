@@ -7,7 +7,7 @@ import { useSessionSockets } from "./hooks/useSessionSockets";
 import { useCameraCapture } from "./hooks/useCameraCapture";
 import { useStatusMessage } from "./hooks/useStatusMessage";
 import { useClipboardShare } from "./hooks/useClipboardShare";
-import { useQrScanner } from "./hooks/useQrScanner";
+import { useAutoQrDetection } from "./hooks/useAutoQrDetection";
 import { useAppFileTransfer } from "./hooks/useAppFileTransfer";
 import { useAppTouchGestures } from "./hooks/useAppTouchGestures";
 import { decryptJsonWithSecret, decryptToDataUrl, encryptDataUrl, generateSeedBase64Url } from "./utils/crypto";
@@ -41,9 +41,10 @@ export default function App() {
   const fileInputRef = useRef(null);
   const sessionKeyRef = useRef(null);
   const [peerStatuses, setPeerStatuses] = useState({});
-  const [qrMode, setQrMode] = useState(false);
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
+  const [qrDetected, setQrDetected] = useState(false);
+  const [showQrDialog, setShowQrDialog] = useState(false);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerStatus, setOfferStatus] = useState("idle");
   const location = useLocation();
@@ -340,21 +341,23 @@ export default function App() {
     t,
   });
 
-  useQrScanner({
-    enabled: qrMode,
+  // Automatic low-res QR detection (runs continuously when camera is ready)
+  useAutoQrDetection({
     videoRef,
-    onStart: () => {
-      setQrStatus(t("mobile.qr.scanActive"));
+    enabled: isMobile && cameraReady,
+    onDetected: (parsed) => {
+      if (parsed?.session) {
+        setQrDetected(true);
+        setQrOffer(parsed);
+        // Don't auto-open dialog - let user click the button
+      }
+    },
+    onLost: () => {
+      setQrDetected(false);
       setQrOffer(null);
+      setShowQrDialog(false);
     },
-    onStop: () => setQrStatus(""),
-    onResult: (parsed) => {
-      if (!parsed?.session) return;
-      setQrStatus(t("mobile.qr.recognized", { session: parsed.session }));
-      setQrOffer(parsed);
-      setQrMode(false);
-      setTimeout(() => setQrStatus(""), 4000);
-    },
+    scanInterval: 10, // Scan every 10 frames
   });
 
   const pendingPeers = useMemo(
@@ -612,8 +615,10 @@ export default function App() {
       handleShutter={handleShutter}
       fileInputRef={fileInputRef}
       handleFiles={handleFiles}
-      qrMode={qrMode}
-      setQrMode={setQrMode}
+      qrDetected={qrDetected}
+      setQrDetected={setQrDetected}
+      showQrDialog={showQrDialog}
+      setShowQrDialog={setShowQrDialog}
       qrOffer={qrOffer}
       setQrOffer={setQrOffer}
       quality={quality}

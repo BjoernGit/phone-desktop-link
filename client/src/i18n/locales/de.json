@@ -23,6 +23,7 @@
       "saveImage": "Speichern",
       "chooseFromGallery": "Bild aus Galerie waehlen",
       "toggleQr": "QR-Modus umschalten",
+      "openQr": "QR-Code öffnen",
       "takePhoto": "Foto aufnehmen und senden"
     }
   },

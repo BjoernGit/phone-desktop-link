@@ -163,13 +163,14 @@
 .startBtn {
   position: absolute;
   left: 50%;
-  bottom: 30px;
+  bottom: 44px;
   transform: translateX(-50%);
   border: 0;
   border-radius: 12px;
   padding: 12px 18px;
   font-weight: 800;
   font-size: 16px;
+  line-height: 1;
   color: #050505;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
@@ -391,8 +392,8 @@
 
 .qualityPickerWrap {
   position: absolute;
-  right: 16px;
-  bottom: 100px;
+  right: 26px;
+  bottom: 36px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -401,28 +402,42 @@
 }
 
 .qualityToggle {
+  width: 56px;
+  height: 56px;
+  border-radius: 999px;
   background: rgba(0, 0, 0, 0.6);
   color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 10px 12px;
+  border: none;
   font-weight: 700;
-  backdrop-filter: blur(6px);
+  font-size: 18px;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition: transform 0.08s ease, background 0.15s ease;
+  touch-action: manipulation;
+}
+
+.qualityToggle:active {
+  transform: scale(0.94);
+  background: rgba(0, 0, 0, 0.75);
 }
 
 .qualityMenu {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 8px);
-  min-width: 210px;
-  background: rgba(0, 0, 0, 0.82);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
+  bottom: calc(100% + 12px);
+  min-width: 180px;
+  background: rgba(0, 0, 0, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 16px;
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(12px);
 }
 
 .qualityItem {
@@ -431,32 +446,68 @@
   border: 0;
   padding: 10px 12px;
   text-align: left;
+  border-radius: 10px;
+  font-weight: 600;
+  transition: background 0.15s ease;
+}
+
+.qualityItem:active {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .qualityItem.active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   font-weight: 800;
 }
 
 .uploadBtn {
   position: absolute;
-  left: 16px;
-  bottom: 80px;
+  left: 26px;
+  bottom: 36px;
   z-index: 80;
+  width: 56px;
+  height: 56px;
   border: 0;
-  border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 800;
-  font-size: 14px;
-  color: #050505;
+  border-radius: 999px;
   background: rgba(255, 255, 255, 0.92);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.08s ease;
+  touch-action: manipulation;
+}
+
+.uploadBtn:active {
+  transform: scale(0.94);
+}
+
+.uploadIcon {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #050505;
+  border-radius: 3px;
+  position: relative;
+  display: block;
+}
+
+.uploadIcon::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border: 2px solid #050505;
+  border-radius: 1px;
+  background: transparent;
 }
 
 .qrToggle {
   position: absolute;
-  left: 16px;
-  bottom: 32px;
+  left: 26px;
+  bottom: 104px;
   z-index: 80;
   border: 0;
   border-radius: 12px;
@@ -466,6 +517,47 @@
   color: #050505;
   background: rgba(255, 255, 255, 0.8);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+  transition: transform 0.08s ease;
+  touch-action: manipulation;
+}
+
+.qrToggle:active {
+  transform: scale(0.96);
+}
+
+.qrToggle.detected {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: #0c0f1a;
+  font-weight: 700;
+  animation: qrPulse 2s ease-in-out infinite;
+  box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+}
+
+.qrToggle .qrButtonText {
+  display: none;
+}
+
+.qrToggle.detected .qrButtonText {
+  display: block;
+}
+
+.qrToggle.detected::before {
+  content: "";
+}
+
+.qrToggle.detected:active {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  box-shadow: 0 0 30px rgba(74, 222, 128, 0.6);
+  transform: scale(0.96);
+}
+
+@keyframes qrPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(74, 222, 128, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(74, 222, 128, 0.7);
+  }
 }
 
 .qrToggle.active {
@@ -500,6 +592,30 @@
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
   z-index: 90;
   width: min(90vw, 320px);
+}
+
+.qrOfferClose {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: #fff;
+  font-size: 24px;
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.2s;
+}
+
+.qrOfferClose:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .qrOfferText {

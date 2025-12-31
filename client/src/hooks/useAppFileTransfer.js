@@ -81,6 +81,14 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Initiating connection to peer ${peerUuid} (we are initiator)`);
 
       webRTC.createOffer(peerUuid, 30000).then((dc) => {
+        // Double-check peer still exists before completing connection
+        const peerStillExists = peers.some(p => p.clientUuid === peerUuid);
+        if (!peerStillExists) {
+          if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Peer ${peerUuid} left during connection setup, aborting`);
+          webRTCInitiatedRef.current.delete(peerUuid);
+          return;
+        }
+
         if (dc) {
           if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Eager WebRTC: Connection established to ${peerUuid}`);
         } else {
