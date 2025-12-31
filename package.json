@@ -4,6 +4,18 @@
   "version": "1.0.0",
   "scripts": {
     "build": "npm --prefix client ci && npm --prefix client run build && npm --prefix server ci",
-    "start": "npm --prefix server start"
+    "start": "npm --prefix server start",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.1",
+    "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/ui": "^3.2.4",
+    "happy-dom": "^20.0.11",
+    "vitest": "^3.2.4"
   }
 }
