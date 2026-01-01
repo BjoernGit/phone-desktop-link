@@ -15,6 +15,8 @@ export function PairingRow({
   pendingPeers,
   onApprovePeer,
   onRejectPeer,
+  recentlyApprovedPeers,
+  onSyncFiles,
 }) {
   const { t } = useTranslation();
   return (
@@ -32,6 +34,8 @@ export function PairingRow({
         pendingPeers={pendingPeers}
         onApprovePeer={onApprovePeer}
         onRejectPeer={onRejectPeer}
+        recentlyApprovedPeers={recentlyApprovedPeers}
+        onSyncFiles={onSyncFiles}
       />
       <QrPanel
         ref={qrPanelRef}

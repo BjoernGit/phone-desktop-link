@@ -57,6 +57,8 @@ export function DesktopApp({
   pendingPeers = [],
   approvePeer,
   rejectPeer,
+  recentlyApprovedPeers = [],
+  onSyncFiles,
   sharedFiles = [],
   onSharedFilesChange,
   allFiles = [],
@@ -192,6 +194,8 @@ export function DesktopApp({
                 pendingPeers={pendingPeers}
                 onApprovePeer={approvePeer}
                 onRejectPeer={rejectPeer}
+                recentlyApprovedPeers={recentlyApprovedPeers}
+                onSyncFiles={onSyncFiles}
               />
 
               {/* Photo Section: Upload + Gallery */}

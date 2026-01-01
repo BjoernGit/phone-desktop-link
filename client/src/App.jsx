@@ -178,6 +178,7 @@ export default function App() {
     handleSharedFilesChange,
     handleRemoveFile,
     handlePeerFileList,
+    syncFilesToPeer,
     fileTransfers,
     webRTCConnections,
   } = useAppFileTransfer({
@@ -190,9 +191,14 @@ export default function App() {
   // Set the ref so useSessionSockets can forward peer-file-list events
   peerFileListHandlerRef.current = handlePeerFileList;
 
+  // Track recently approved peers (late joiners who may need file sync)
+  const [recentlyApprovedPeers, setRecentlyApprovedPeers] = useState(new Set());
+
   const approvePeer = useCallback(
     (uuid) => {
       sendPeerDecision(uuid, "approve");
+      // Add to recently approved set so sync button appears
+      setRecentlyApprovedPeers((prev) => new Set([...prev, uuid]));
     },
     [sendPeerDecision]
   );
@@ -202,6 +208,30 @@ export default function App() {
       sendPeerDecision(uuid, "reject");
     },
     [sendPeerDecision]
+  );
+
+  // Handle content sync to a late joiner (files metadata only for now)
+  const handleSyncFiles = useCallback(
+    async (peerUuid) => {
+      console.log(`[App] Starting file metadata sync to peer ${peerUuid}`);
+      try {
+        // Sync file metadata list (re-broadcast)
+        // This only syncs the file list, NOT the actual files
+        // Late joiners can then download files they want on-demand
+        await syncFilesToPeer(peerUuid);
+
+        console.log(`[App] File metadata sync completed for peer ${peerUuid}`);
+        // Remove from recently approved after sync
+        setRecentlyApprovedPeers((prev) => {
+          const next = new Set(prev);
+          next.delete(peerUuid);
+          return next;
+        });
+      } catch (error) {
+        console.error(`[App] File metadata sync failed for peer ${peerUuid}:`, error);
+      }
+    },
+    [syncFilesToPeer]
   );
 
   // Combine all files for display (own + peer files)
@@ -586,6 +616,8 @@ export default function App() {
       pendingPeers={pendingPeers}
       approvePeer={approvePeer}
       rejectPeer={rejectPeer}
+      recentlyApprovedPeers={Array.from(recentlyApprovedPeers)}
+      onSyncFiles={handleSyncFiles}
       sharedFiles={sharedFiles}
       onSharedFilesChange={handleSharedFilesChange}
       allFiles={allFiles}

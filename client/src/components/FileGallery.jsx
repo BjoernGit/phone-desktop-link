@@ -4,10 +4,16 @@ import { formatFileSize, getFileIcon } from "../utils/fileUtils";
 
 function getDeviceName(ownerUuid, peers, clientUuid) {
   if (ownerUuid === clientUuid) {
-    return "Dieses Gerät";
+    return `Dieses Gerät (${clientUuid.slice(0, 8)})`;
   }
   const peer = peers.find((p) => p.clientUuid === ownerUuid);
-  return peer?.deviceName || "Unbekannt";
+  if (peer) {
+    // Show device name if available, otherwise show short UUID
+    const shortUuid = peer.clientUuid ? peer.clientUuid.slice(0, 8) : '?';
+    return peer.deviceName ? `${peer.deviceName} (${shortUuid})` : shortUuid;
+  }
+  // Fallback: show short UUID even if peer not found (for late joiners)
+  return ownerUuid ? ownerUuid.slice(0, 8) : "Unbekannt";
 }
 
 function getTransferStatus(file, transfers) {

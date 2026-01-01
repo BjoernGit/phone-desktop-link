@@ -95,7 +95,8 @@
       "title": "Connected Devices",
       "connected": "Device(s) connected",
       "waiting": "Waiting for connection",
-      "empty": "Connect a device to send new photos."
+      "empty": "Connect a device to send new photos.",
+      "syncFiles": "Sync Files"
     },
     "fileUpload": {
       "title": "Share Files",

@@ -408,6 +408,38 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     setSharedFiles((prev) => prev.filter((f) => f.id !== fileId));
   }, []);
 
+  // Sync file metadata list to all peers (re-broadcast)
+  const syncFilesToPeer = useCallback(
+    async (peerUuid) => {
+      if (isMobile || !peerUuid || !socket) {
+        console.warn("[FileTransfer] Cannot sync: mobile mode, no peer UUID, or no socket");
+        return;
+      }
+
+      const peerExists = peers.some(p => p.clientUuid === peerUuid);
+      if (!peerExists) {
+        console.error(`[FileTransfer] Cannot sync: peer ${peerUuid} not in session`);
+        return;
+      }
+
+      console.log(`[FileTransfer] Re-broadcasting file metadata list for late joiner ${peerUuid}`);
+
+      // Re-emit file-list-update to trigger broadcast to all peers (including late joiner)
+      // This only sends metadata (name, size, type), NOT the actual files
+      const fileMetadata = sharedFiles.map((f) => ({
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        ownerUuid: clientUuid,
+      }));
+
+      socket.emit("file-list-update", { files: fileMetadata });
+      console.log(`[FileTransfer] File metadata broadcast complete (${fileMetadata.length} files)`);
+    },
+    [isMobile, sharedFiles, peers, socket, clientUuid]
+  );
+
   return {
     // State
     sharedFiles,
@@ -419,6 +451,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     handleSharedFilesChange,
     handleRemoveFile,
     handlePeerFileList,
+    syncFilesToPeer,
 
     // Exposed for components that need it
     fileTransfers: fileTransfer.transfers,

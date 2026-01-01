@@ -95,7 +95,8 @@
       "title": "Verbundene Geräte",
       "connected": "Gerät(e) verbunden",
       "waiting": "Wartet auf Verbindung",
-      "empty": "Verbinde ein Gerät, um neue Fotos zu senden."
+      "empty": "Verbinde ein Gerät, um neue Fotos zu senden.",
+      "syncFiles": "Dateien synchronisieren"
     },
     "fileUpload": {
       "title": "Dateien",

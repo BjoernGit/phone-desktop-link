@@ -14,7 +14,9 @@ export const PeerPanel = forwardRef(function PeerPanel({
   style,
   pendingPeers = [],
   onApprovePeer,
-  onRejectPeer
+  onRejectPeer,
+  recentlyApprovedPeers = [],
+  onSyncFiles
 }, ref) {
   const { t } = useTranslation();
 
@@ -25,8 +27,9 @@ export const PeerPanel = forwardRef(function PeerPanel({
         <div className="peerListTable">
           {peers.map((p) => {
             const isPending = pendingPeers.includes(p.clientUuid);
+            const isRecentlyApproved = recentlyApprovedPeers.includes(p.clientUuid);
             return (
-              <div key={p.id} className={`peerListItem ${isPending ? "pending" : ""}`}>
+              <div key={p.id} className={`peerListItem ${isPending ? "pending" : ""} ${isRecentlyApproved ? "recentlyApproved" : ""}`}>
                 <span className="peerIcon" title={p.role}>
                   {getRoleIcon(p.role)}
                 </span>
@@ -51,6 +54,17 @@ export const PeerPanel = forwardRef(function PeerPanel({
                       onClick={() => onApprovePeer?.(p.clientUuid)}
                     >
                       {t("common.buttons.approve", "Zulassen")}
+                    </button>
+                  </div>
+                )}
+                {isRecentlyApproved && (
+                  <div className="peerActions">
+                    <button
+                      type="button"
+                      className="peerActionBtn syncBtn"
+                      onClick={() => onSyncFiles?.(p.clientUuid)}
+                    >
+                      {t("desktop.peers.syncFiles", "Dateien synchronisieren")}
                     </button>
                   </div>
                 )}
