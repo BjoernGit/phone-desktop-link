@@ -139,13 +139,25 @@ export default function App() {
             return;
           }
           setOfferStatus(t("status.offerReceived"));
-          setIncomingOffer({
+
+          const offer = {
             session: plain.session,
             seed: plain.seed || "",
             offerSecret: plain.offerSecret || offerSecret,
             from: payload.fromDevice || payload.fromRole || "Peer",
             fromUuid: payload.fromUuid || "",
-          });
+          };
+
+          // Auto-accept if flag is enabled
+          if (FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) {
+            console.log("[App] Auto-accepting session offer from", offer.from);
+            applySeedAndStore(offer.seed, offer.session);
+            setOfferStatus(t("status.offerAccepted"));
+            setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+          } else {
+            // Show modal for manual accept/decline
+            setIncomingOffer(offer);
+          }
         } catch (e) {
           console.warn("Offer decrypt failed", e);
           setOfferStatus(t("status.offerUnreadable"));

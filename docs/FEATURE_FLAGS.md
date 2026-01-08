@@ -152,6 +152,47 @@ useEffect(() => {
 
 ---
 
+### 4. `AUTO_ACCEPT_SESSION_OFFERS`
+
+**Current Value:** `false` (disabled)
+
+**What it does:**
+- When `true`: Incoming session offers are automatically accepted without user interaction
+- When `false`: Users must manually click "Accept" or "Decline" for each session offer (current behavior)
+
+**Implementation Details:**
+
+**Client Logic:** `client/src/App.jsx` (onSessionOffer handler)
+```javascript
+onSessionOffer: (payload) => {
+  // ... decrypt offer data ...
+  const offer = {
+    session: plain.session,
+    seed: plain.seed || "",
+    offerSecret: plain.offerSecret || offerSecret,
+    from: payload.fromDevice || payload.fromRole || "Peer",
+    fromUuid: payload.fromUuid || "",
+  };
+
+  if (FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) {
+    console.log("[App] Auto-accepting session offer from", offer.from);
+    applySeedAndStore(offer.seed, offer.session);
+    setOfferStatus(t("status.offerAccepted"));
+    setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+  } else {
+    // Show modal for manual accept/decline
+    setIncomingOffer(offer);
+  }
+}
+```
+
+**Related UI:**
+- Session offer modal with Accept/Decline buttons (`SessionOfferModal.jsx`)
+- Status message showing "Offer accepted" confirmation
+- When disabled, modal never appears and offers auto-accept immediately
+
+---
+
 ## Important Notes
 
 ### File Sync vs File Transfer
@@ -170,9 +211,10 @@ Edit the flag values in the configuration files:
 ```javascript
 // client/src/config/features.js
 export const FEATURE_FLAGS = {
-  REQUIRE_DEVICE_APPROVAL: true,  // Enable manual approval
-  AUTO_HIDE_QR_CODE: true,        // Enable QR auto-hiding
-  MANUAL_FILE_SYNC: true,         // Enable manual file sync
+  REQUIRE_DEVICE_APPROVAL: true,     // Enable manual approval
+  AUTO_HIDE_QR_CODE: true,           // Enable QR auto-hiding
+  MANUAL_FILE_SYNC: true,            // Enable manual file sync
+  AUTO_ACCEPT_SESSION_OFFERS: true,  // Enable auto-accept session offers
 };
 ```
 
@@ -218,6 +260,13 @@ When re-enabling features, test these scenarios:
 - [ ] Late joiner can now see and download files
 - [ ] Button disappears after successful sync
 
+### AUTO_ACCEPT_SESSION_OFFERS = true
+- [ ] Send session offer from one device
+- [ ] Receiving device automatically accepts without showing modal
+- [ ] Session data is applied immediately
+- [ ] Status message briefly shows "Offer accepted"
+- [ ] Devices connect successfully without manual interaction
+
 ---
 
 ## Security Considerations
@@ -226,17 +275,20 @@ When re-enabling features, test these scenarios:
 1. **Device Approval:** Prevents unauthorized devices from joining your session
 2. **QR Auto-Hide:** Prevents shoulder-surfing attacks in public spaces
 3. **Manual File Sync:** Gives explicit control over what content late joiners can access
+4. **Manual Session Offer Accept:** Ensures users explicitly consent before joining another device's session
 
 ### Risk of Keeping Disabled
 - Anyone with the QR code can join your session
 - QR codes remain visible and scannable indefinitely
 - Late joiners automatically receive all file metadata
+- Session offers are automatically accepted without user confirmation
 
 ### Recommended for Production
-Enable all three flags when:
+Enable all four flags when:
 - Application is public-facing
 - Users handle sensitive content
 - Multi-user security is important
+- Explicit user consent is required
 
 ---
 
@@ -257,6 +309,11 @@ All flags are currently set to `false` (disabled):
 - File metadata auto-syncs to all approved peers
 - No manual sync button needed
 
+✅ **AUTO_ACCEPT_SESSION_OFFERS = false**
+- Session offers require manual accept/decline
+- Session offer modal appears for incoming offers
+- User must explicitly approve session joins
+
 ---
 
 ## Related Files
@@ -269,12 +326,13 @@ All flags are currently set to `false` (disabled):
 - `server/server.js` - Peer approval logic (lines ~104-120)
 
 ### Client Components
-- `client/src/App.jsx` - Main app logic, auto-sync (lines ~216-234)
+- `client/src/App.jsx` - Main app logic, auto-sync (lines ~216-234), auto-accept session offers (onSessionOffer handler)
 - `client/src/components/PeerPanel.jsx` - Desktop peer approval UI (lines ~30-31)
 - `client/src/components/MobileQrDisplay.jsx` - Mobile QR auto-hide logic (lines ~11-28, ~37)
 - `client/src/components/QrPanel.jsx` - Desktop QR auto-hide logic (lines ~13-22, ~35)
 - `client/src/MobileApp.jsx` - Mobile approval UI (lines ~79-88)
 - `client/src/components/PendingApprovals.jsx` - Mobile approval buttons component
+- `client/src/components/SessionOfferModal.jsx` - Session offer accept/decline modal
 
 ### Hooks
 - `client/src/hooks/useSessionSockets.js` - Socket communication, peer-status events

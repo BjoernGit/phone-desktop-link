@@ -195,9 +195,8 @@
 
 .sectionHeader {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -274,25 +273,38 @@
   font-size: 15px;
 }
 
-.uploadPanel .uploadActions {
+.uploadPanel .uploadActions,
+.uploadActions {
   display: flex;
-  gap: 10px;
+  gap: 16px;
   flex-wrap: wrap;
 }
 
-.uploadPanel button {
-  border: 0;
+.uploadPanel button,
+.uploadActions button {
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 12px;
-  padding: 10px 12px;
-  font-weight: 800;
+  padding: 10px 16px;
+  font-weight: 700;
+  font-size: 14px;
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transition: all 140ms ease;
 }
 
-.uploadPanel button:hover {
-  background: rgba(255, 255, 255, 0.12);
+.uploadPanel button:hover,
+.uploadActions button:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.uploadPanel button:active,
+.uploadActions button:active {
+  transform: translateY(0);
 }
 
 .clipboardPreview {

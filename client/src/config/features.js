@@ -27,4 +27,11 @@ export const FEATURE_FLAGS = {
    * When true: requires manual sync button click (more control)
    */
   MANUAL_FILE_SYNC: false,
+
+  /**
+   * Automatically accept incoming session offers
+   * When false: incoming offers require manual accept/decline
+   * When true: session offers are automatically accepted (convenience)
+   */
+  AUTO_ACCEPT_SESSION_OFFERS: true,
 };
