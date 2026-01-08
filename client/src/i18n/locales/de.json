@@ -46,7 +46,8 @@
       "offerSent": "Angebot gesendet",
       "offerSentStatus": "Session-Angebot gesendet",
       "scanActive": "QR-Scan aktiv",
-      "recognized": "QR erkannt: {{session}}"
+      "recognized": "QR erkannt: {{session}}",
+      "alreadyInSession": "Bereits in dieser Session"
     },
     "controls": {
       "gallery": "Galerie",

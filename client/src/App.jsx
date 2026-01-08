@@ -130,10 +130,16 @@ export default function App() {
     deviceName,
     onDecryptPhoto: decryptPhoto,
     onSessionOffer: (payload) => {
-      if (!payload?.enc) return;
+      console.log("[DEBUG] onSessionOffer called", { payload, hasEnc: !!payload?.enc, offerSecret: offerSecret?.slice(0, 8) });
+      if (!payload?.enc) {
+        console.log("[DEBUG] No enc in payload, returning early");
+        return;
+      }
       const doDecrypt = async () => {
         try {
+          console.log("[DEBUG] Attempting decrypt with offerSecret:", offerSecret?.slice(0, 8));
           const plain = await decryptJsonWithSecret(offerSecret, payload.enc, "offer-share");
+          console.log("[DEBUG] Decrypt result:", plain);
           if (!plain?.session || !plain?.seed) {
             setOfferStatus(t("status.offerIncomplete"));
             return;
@@ -148,14 +154,18 @@ export default function App() {
             fromUuid: payload.fromUuid || "",
           };
 
+          console.log("[DEBUG] Created offer object:", offer);
+          console.log("[DEBUG] AUTO_ACCEPT_SESSION_OFFERS flag:", FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS);
+
           // Auto-accept if flag is enabled
           if (FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) {
-            console.log("[App] Auto-accepting session offer from", offer.from);
-            applySeedAndStore(offer.seed, offer.session);
-            setOfferStatus(t("status.offerAccepted"));
-            setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+            console.log("[DEBUG] Auto-accept enabled, dispatching event with offer data");
+            // Use applyQrOffer which handles all the session switching logic
+            // Pass offer data through the event to avoid race condition with state
+            window.dispatchEvent(new CustomEvent("auto-accept-offer", { detail: offer }));
           } else {
             // Show modal for manual accept/decline
+            console.log("[DEBUG] Manual accept mode, setting incomingOffer for modal");
             setIncomingOffer(offer);
           }
         } catch (e) {
@@ -312,7 +322,9 @@ export default function App() {
 
   const applyQrOffer = useCallback(
     (offer) => {
+      console.log("[DEBUG] applyQrOffer called with:", offer);
       if (!offer?.session) {
+        console.log("[DEBUG] applyQrOffer: no session in offer");
         setQrStatus(t("status.noSession"));
         return;
       }
@@ -320,6 +332,7 @@ export default function App() {
       // Validate QR code TTL
       if (offer.timestamp) {
         const age = Date.now() - Number(offer.timestamp);
+        console.log("[DEBUG] applyQrOffer: checking TTL, age:", age, "max:", QR_TTL_MS);
         if (age > QR_TTL_MS) {
           setQrStatus(t("status.qrExpired"));
           setTimeout(() => setQrStatus(""), STATUS_DISMISS_MS);
@@ -327,21 +340,50 @@ export default function App() {
         }
       }
 
+      console.log("[DEBUG] applyQrOffer: applying session", offer.session);
       const params = new URLSearchParams(window.location.search);
       params.set("session", offer.session);
       if (offer.targetUuid) params.set("uid", offer.targetUuid);
       const newUrl = `${window.location.pathname}?${params.toString()}`;
+      console.log("[DEBUG] applyQrOffer: updating URL to", newUrl);
       window.history.replaceState({}, "", newUrl);
+      console.log("[DEBUG] applyQrOffer: calling overrideSessionId");
       overrideSessionId?.(offer.session);
-      if (offer.offerSecret) setOfferSecret(offer.offerSecret);
+      if (offer.offerSecret) {
+        console.log("[DEBUG] applyQrOffer: setting offerSecret");
+        setOfferSecret(offer.offerSecret);
+      }
       if (offer.seed) {
+        console.log("[DEBUG] applyQrOffer: applying seed", offer.seed?.slice(0, 8));
         applySeedAndStore(offer.seed, offer.session);
       }
       setQrStatus(t("status.sessionTaken"));
       setTimeout(() => setQrStatus(""), SESSION_STATUS_DISMISS_MS);
+      console.log("[DEBUG] applyQrOffer: completed");
     },
     [applySeedAndStore, overrideSessionId, t]
   );
+
+  // Auto-accept incoming offers when flag is enabled
+  useEffect(() => {
+    if (!FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) return;
+
+    const handleAutoAccept = (event) => {
+      const offer = event.detail;
+      console.log("[DEBUG] handleAutoAccept received event with offer:", offer);
+      if (offer) {
+        console.log("[DEBUG] Calling applyQrOffer with offer");
+        applyQrOffer(offer);
+        setOfferStatus(t("status.offerAccepted"));
+        setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+      } else {
+        console.log("[DEBUG] No offer in event detail");
+      }
+    };
+
+    window.addEventListener("auto-accept-offer", handleAutoAccept);
+    return () => window.removeEventListener("auto-accept-offer", handleAutoAccept);
+  }, [applyQrOffer, t]);
 
   const sendPhotoSecure = useCallback(
     async (imageDataUrl) => {
@@ -507,7 +549,9 @@ export default function App() {
         return;
       }
 
-      const seed = isMobile ? seedFromHash : sessionSeed || seedFromHash || generateSeedBase64Url(16);
+      // Both mobile and desktop should generate a seed if none exists
+      // Mobile needs its own seed to be able to "send own session" after a reload
+      const seed = sessionSeed || seedFromHash || generateSeedBase64Url(16);
       const secret = offerSecret || offerSecretFromHash || generateSeedBase64Url(24);
       if (!seed) {
         setEncStatus("no-seed");

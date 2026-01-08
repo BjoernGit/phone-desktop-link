@@ -4,7 +4,7 @@ import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
 import { encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
 
 // Set to true for verbose socket debugging
-const DEBUG_SOCKETS = false;
+const DEBUG_SOCKETS = true;
 
 function getClientUuid() {
   const key = "filebeacon-client-id";

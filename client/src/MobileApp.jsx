@@ -138,6 +138,8 @@ export function MobileApp({
                 </div>
               </div>
               <div className="qrOfferActions">
+                {/* Always allow reading/joining the scanned session - even if sessionId matches,
+                    the seed might differ (e.g., after mobile reload) and needs to be synced */}
                 <button
                   type="button"
                   className="qrOfferBtn"
@@ -150,33 +152,42 @@ export function MobileApp({
                 >
                   {t("mobile.qr.readSession")}
                 </button>
-                <button
-                  type="button"
-                  className="qrOfferBtn ghost"
-                  onClick={() => {
-                    sendSessionOffer(
-                      {
-                        session: sessionId,
-                        seed: sessionSeed,
-                        offerSecret,
-                      },
-                      qrOffer.session,
-                      qrOffer.targetUuid,
-                      qrOffer.offerSecret
-                    );
-                    setOfferStatus(t("mobile.qr.offerSent"));
-                    setQrStatus(t("mobile.qr.offerSentStatus"));
-                    setTimeout(() => {
-                      setQrStatus("");
-                      setOfferStatus("idle");
-                    }, 3000);
-                    setQrOffer(null);
-                    setQrDetected(false);
-                    setShowQrDialog(false);
-                  }}
-                >
-                  {t("mobile.qr.sendOwnSession")}
-                </button>
+                {/* Always show "send own session" if we have session data - the target device
+                    will update its seed to match ours, re-syncing the encryption */}
+                {console.log("[DEBUG] QR Dialog - sessionId:", sessionId, "sessionSeed:", sessionSeed?.slice(0, 8))}
+                {sessionId && sessionSeed ? (
+                  <button
+                    type="button"
+                    className="qrOfferBtn ghost"
+                    onClick={() => {
+                      sendSessionOffer(
+                        {
+                          session: sessionId,
+                          seed: sessionSeed,
+                          offerSecret,
+                        },
+                        qrOffer.session,
+                        qrOffer.targetUuid,
+                        qrOffer.offerSecret
+                      );
+                      setOfferStatus(t("mobile.qr.offerSent"));
+                      setQrStatus(t("mobile.qr.offerSentStatus"));
+                      setTimeout(() => {
+                        setQrStatus("");
+                        setOfferStatus("idle");
+                      }, 3000);
+                      setQrOffer(null);
+                      setQrDetected(false);
+                      setShowQrDialog(false);
+                    }}
+                  >
+                    {t("mobile.qr.sendOwnSession")}
+                  </button>
+                ) : (
+                  <span className="qrOfferDebug" style={{ fontSize: "10px", color: "#888" }}>
+                    [Debug: sessionId={sessionId ? "yes" : "no"}, seed={sessionSeed ? "yes" : "no"}]
+                  </span>
+                )}
               </div>
             </div>
           )}

@@ -659,6 +659,20 @@
   border: 1px solid rgba(255, 255, 255, 0.35);
 }
 
+.qrOfferInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+}
+
+.qrOfferInfo .qrOfferBtn {
+  width: 100%;
+}
+
 .selfIdBadge {
   position: fixed;
   top: 8px;

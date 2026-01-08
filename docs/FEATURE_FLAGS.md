@@ -176,7 +176,13 @@ onSessionOffer: (payload) => {
 
   if (FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) {
     console.log("[App] Auto-accepting session offer from", offer.from);
-    applySeedAndStore(offer.seed, offer.session);
+    // Update session ID to join the new session
+    overrideSessionId?.(offer.session);
+    // Apply the encryption seed
+    if (offer.offerSecret) setOfferSecret(offer.offerSecret);
+    if (offer.seed) {
+      applySeedAndStore(offer.seed, offer.session);
+    }
     setOfferStatus(t("status.offerAccepted"));
     setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
   } else {
