@@ -26,6 +26,17 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   const [peerFiles, setPeerFiles] = useState(new Map()); // peerUuid -> file list
   const [receivedBlobs, setReceivedBlobs] = useState(new Map()); // fileId -> blob
 
+  // Alert state for error messages
+  const [alertMessage, setAlertMessage] = useState(null); // { title, message }
+
+  const showAlert = useCallback((title, message) => {
+    setAlertMessage({ title, message });
+  }, []);
+
+  const clearAlert = useCallback(() => {
+    setAlertMessage(null);
+  }, []);
+
   // WebRTC & File Transfer Hooks (only on desktop)
   const webRTC = useWebRTC({
     socket,
@@ -149,7 +160,17 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
 
     const handleFileRequestSocketio = async ({ fromUuid, fileId }) => {
       const fileToSend = sharedFiles.find((f) => f.id === fileId);
-      if (!fileToSend || !fileToSend.file) return;
+      if (!fileToSend || !fileToSend.file) {
+        // File was deleted - send error message back to requester
+        console.error(`[Socket.io] Requested file not found: ${fileId}`);
+        socket.emit("file-transfer-socketio-error", {
+          targetUuid: fromUuid,
+          fileId,
+          fileName: fileToSend?.name || fileId,
+          error: "file-not-found",
+        });
+        return;
+      }
 
       const totalChunks = Math.ceil(fileToSend.file.size / SOCKETIO_CHUNK_SIZE);
       socket.emit("file-transfer-socketio-start", {
@@ -254,10 +275,17 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       fileChunks.delete(fileId);
     };
 
-    const handleFileTransferError = ({ fileId, error, message }) => {
-      console.error(`[Socket.io] File transfer error for ${fileId}: ${error} - ${message}`);
+    const handleFileTransferError = ({ fileId, error, fileName }) => {
+      console.error(`[Socket.io] File transfer error for ${fileId}: ${error}`);
       fileChunks.delete(fileId);
-      alert(`File transfer failed: ${message}`);
+      if (error === "file-not-found") {
+        showAlert(
+          "desktop.fileTransfer.fileNotFound",
+          `desktop.fileTransfer.fileNoLongerAvailable:${fileName || fileId}`
+        );
+      } else {
+        showAlert("errors.fileTooLargeTitle", error);
+      }
     };
 
     socket.on("file-transfer-socketio-start", handleFileTransferStart);
@@ -271,7 +299,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       socket.off("file-transfer-socketio-complete", handleFileTransferComplete);
       socket.off("file-transfer-socketio-error", handleFileTransferError);
     };
-  }, [socket, isMobile]);
+  }, [socket, isMobile, showAlert]);
 
   // Setup WebRTC file receiver and sender on data channels
   useEffect(() => {
@@ -323,8 +351,24 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
             // Pass fileId so receiver can track progress in UI
             fileTransfer.sendFile(fileToSend.file, dataChannel, peerUuid, null, fileId);
           } else {
+            // File was deleted - send error message back to requester
             console.error(`[FileTransfer] Requested file not found: ${fileId}`);
+            if (dataChannel && dataChannel.readyState === "open") {
+              dataChannel.send(JSON.stringify({
+                type: "file-not-found",
+                fileId,
+                fileName: fileId, // We don't have the name anymore
+              }));
+            }
           }
+        },
+        // onFileNotFound
+        (fileId, fileName) => {
+          console.warn(`[FileTransfer] File no longer available: ${fileName || fileId}`);
+          showAlert(
+            "desktop.fileTransfer.fileNotFound",
+            `desktop.fileTransfer.fileNoLongerAvailable:${fileName || fileId}`
+          );
         }
       );
 
@@ -445,6 +489,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     sharedFiles,
     peerFiles,
     receivedBlobs,
+
+    // Alert state for error messages
+    alertMessage,
+    clearAlert,
 
     // Handlers
     handleFileDownload,

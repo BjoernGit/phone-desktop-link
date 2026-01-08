@@ -36,4 +36,5 @@ export const FILE_MESSAGE_TYPES = {
   FILE_CHUNK: "file-chunk",
   FILE_COMPLETE: "file-complete",
   FILE_REQUEST: "file-request",
+  FILE_NOT_FOUND: "file-not-found", // Sent when requested file is no longer available
 };

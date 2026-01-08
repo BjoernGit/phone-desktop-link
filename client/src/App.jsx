@@ -204,6 +204,8 @@ export default function App() {
     syncFilesToPeer,
     fileTransfers,
     webRTCConnections,
+    alertMessage,
+    clearAlert,
   } = useAppFileTransfer({
     socket,
     clientUuid,
@@ -710,6 +712,8 @@ export default function App() {
       onRemoveFile={handleRemoveFile}
       fileTransfers={fileTransfers}
       webRTCConnections={webRTCConnections}
+      alertMessage={alertMessage}
+      clearAlert={clearAlert}
     />
 );
   }

@@ -118,6 +118,10 @@
       "available": "Available",
       "download": "Download",
       "completed": "✓"
+    },
+    "fileTransfer": {
+      "fileNotFound": "File Not Available",
+      "fileNoLongerAvailable": "The file \"{{fileName}}\" is no longer available. The owner may have removed it from sharing."
     }
   },
   "offer": {

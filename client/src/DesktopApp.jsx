@@ -10,6 +10,7 @@ import { Lightbox } from "./components/Lightbox";
 import { FooterBar } from "./components/FooterBar";
 import { FileUploadPanel } from "./components/FileUploadPanel";
 import { FileGallery } from "./components/FileGallery";
+import { AlertModal } from "./components/AlertModal";
 
 export function DesktopApp({
   sessionId,
@@ -66,6 +67,8 @@ export function DesktopApp({
   onRemoveFile,
   fileTransfers = new Map(),
   webRTCConnections = new Map(),
+  alertMessage = null,
+  clearAlert,
 }) {
   const { t } = useTranslation();
   const peerCount = peers.length;
@@ -291,6 +294,22 @@ export function DesktopApp({
             <div className="legalModalBody">{legalContent}</div>
           </div>
         </div>
+      )}
+
+      {alertMessage && (
+        <AlertModal
+          isOpen={!!alertMessage}
+          title={t(alertMessage.title)}
+          message={
+            alertMessage.message.includes(":")
+              ? t(
+                  alertMessage.message.split(":")[0],
+                  { fileName: alertMessage.message.split(":").slice(1).join(":") }
+                )
+              : t(alertMessage.message)
+          }
+          onClose={clearAlert}
+        />
       )}
     </>
   );

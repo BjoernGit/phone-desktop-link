@@ -35,9 +35,10 @@ export function useFileReceiver({
    *
    * @param {Function} onFileReceived - Callback when file is fully received
    * @param {Function} onFileRequest - Callback when a file-request message is received (for sender-side handling)
+   * @param {Function} onFileNotFound - Callback when requested file is no longer available
    */
   const createMessageHandler = useCallback(
-    (onFileReceived, onFileRequest) => {
+    (onFileReceived, onFileRequest, onFileNotFound) => {
       // transferId -> { transfer, chunks, pendingChunkHeaders }
       const activeTransfers = new Map();
 
@@ -66,6 +67,13 @@ export function useFileReceiver({
           if (msg.type === FILE_MESSAGE_TYPES.FILE_REQUEST && onFileRequest) {
             console.log(`[FileReceiver] Received file-request for ${msg.fileId}`);
             onFileRequest(msg.fileId);
+            return;
+          }
+
+          // Handle file-not-found (receiver side) - file was deleted before transfer
+          if (msg.type === FILE_MESSAGE_TYPES.FILE_NOT_FOUND && onFileNotFound) {
+            console.warn(`[FileReceiver] File not found: ${msg.fileId} - ${msg.fileName}`);
+            onFileNotFound(msg.fileId, msg.fileName);
             return;
           }
 
