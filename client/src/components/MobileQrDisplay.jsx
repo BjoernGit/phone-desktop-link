@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { QRCodeSVG } from "qrcode.react";
+import { FEATURE_FLAGS } from "../config/features";
 
 const QR_AUTO_HIDE_MS = 30000; // 30 seconds
 
@@ -9,7 +10,9 @@ export function MobileQrDisplay({ url, sessionId, clientUuid }) {
   const [qrVisible, setQrVisible] = useState(true);
 
   useEffect(() => {
-    // Auto-hide QR code after 30 seconds
+    // Auto-hide QR code after 30 seconds (only if feature enabled)
+    if (!FEATURE_FLAGS.AUTO_HIDE_QR_CODE) return;
+
     const timer = setTimeout(() => {
       setQrVisible(false);
     }, QR_AUTO_HIDE_MS);
@@ -19,8 +22,10 @@ export function MobileQrDisplay({ url, sessionId, clientUuid }) {
 
   const handleShowQr = () => {
     setQrVisible(true);
-    // Auto-hide again after 30 seconds
-    setTimeout(() => setQrVisible(false), QR_AUTO_HIDE_MS);
+    // Auto-hide again after 30 seconds (only if feature enabled)
+    if (FEATURE_FLAGS.AUTO_HIDE_QR_CODE) {
+      setTimeout(() => setQrVisible(false), QR_AUTO_HIDE_MS);
+    }
   };
 
   return (
@@ -29,7 +34,7 @@ export function MobileQrDisplay({ url, sessionId, clientUuid }) {
         <h2 className="mobileQrTitle">{t("mobile.qrDisplay.title")}</h2>
         <p className="mobileQrInstructions">{t("mobile.qrDisplay.instructions")}</p>
 
-        {qrVisible ? (
+        {qrVisible || !FEATURE_FLAGS.AUTO_HIDE_QR_CODE ? (
           <>
             <div className="mobileQrCodeWrap">
               <QRCodeSVG value={url} size={280} level="M" />

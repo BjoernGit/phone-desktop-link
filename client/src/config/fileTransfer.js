@@ -9,10 +9,10 @@ export const FILE_TRANSFER_CONFIG = {
   MAX_BUFFERED_AMOUNT: 256 * 1024, // 256 KB - threshold before pausing
 
   // File limits
-  MAX_FILE_SIZE: 500 * 1024 * 1024, // 500 MB max file size
+  MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024, // 2 GB max file size
 
   // Timeouts
-  TRANSFER_TIMEOUT_MS: 5 * 60 * 1000, // 5 minutes
+  TRANSFER_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes (increased for larger files)
   TRANSFER_CLEANUP_DELAY_MS: 30 * 1000, // 30 seconds after completion
 
   // Backpressure control

@@ -20,6 +20,7 @@ import { DesktopApp } from "./DesktopApp";
 import { MobileApp } from "./MobileApp";
 import { isLocalNetwork } from "./config/network";
 import { QR_TTL_MS, STATUS_DISMISS_MS, SESSION_STATUS_DISMISS_MS } from "./config/security";
+import { FEATURE_FLAGS } from "./config/features";
 
 export default function App() {
   const { t } = useTranslation();
@@ -197,8 +198,10 @@ export default function App() {
   const approvePeer = useCallback(
     (uuid) => {
       sendPeerDecision(uuid, "approve");
-      // Add to recently approved set so sync button appears
-      setRecentlyApprovedPeers((prev) => new Set([...prev, uuid]));
+      // Add to recently approved set so sync button appears (only if manual sync enabled)
+      if (FEATURE_FLAGS.MANUAL_FILE_SYNC) {
+        setRecentlyApprovedPeers((prev) => new Set([...prev, uuid]));
+      }
     },
     [sendPeerDecision]
   );
@@ -209,6 +212,26 @@ export default function App() {
     },
     [sendPeerDecision]
   );
+
+  // Auto-sync files when peers become approved (if manual sync is disabled)
+  useEffect(() => {
+    if (FEATURE_FLAGS.MANUAL_FILE_SYNC || isMobile || !syncFilesToPeer) return;
+
+    const approvedPeers = Object.entries(peerStatuses)
+      .filter(([_, status]) => status === "approved")
+      .map(([uuid]) => uuid);
+
+    approvedPeers.forEach((peerUuid) => {
+      // Check if this is a newly approved peer we haven't synced yet
+      const peer = peers.find((p) => p.clientUuid === peerUuid);
+      if (peer && sharedFiles.length > 0) {
+        console.log(`[App] Auto-syncing files to approved peer ${peerUuid}`);
+        syncFilesToPeer(peerUuid).catch((err) => {
+          console.error(`[App] Auto-sync failed for peer ${peerUuid}:`, err);
+        });
+      }
+    });
+  }, [peerStatuses, syncFilesToPeer, isMobile, peers, sharedFiles.length]);
 
   // Handle content sync to a late joiner (files metadata only for now)
   const handleSyncFiles = useCallback(
@@ -395,6 +418,12 @@ export default function App() {
       Object.entries(peerStatuses)
         .filter(([uuid, status]) => status === "pending" && uuid !== clientUuid)
         .map(([uuid]) => uuid),
+    [clientUuid, peerStatuses]
+  );
+
+  // Check if current user is waiting for approval
+  const isWaitingForApproval = useMemo(
+    () => clientUuid && peerStatuses[clientUuid] === "pending",
     [clientUuid, peerStatuses]
   );
   const legalContentMap = useMemo(
@@ -676,6 +705,7 @@ export default function App() {
       pendingPeers={pendingPeers}
       approvePeer={approvePeer}
       rejectPeer={rejectPeer}
+      isWaitingForApproval={isWaitingForApproval}
       clientUuid={clientUuid}
       qrUrl={qrUrl}
     />

@@ -15,7 +15,8 @@
       "save": "Save",
       "copyUrl": "Copy URL",
       "copyEnc": "Copy Enc",
-      "add": "Add"
+      "add": "Add",
+      "ok": "OK"
     },
     "aria": {
       "viewPhoto": "View photo {{idx}}",
@@ -35,6 +36,7 @@
       "instruction2": "Start the camera app on your phone, scan the code and follow the link. Then the app will appear here."
     },
     "selfId": "Your ID: {{id}}",
+    "waitingForApproval": "Waiting for approval...",
     "qr": {
       "detected": "QR detected",
       "session": "Session:",
@@ -144,7 +146,9 @@
     "invalidSource": "Invalid source",
     "uploadFailed": "Upload failed",
     "noVideoFrame": "No video frame yet - try again",
-    "cameraPermissionDenied": "Camera permission denied"
+    "cameraPermissionDenied": "Camera permission denied",
+    "fileTooLarge": "The following files exceed the maximum size of {{maxSize}} GB:\n\n{{files}}\n\nPlease select smaller files.",
+    "fileTooLargeTitle": "File Too Large"
   },
   "clipboard": {
     "decryptedImported": "Decrypted and imported",

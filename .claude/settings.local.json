@@ -5,7 +5,12 @@
       "Bash(node --check:*)",
       "Bash(node -e:*)",
       "Bash(npm run test:run:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm run:*)",
+      "Bash(cat:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)"
     ]
   }
 }

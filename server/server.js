@@ -6,6 +6,7 @@ const { Server } = require("socket.io");
 
 // Config
 const config = require("./config/limits");
+const { FEATURE_FLAGS } = require("./config/features");
 
 // Session management
 const {
@@ -100,7 +101,10 @@ io.on("connection", (socket) => {
     const state = getSessionState(sid);
     const emitStatus = (uuid, status) => io.to(room).emit("peer-status", { clientUuid: uuid, status });
 
-    if (!state.approved.size) {
+    // First peer OR device approval disabled = auto-approve
+    const shouldAutoApprove = !state.approved.size || !FEATURE_FLAGS.REQUIRE_DEVICE_APPROVAL;
+
+    if (shouldAutoApprove) {
       state.approved.add(clientUuid);
       state.pending.delete?.(clientUuid);
       state.rejected.delete?.(clientUuid);
@@ -110,6 +114,7 @@ io.on("connection", (socket) => {
     } else if (state.approved.has(clientUuid)) {
       emitStatus(clientUuid, "approved");
     } else {
+      // Only reach here if REQUIRE_DEVICE_APPROVAL is true and not first peer
       state.pending.add(clientUuid);
       emitStatus(clientUuid, "pending");
     }

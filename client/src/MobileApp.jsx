@@ -6,6 +6,7 @@ import { SessionOfferModal } from "./components/SessionOfferModal";
 import { PhotoGrid } from "./components/PhotoGrid";
 import { PendingApprovals } from "./components/PendingApprovals";
 import { MobileQrDisplay } from "./components/MobileQrDisplay";
+import { FEATURE_FLAGS } from "./config/features";
 
 export function MobileApp({
   sessionId,
@@ -52,6 +53,7 @@ export function MobileApp({
   pendingPeers = [],
   approvePeer,
   rejectPeer,
+  isWaitingForApproval = false,
   clientUuid,
   qrUrl,
 }) {
@@ -74,7 +76,16 @@ export function MobileApp({
 
       <div className="selfIdBadge">{t("mobile.selfId", { id: clientUuid ? clientUuid.slice(0, 8) : "n/a" })}</div>
 
-      <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
+      {FEATURE_FLAGS.REQUIRE_DEVICE_APPROVAL && isWaitingForApproval && (
+        <div className="waitingForApprovalBanner">
+          <span className="waitingIcon">⏳</span>
+          {t("mobile.waitingForApproval", "Warte auf Freigabe...")}
+        </div>
+      )}
+
+      {FEATURE_FLAGS.REQUIRE_DEVICE_APPROVAL && (
+        <PendingApprovals pending={pendingPeers} onApprove={approvePeer} onReject={rejectPeer} />
+      )}
 
       <MobileControls
         videoRef={videoRef}

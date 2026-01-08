@@ -621,6 +621,86 @@
   to { transform: scale(1); opacity: 1; }
 }
 
+/* Alert Modal */
+.alertOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 300;
+  padding: 32px;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.alertModal {
+  background: var(--card-bg);
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9),
+              0 0 0 1px rgba(255, 255, 255, 0.1);
+  max-width: 480px;
+  width: 100%;
+  padding: 28px;
+  cursor: default;
+  animation: alertPop 200ms ease;
+}
+
+.alertTitle {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+}
+
+.alertMessage {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--muted);
+  white-space: pre-wrap;
+  margin-bottom: 24px;
+  word-break: break-word;
+}
+
+.alertActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.alertBtn {
+  padding: 10px 24px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 140ms ease;
+}
+
+.alertBtn:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.alertBtn:active {
+  transform: translateY(0);
+}
+
+@keyframes alertPop {
+  from { transform: scale(0.94); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
 .footer {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
   margin: 24px 0 0;

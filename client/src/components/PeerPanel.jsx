@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import { useTranslation } from "react-i18next";
+import { FEATURE_FLAGS } from "../config/features";
 
 function getRoleIcon(role) {
   if (role === "mobile") {
@@ -26,8 +27,8 @@ export const PeerPanel = forwardRef(function PeerPanel({
       {hasConnection ? (
         <div className="peerListTable">
           {peers.map((p) => {
-            const isPending = pendingPeers.includes(p.clientUuid);
-            const isRecentlyApproved = recentlyApprovedPeers.includes(p.clientUuid);
+            const isPending = FEATURE_FLAGS.REQUIRE_DEVICE_APPROVAL && pendingPeers.includes(p.clientUuid);
+            const isRecentlyApproved = FEATURE_FLAGS.MANUAL_FILE_SYNC && recentlyApprovedPeers.includes(p.clientUuid);
             return (
               <div key={p.id} className={`peerListItem ${isPending ? "pending" : ""} ${isRecentlyApproved ? "recentlyApproved" : ""}`}>
                 <span className="peerIcon" title={p.role}>
