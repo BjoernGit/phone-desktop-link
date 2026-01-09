@@ -10,3 +10,8 @@ start-server.bat
 client/localhost*.pem
 client/localhost*-key.pem
 *.log
+
+# Docs (internal planning/notes)
+docs/TODO.md
+docs/SESSION_MERGE_ANALYSIS.md
+docs/ARCHITECTURE_FUTURE.md
