@@ -39,6 +39,7 @@
     "waitingForApproval": "Waiting for approval...",
     "qr": {
       "detected": "QR detected",
+      "countdown": "{{seconds}}s",
       "session": "Session:",
       "seed": "Seed:",
       "readSession": "Read session",

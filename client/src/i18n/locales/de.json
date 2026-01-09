@@ -39,6 +39,7 @@
     "waitingForApproval": "Warte auf Freigabe...",
     "qr": {
       "detected": "QR erkannt",
+      "countdown": "{{seconds}}s",
       "session": "Session:",
       "seed": "Seed:",
       "readSession": "Session einlesen",

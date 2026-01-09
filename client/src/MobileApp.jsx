@@ -26,10 +26,9 @@ export function MobileApp({
   handleShutter,
   fileInputRef,
   handleFiles,
-  qrDetected,
-  setQrDetected,
   showQrDialog,
   setShowQrDialog,
+  qrCountdown,
   qrOffer,
   setQrOffer,
   quality,
@@ -98,12 +97,6 @@ export function MobileApp({
         handleShutter={handleShutter}
         fileInputRef={fileInputRef}
         handleFiles={handleFiles}
-        qrDetected={qrDetected}
-        setQrDetected={setQrDetected}
-        showQrDialog={showQrDialog}
-        setShowQrDialog={setShowQrDialog}
-        setQrOffer={setQrOffer}
-        handleStartQrCamera={handleStartCamera}
         quality={quality}
         setQuality={setQuality}
         showQualityPicker={showQualityPicker}
@@ -120,13 +113,12 @@ export function MobileApp({
                 className="qrOfferClose"
                 onClick={() => {
                   setShowQrDialog(false);
-                  setQrDetected(false);
                   setQrOffer(null);
                 }}
                 aria-label="Close"
               ></button>
               <div className="qrOfferText">
-                {t("mobile.qr.detected")}
+                {t("mobile.qr.countdown", { seconds: qrCountdown ?? 0 })}
                 {allowDebug && (
                   <div className="qrOfferMeta">
                     {t("mobile.qr.session")} <code>{qrOffer.session}</code>
@@ -154,7 +146,6 @@ export function MobileApp({
                     setQrStatus(t("mobile.qr.sessionsMerged"));
                     setTimeout(() => setQrStatus(""), 3000);
                     setQrOffer(null);
-                    setQrDetected(false);
                     setShowQrDialog(false);
                   }}
                 >
@@ -171,10 +162,9 @@ export function MobileApp({
                         type="button"
                         className="qrOfferBtn secondary"
                         onClick={() => {
-                          applyQrOffer(qrOffer);
-                          setQrOffer(null);
-                          setQrDetected(false);
-                          setShowQrDialog(false);
+                        applyQrOffer(qrOffer);
+                        setQrOffer(null);
+                        setShowQrDialog(false);
                         }}
                       >
                         {t("mobile.qr.joinAlone")}
@@ -197,13 +187,12 @@ export function MobileApp({
                             );
                             setOfferStatus(t("mobile.qr.offerSent"));
                             setQrStatus(t("mobile.qr.offerSentStatus"));
-                            setTimeout(() => {
-                              setQrStatus("");
-                              setOfferStatus("idle");
-                            }, 3000);
-                            setQrOffer(null);
-                            setQrDetected(false);
-                            setShowQrDialog(false);
+                          setTimeout(() => {
+                            setQrStatus("");
+                            setOfferStatus("idle");
+                          }, 3000);
+                          setQrOffer(null);
+                          setShowQrDialog(false);
                           }}
                         >
                           {t("mobile.qr.inviteOther")}

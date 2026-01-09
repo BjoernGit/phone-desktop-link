@@ -11,12 +11,6 @@ export function MobileControls({
   handleShutter,
   fileInputRef,
   handleFiles,
-  qrDetected,
-  setQrDetected,
-  showQrDialog,
-  setShowQrDialog,
-  setQrOffer,
-  handleStartQrCamera,
   quality,
   setQuality,
   showQualityPicker,
@@ -47,30 +41,6 @@ export function MobileControls({
       >
         <span className="uploadIcon" />
       </button>
-      {/* Auto-detected QR button - appears when QR is detected */}
-      {qrDetected && (
-        <button
-          type="button"
-          className="qrToggle detected"
-          onClick={() => {
-            if (!cameraReady && handleStartQrCamera) {
-              handleStartQrCamera();
-            }
-            if (showQrDialog) {
-              // Dialog is open, close it and ignore QR code
-              setShowQrDialog(false);
-              setQrDetected(false);
-              setQrOffer(null);
-            } else {
-              // Dialog is closed, open it
-              setShowQrDialog(true);
-            }
-          }}
-          aria-label={t("common.aria.openQr")}
-        >
-          <span className="qrButtonText">{t("common.aria.openQr")}</span>
-        </button>
-      )}
 
       {!cameraReady && (
         <>

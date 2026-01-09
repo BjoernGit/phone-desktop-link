@@ -22,6 +22,8 @@ import { isLocalNetwork } from "./config/network";
 import { QR_TTL_MS, STATUS_DISMISS_MS, SESSION_STATUS_DISMISS_MS } from "./config/security";
 import { FEATURE_FLAGS } from "./config/features";
 
+const QR_AUTO_CLOSE_SECONDS = 5;
+
 export default function App() {
   const { t } = useTranslation();
   const [isMobile, setIsMobile] = useState(() => isMobileDevice());
@@ -44,8 +46,8 @@ export default function App() {
   const [peerStatuses, setPeerStatuses] = useState({});
   const [qrStatus, setQrStatus] = useState("");
   const [qrOffer, setQrOffer] = useState(null);
-  const [qrDetected, setQrDetected] = useState(false);
   const [showQrDialog, setShowQrDialog] = useState(false);
+  const [qrCountdown, setQrCountdown] = useState(0);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerStatus, setOfferStatus] = useState("idle");
   const location = useLocation();
@@ -496,18 +498,42 @@ export default function App() {
     enabled: isMobile && cameraReady,
     onDetected: (parsed) => {
       if (parsed?.session) {
-        setQrDetected(true);
         setQrOffer(parsed);
-        // Don't auto-open dialog - let user click the button
+        setQrCountdown(QR_AUTO_CLOSE_SECONDS);
+        setShowQrDialog(true);
       }
     },
     onLost: () => {
-      setQrDetected(false);
       setQrOffer(null);
       setShowQrDialog(false);
+      setQrCountdown(0);
     },
     scanInterval: 10, // Scan every 10 frames
   });
+
+  useEffect(() => {
+    if (!showQrDialog || !qrOffer?.session) {
+      setQrCountdown(0);
+      return;
+    }
+
+    let remaining = QR_AUTO_CLOSE_SECONDS;
+    setQrCountdown(remaining);
+
+    const timer = setInterval(() => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        clearInterval(timer);
+        setQrCountdown(0);
+        setShowQrDialog(false);
+        setQrOffer(null);
+        return;
+      }
+      setQrCountdown(remaining);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [showQrDialog, qrOffer?.session]);
 
   const pendingPeers = useMemo(
     () =>
@@ -777,10 +803,9 @@ export default function App() {
       handleShutter={handleShutter}
       fileInputRef={fileInputRef}
       handleFiles={handleFiles}
-      qrDetected={qrDetected}
-      setQrDetected={setQrDetected}
       showQrDialog={showQrDialog}
       setShowQrDialog={setShowQrDialog}
+      qrCountdown={qrCountdown}
       qrOffer={qrOffer}
       setQrOffer={setQrOffer}
       quality={quality}
