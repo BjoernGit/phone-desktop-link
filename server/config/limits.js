@@ -48,6 +48,14 @@ module.exports = {
   OFFER_WINDOW_MS: 60 * 1000,             // 1 minute window
 
   // =============================================================================
+  // Rate Limits - Session Merges
+  // =============================================================================
+  MERGE_LIMIT_PER_IP: 5,                  // merges per minute per IP
+  MERGE_LIMIT_PER_SESSION: 10,            // merges per minute per session
+  MERGE_WINDOW_MS: 60 * 1000,             // 1 minute window
+  MERGE_LOCK_MS: 5 * 1000,                // 5 seconds lock after merge initiated
+
+  // =============================================================================
   // Rate Limits - File Transfers (Socket.io fallback)
   // =============================================================================
   SOCKETIO_MAX_FILE_SIZE: 30 * 1024 * 1024,       // 30 MB - max single file size

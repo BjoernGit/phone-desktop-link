@@ -114,6 +114,9 @@ export default function App() {
     [] // key is taken from ref; setEncStatus is stable
   );
 
+  // State for merge redirect modal (when AUTO_ACCEPT_SESSION_MERGES is false)
+  const [mergeRequest, setMergeRequest] = useState(null);
+
   const {
     socket,
     sessionId,
@@ -123,12 +126,43 @@ export default function App() {
     sendPhoto,
     addLocalPhoto,
     sendSessionOffer,
+    sendSessionMerge,
     setSessionId: overrideSessionId,
     sendPeerDecision,
   } = useSessionSockets({
     isMobile,
     deviceName,
     onDecryptPhoto: decryptPhoto,
+    onMergeRedirect: (payload) => {
+      console.log("[DEBUG] onMergeRedirect called", payload);
+      const { toSession, toSeed, toOfferSecret, initiatorDevice } = payload;
+
+      // Auto-accept if flag is enabled
+      if (FEATURE_FLAGS.AUTO_ACCEPT_SESSION_MERGES) {
+        console.log("[DEBUG] Auto-accept merge redirect enabled");
+        // Dispatch event to apply the merge (same pattern as session offers)
+        window.dispatchEvent(
+          new CustomEvent("auto-accept-offer", {
+            detail: {
+              session: toSession,
+              seed: toSeed,
+              offerSecret: toOfferSecret,
+              from: initiatorDevice || "Peer",
+              isMergeRedirect: true,
+            },
+          })
+        );
+      } else {
+        // Show modal for manual accept/decline
+        console.log("[DEBUG] Manual merge accept mode, setting mergeRequest");
+        setMergeRequest({
+          toSession,
+          toSeed,
+          toOfferSecret,
+          initiatorDevice,
+        });
+      }
+    },
     onSessionOffer: (payload) => {
       console.log("[DEBUG] onSessionOffer called", { payload, hasEnc: !!payload?.enc, offerSecret: offerSecret?.slice(0, 8) });
       if (!payload?.enc) {
@@ -366,18 +400,24 @@ export default function App() {
     [applySeedAndStore, overrideSessionId, t]
   );
 
-  // Auto-accept incoming offers when flag is enabled
+  // Auto-accept incoming offers and merge redirects when their respective flags are enabled
+  // This listener handles both session-offers (AUTO_ACCEPT_SESSION_OFFERS) and
+  // merge-redirects (AUTO_ACCEPT_SESSION_MERGES) via the same event mechanism
   useEffect(() => {
-    if (!FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS) return;
-
     const handleAutoAccept = (event) => {
       const offer = event.detail;
       console.log("[DEBUG] handleAutoAccept received event with offer:", offer);
       if (offer) {
-        console.log("[DEBUG] Calling applyQrOffer with offer");
+        console.log("[DEBUG] Calling applyQrOffer with offer, isMergeRedirect:", offer.isMergeRedirect);
         applyQrOffer(offer);
-        setOfferStatus(t("status.offerAccepted"));
-        setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+        // Show appropriate status message
+        if (offer.isMergeRedirect) {
+          setQrStatus(t("status.sessionMerged"));
+          setTimeout(() => setQrStatus(""), SESSION_STATUS_DISMISS_MS);
+        } else {
+          setOfferStatus(t("status.offerAccepted"));
+          setTimeout(() => setOfferStatus(""), SESSION_STATUS_DISMISS_MS);
+        }
       } else {
         console.log("[DEBUG] No offer in event detail");
       }
@@ -751,6 +791,7 @@ export default function App() {
       handleTouchStart={handleTouchStart}
       handleTouchEnd={handleTouchEnd}
       sendSessionOffer={sendSessionOffer}
+      sendSessionMerge={sendSessionMerge}
       setOfferStatus={setOfferStatus}
       setQrStatus={setQrStatus}
       applyQrOffer={applyQrOffer}

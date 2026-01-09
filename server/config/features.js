@@ -13,6 +13,13 @@ const FEATURE_FLAGS = {
    * When true: desktop users must approve each device (more secure)
    */
   REQUIRE_DEVICE_APPROVAL: false,
+
+  /**
+   * Enable session merge feature
+   * When true: allows merging two sessions so all devices end up in one session
+   * When false: session-merge events are ignored
+   */
+  ENABLE_SESSION_MERGE: true,
 };
 
 module.exports = { FEATURE_FLAGS };

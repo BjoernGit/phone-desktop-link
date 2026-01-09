@@ -23,7 +23,7 @@ function getSocketUrl() {
   return window.location.origin;
 }
 
-export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onPeerStatus, onPeerFileList }) {
+export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onMergeRedirect, onPeerStatus, onPeerFileList }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketStatus, setSocketStatus] = useState("connecting");
@@ -35,12 +35,14 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   // Use refs for callbacks to avoid re-registering event listeners
   const onDecryptPhotoRef = useRef(onDecryptPhoto);
   const onSessionOfferRef = useRef(onSessionOffer);
+  const onMergeRedirectRef = useRef(onMergeRedirect);
   const onPeerStatusRef = useRef(onPeerStatus);
   const onPeerFileListRef = useRef(onPeerFileList);
 
   useEffect(() => {
     onDecryptPhotoRef.current = onDecryptPhoto;
     onSessionOfferRef.current = onSessionOffer;
+    onMergeRedirectRef.current = onMergeRedirect;
     onPeerStatusRef.current = onPeerStatus;
     onPeerFileListRef.current = onPeerFileList;
   });
@@ -208,6 +210,39 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       onPeerFileListRef.current?.(payload);
     });
 
+    // Session merge redirect - another device in our session initiated a merge
+    socket.on("merge-redirect", (payload) => {
+      if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-redirect received", payload);
+      const { toSession, toSeed, toOfferSecret, initiatorUuid, initiatorDevice, ts } = payload;
+
+      // Validate payload
+      if (!toSession || !toSeed) {
+        console.warn("merge-redirect missing required fields");
+        return;
+      }
+
+      // TTL check (5 minutes)
+      const MERGE_TTL_MS = 5 * 60 * 1000;
+      if (ts && Date.now() - ts > MERGE_TTL_MS) {
+        console.warn("merge-redirect expired", { age: Date.now() - ts });
+        return;
+      }
+
+      onMergeRedirectRef.current?.({
+        toSession,
+        toSeed,
+        toOfferSecret,
+        initiatorUuid,
+        initiatorDevice,
+      });
+    });
+
+    // Merge error (e.g., concurrent merge in progress)
+    socket.on("merge-error", (payload) => {
+      if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-error received", payload);
+      console.warn("Session merge failed:", payload?.error);
+    });
+
     return () => {
       socket.off("peer-joined", onPeerJoined);
       socket.off("peer-left", onPeerLeft);
@@ -215,6 +250,8 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       socket.off("session-offer");
       socket.off("peer-status");
       socket.off("peer-file-list");
+      socket.off("merge-redirect");
+      socket.off("merge-error");
     };
   }, [clientUuid, isMobile, sessionId, socket, socketConnected]);
 
@@ -312,6 +349,39 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     [sessionId, socket]
   );
 
+  /**
+   * Send a session merge request to all peers in the current session.
+   * This will redirect all peers to the target session with the provided seed.
+   * @param {Object} targetOffer - The target session offer from QR code
+   * @param {string} targetOffer.session - Target session ID
+   * @param {string} targetOffer.seed - Target session seed
+   * @param {string} targetOffer.offerSecret - Target session offer secret
+   */
+  const sendSessionMerge = useCallback(
+    (targetOffer) => {
+      if (!sessionId || !targetOffer?.session || !targetOffer?.seed) {
+        console.warn("sendSessionMerge missing data", { sessionId, targetOffer });
+        return;
+      }
+
+      if (DEBUG_SOCKETS) {
+        console.log("sendSessionMerge", {
+          from: sessionId,
+          to: targetOffer.session,
+          hasSeed: !!targetOffer.seed,
+        });
+      }
+
+      socket.emit("session-merge", {
+        fromSession: sessionId,
+        toSession: targetOffer.session,
+        toSeed: targetOffer.seed,
+        toOfferSecret: targetOffer.offerSecret || "",
+      });
+    },
+    [sessionId, socket]
+  );
+
   const addLocalPhoto = useCallback((src) => {
     if (!src) return;
     setPhotos((prev) => [src, ...prev]);
@@ -328,6 +398,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     sendPhoto,
     addLocalPhoto,
     sendSessionOffer,
+    sendSessionMerge,
     setSessionId,
     forceJoin,
     sendPeerDecision,

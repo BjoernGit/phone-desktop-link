@@ -32,11 +32,14 @@ export function useAutoQrDetection({ videoRef, enabled, onDetected, onLost, scan
   const detectedRef = useRef(false);
   const canvasRef = useRef(null);
   const lastDetectedSessionRef = useRef(null);
+  const lastDetectedSeedRef = useRef(null);
 
   useEffect(() => {
     if (!enabled) {
       frameCountRef.current = 0;
       detectedRef.current = false;
+      lastDetectedSessionRef.current = null;
+      lastDetectedSeedRef.current = null;
       return;
     }
 
@@ -82,9 +85,16 @@ export function useAutoQrDetection({ videoRef, enabled, onDetected, onLost, scan
       if (result?.data) {
         const parsed = parseQrUrl(result.data);
         if (parsed.session) {
-          if (!detectedRef.current || lastDetectedSessionRef.current !== parsed.session) {
+          // Allow re-detection when session OR seed changes (seed resync scenario)
+          // This ensures devices can re-merge if seeds get out of sync after browser reload
+          const isNewDetection = !detectedRef.current;
+          const sessionChanged = lastDetectedSessionRef.current !== parsed.session;
+          const seedChanged = lastDetectedSeedRef.current !== parsed.seed;
+
+          if (isNewDetection || sessionChanged || seedChanged) {
             detectedRef.current = true;
             lastDetectedSessionRef.current = parsed.session;
+            lastDetectedSeedRef.current = parsed.seed;
             onDetected?.(parsed);
             // Continue scanning to detect if QR disappears
           }
@@ -96,6 +106,7 @@ export function useAutoQrDetection({ videoRef, enabled, onDetected, onLost, scan
         if (detectedRef.current) {
           detectedRef.current = false;
           lastDetectedSessionRef.current = null;
+          lastDetectedSeedRef.current = null;
           onLost?.();
         }
       }
@@ -109,6 +120,8 @@ export function useAutoQrDetection({ videoRef, enabled, onDetected, onLost, scan
       active = false;
       detectedRef.current = false;
       frameCountRef.current = 0;
+      lastDetectedSessionRef.current = null;
+      lastDetectedSeedRef.current = null;
     };
   }, [enabled, videoRef, onDetected, scanInterval]);
 
@@ -116,6 +129,8 @@ export function useAutoQrDetection({ videoRef, enabled, onDetected, onLost, scan
   useEffect(() => {
     if (!enabled) {
       detectedRef.current = false;
+      lastDetectedSessionRef.current = null;
+      lastDetectedSeedRef.current = null;
     }
   }, [enabled]);
 }

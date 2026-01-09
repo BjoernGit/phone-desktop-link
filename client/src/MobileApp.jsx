@@ -39,6 +39,7 @@ export function MobileApp({
   handleTouchStart,
   handleTouchEnd,
   sendSessionOffer,
+  sendSessionMerge,
   setOfferStatus,
   setQrStatus,
   applyQrOffer,
@@ -138,56 +139,76 @@ export function MobileApp({
                 </div>
               </div>
               <div className="qrOfferActions">
-                {/* Always allow reading/joining the scanned session - even if sessionId matches,
-                    the seed might differ (e.g., after mobile reload) and needs to be synced */}
+                {/* Primary action: Merge sessions - brings all devices from both sessions together */}
                 <button
                   type="button"
-                  className="qrOfferBtn"
+                  className="qrOfferBtn primary"
                   onClick={() => {
+                    // Send merge request to all peers in current session
+                    if (sendSessionMerge) {
+                      sendSessionMerge(qrOffer);
+                    }
+                    // Also switch ourselves to the target session
                     applyQrOffer(qrOffer);
+                    setQrStatus(t("mobile.qr.sessionsMerged"));
+                    setTimeout(() => setQrStatus(""), 3000);
                     setQrOffer(null);
                     setQrDetected(false);
                     setShowQrDialog(false);
                   }}
                 >
-                  {t("mobile.qr.readSession")}
+                  {t("mobile.qr.mergeSessions")}
                 </button>
-                {/* Always show "send own session" if we have session data - the target device
-                    will update its seed to match ours, re-syncing the encryption */}
-                {console.log("[DEBUG] QR Dialog - sessionId:", sessionId, "sessionSeed:", sessionSeed?.slice(0, 8))}
-                {sessionId && sessionSeed ? (
-                  <button
-                    type="button"
-                    className="qrOfferBtn ghost"
-                    onClick={() => {
-                      sendSessionOffer(
-                        {
-                          session: sessionId,
-                          seed: sessionSeed,
-                          offerSecret,
-                        },
-                        qrOffer.session,
-                        qrOffer.targetUuid,
-                        qrOffer.offerSecret
-                      );
-                      setOfferStatus(t("mobile.qr.offerSent"));
-                      setQrStatus(t("mobile.qr.offerSentStatus"));
-                      setTimeout(() => {
-                        setQrStatus("");
-                        setOfferStatus("idle");
-                      }, 3000);
-                      setQrOffer(null);
-                      setQrDetected(false);
-                      setShowQrDialog(false);
-                    }}
-                  >
-                    {t("mobile.qr.sendOwnSession")}
-                  </button>
-                ) : (
-                  <span className="qrOfferDebug" style={{ fontSize: "10px", color: "#888" }}>
-                    [Debug: sessionId={sessionId ? "yes" : "no"}, seed={sessionSeed ? "yes" : "no"}]
-                  </span>
-                )}
+
+                {/* Advanced options for power users */}
+                <details className="qrAdvancedOptions">
+                  <summary>{t("mobile.qr.advancedOptions")}</summary>
+                  <div className="qrAdvancedButtons">
+                    {/* Join alone - only switch this device */}
+                    <button
+                      type="button"
+                      className="qrOfferBtn secondary"
+                      onClick={() => {
+                        applyQrOffer(qrOffer);
+                        setQrOffer(null);
+                        setQrDetected(false);
+                        setShowQrDialog(false);
+                      }}
+                    >
+                      {t("mobile.qr.joinAlone")}
+                    </button>
+                    {/* Send own session - invite the other device to our session */}
+                    {sessionId && sessionSeed && (
+                      <button
+                        type="button"
+                        className="qrOfferBtn secondary"
+                        onClick={() => {
+                          sendSessionOffer(
+                            {
+                              session: sessionId,
+                              seed: sessionSeed,
+                              offerSecret,
+                            },
+                            qrOffer.session,
+                            qrOffer.targetUuid,
+                            qrOffer.offerSecret
+                          );
+                          setOfferStatus(t("mobile.qr.offerSent"));
+                          setQrStatus(t("mobile.qr.offerSentStatus"));
+                          setTimeout(() => {
+                            setQrStatus("");
+                            setOfferStatus("idle");
+                          }, 3000);
+                          setQrOffer(null);
+                          setQrDetected(false);
+                          setShowQrDialog(false);
+                        }}
+                      >
+                        {t("mobile.qr.inviteOther")}
+                      </button>
+                    )}
+                  </div>
+                </details>
               </div>
             </div>
           )}

@@ -43,11 +43,15 @@
       "seed": "Seed:",
       "readSession": "Read session",
       "sendOwnSession": "Send own session",
+      "mergeSessions": "Merge Sessions",
+      "sessionsMerged": "Sessions have been merged",
+      "advancedOptions": "Advanced Options",
+      "joinAlone": "Join Alone",
+      "inviteOther": "Invite Other",
       "offerSent": "Offer sent",
       "offerSentStatus": "Session offer sent",
       "scanActive": "QR scan active",
-      "recognized": "QR recognized: {{session}}",
-      "alreadyInSession": "Already in this session"
+      "recognized": "QR recognized: {{session}}"
     },
     "controls": {
       "gallery": "Gallery",
@@ -137,6 +141,9 @@
   "status": {
     "noSession": "No session parameter in QR",
     "sessionTaken": "Session adopted",
+    "sessionMerged": "Sessions have been merged",
+    "mergeInProgress": "Session merge in progress...",
+    "mergeRedirectReceived": "Switching to new session...",
     "qrExpired": "QR code expired (max. 10 min.)",
     "offerIncomplete": "Offer incomplete",
     "offerReceived": "Offer received",

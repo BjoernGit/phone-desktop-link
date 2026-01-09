@@ -39,6 +39,37 @@ const allowPhoto = createRateLimiter(config.PHOTO_LIMIT_PER_IP, config.PHOTO_WIN
 const allowOffer = createRateLimiter(config.OFFER_LIMIT_PER_IP, config.OFFER_WINDOW_MS);
 const allowPhotoSession = createRateLimiter(config.PHOTO_LIMIT_PER_SESSION, config.PHOTO_WINDOW_MS);
 const allowOfferSession = createRateLimiter(config.OFFER_LIMIT_PER_SESSION, config.OFFER_WINDOW_MS);
+const allowMerge = createRateLimiter(config.MERGE_LIMIT_PER_IP, config.MERGE_WINDOW_MS);
+const allowMergeSession = createRateLimiter(config.MERGE_LIMIT_PER_SESSION, config.MERGE_WINDOW_MS);
+
+// Merge locks to prevent concurrent merges on the same session
+const mergeLocks = new Map();
+
+/**
+ * Acquire a merge lock for a session (prevents concurrent merges)
+ * @param {string} sessionId
+ * @returns {boolean} - true if lock acquired, false if already locked
+ */
+function acquireMergeLock(sessionId) {
+  if (!sessionId) return false;
+  const now = Date.now();
+  const lock = mergeLocks.get(sessionId);
+
+  if (lock && now - lock < config.MERGE_LOCK_MS) {
+    return false; // Lock still active
+  }
+
+  mergeLocks.set(sessionId, now);
+  return true;
+}
+
+/**
+ * Release a merge lock for a session
+ * @param {string} sessionId
+ */
+function releaseMergeLock(sessionId) {
+  mergeLocks.delete(sessionId);
+}
 
 /**
  * Check if join is allowed (rate limited)
@@ -193,6 +224,10 @@ module.exports = {
   allowOffer,
   allowPhotoSession,
   allowOfferSession,
+  allowMerge,
+  allowMergeSession,
+  acquireMergeLock,
+  releaseMergeLock,
   allowJoin,
   allowTransferBytes,
   isBanned,

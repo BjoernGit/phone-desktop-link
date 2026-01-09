@@ -639,24 +639,98 @@
 
 .qrOfferActions {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .qrOfferBtn {
   flex: 1;
   border: 0;
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   font-weight: 800;
-  font-size: 13px;
+  font-size: 14px;
   color: #050505;
   background: rgba(255, 255, 255, 0.9);
+  transition: transform 0.08s ease, background 0.15s ease;
+}
+
+.qrOfferBtn:active {
+  transform: scale(0.97);
+}
+
+.qrOfferBtn.primary {
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  color: #0c0f1a;
+  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+}
+
+.qrOfferBtn.primary:active {
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+}
+
+.qrOfferBtn.secondary {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.qrOfferBtn.secondary:active {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 .qrOfferBtn.ghost {
   background: rgba(255, 255, 255, 0.2);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+/* Advanced Options Accordion */
+.qrAdvancedOptions {
+  width: 100%;
+  margin-top: 4px;
+}
+
+.qrAdvancedOptions summary {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  padding: 6px 0;
+  text-align: center;
+  list-style: none;
+  transition: color 0.15s ease;
+}
+
+.qrAdvancedOptions summary::-webkit-details-marker {
+  display: none;
+}
+
+.qrAdvancedOptions summary::before {
+  content: "▸ ";
+  display: inline;
+  transition: transform 0.15s ease;
+}
+
+.qrAdvancedOptions[open] summary::before {
+  content: "▾ ";
+}
+
+.qrAdvancedOptions summary:hover {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.qrAdvancedButtons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.qrAdvancedButtons .qrOfferBtn {
+  flex: 1;
 }
 
 .qrOfferInfo {

@@ -34,4 +34,12 @@ export const FEATURE_FLAGS = {
    * When true: session offers are automatically accepted (convenience)
    */
   AUTO_ACCEPT_SESSION_OFFERS: true,
+
+  /**
+   * Automatically accept session merge redirects
+   * When false: merge redirects require manual accept/decline
+   * When true: merge redirects are automatically accepted (convenience)
+   * This applies when another device in your session initiates a merge
+   */
+  AUTO_ACCEPT_SESSION_MERGES: true,
 };

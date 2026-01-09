@@ -23,6 +23,9 @@ const {
   allowOffer,
   allowPhotoSession,
   allowOfferSession,
+  allowMerge,
+  allowMergeSession,
+  acquireMergeLock,
   isBanned,
   registerStrike,
   nonceSeen,
@@ -263,6 +266,106 @@ io.on("connection", (socket) => {
         s.disconnect(true);
       });
     }
+  });
+
+  // Session merge handler - merges all peers from one session into another
+  socket.on("session-merge", ({ fromSession, toSession, toSeed, toOfferSecret }) => {
+    // Check if feature is enabled
+    if (!FEATURE_FLAGS.ENABLE_SESSION_MERGE) {
+      console.log("session-merge disabled by feature flag");
+      return;
+    }
+
+    const sid = coerceSessionId(fromSession);
+    if (!sid || !toSession || !toSeed) {
+      console.warn("session-merge invalid payload", { fromSession, toSession, hasSeed: !!toSeed });
+      return;
+    }
+
+    // Validate initiator is in the source session
+    if (socket.data.sessionId !== sid) {
+      console.warn("session-merge initiator not in source session", { socketSession: socket.data.sessionId, fromSession: sid });
+      return;
+    }
+
+    // Validate target session ID format
+    if (!isValidSessionId(toSession)) {
+      console.warn("session-merge invalid target session", { toSession });
+      registerStrike(ip, "merge-invalid-target");
+      return;
+    }
+
+    // Validate seed format (base64url, 16-32 bytes = 22-43 chars)
+    if (!isValidBase64Url(toSeed, 16, 64)) {
+      console.warn("session-merge invalid seed", { ip, sid });
+      registerStrike(ip, "merge-invalid-seed");
+      return;
+    }
+
+    // Rate limiting per IP
+    if (!allowMerge(ip)) {
+      console.warn("session-merge rate-limited (IP)", { ip, sid });
+      registerStrike(ip, "merge-rate");
+      return;
+    }
+
+    // Rate limiting per session
+    if (!allowMergeSession(sid)) {
+      console.warn("session-merge rate-limited (session)", { sid });
+      return;
+    }
+
+    // Acquire merge lock (prevent concurrent merges)
+    if (!acquireMergeLock(sid)) {
+      console.warn("session-merge locked (concurrent merge in progress)", { sid });
+      socket.emit("merge-error", { error: "merge-in-progress" });
+      return;
+    }
+
+    console.log(`session-merge: ${sid} → ${toSession}`, { initiator: socket.data.clientUuid });
+    auditLog("merge", { from: sid, to: toSession, initiator: socket.data.clientUuid, ip });
+
+    // Find all sockets in the source session (except initiator)
+    const fromRoom = roomName(sid);
+    const roomSockets = io.sockets.adapter.rooms.get(fromRoom);
+
+    if (!roomSockets || roomSockets.size <= 1) {
+      // Only initiator in room, nothing to redirect
+      console.log("session-merge: no other peers to redirect");
+      return;
+    }
+
+    // Migrate approval status from source to target session
+    const fromState = getSessionState(sid);
+    const toState = getSessionState(toSession);
+
+    fromState.approved.forEach((uuid) => {
+      toState.approved.add(uuid);
+    });
+
+    // Create merge-redirect payload
+    const ts = Date.now();
+    const mergeRedirect = {
+      toSession,
+      toSeed,
+      toOfferSecret: toOfferSecret || "",
+      initiatorUuid: socket.data.clientUuid,
+      initiatorDevice: socket.data.deviceName,
+      ts,
+    };
+
+    // Send merge-redirect to all peers in source session (except initiator)
+    let redirectCount = 0;
+    roomSockets.forEach((socketId) => {
+      if (socketId === socket.id) return; // Skip initiator
+      const peerSocket = io.sockets.sockets.get(socketId);
+      if (peerSocket) {
+        peerSocket.emit("merge-redirect", mergeRedirect);
+        redirectCount++;
+      }
+    });
+
+    console.log(`session-merge: sent redirect to ${redirectCount} peers`);
   });
 
   socket.on("leave-session", ({ sessionId, clientUuid }) => {
