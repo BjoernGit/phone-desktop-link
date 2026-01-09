@@ -42,4 +42,11 @@ export const FEATURE_FLAGS = {
    * This applies when another device in your session initiates a merge
    */
   AUTO_ACCEPT_SESSION_MERGES: true,
+
+  /**
+   * Show advanced session options in the mobile QR offer dialog
+   * When false: advanced options are hidden (simpler UX)
+   * When true: advanced options are available under "Advanced Options"
+   */
+  SHOW_QR_ADVANCED_OPTIONS: false,
 };

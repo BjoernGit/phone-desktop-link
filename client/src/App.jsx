@@ -767,6 +767,7 @@ export default function App() {
       encStatus={encStatus}
       offerStatus={allowDebug ? offerStatus : ""}
       qrStatus={qrStatus}
+      allowDebug={allowDebug}
       handleSeedInput={handleSeedInput}
       videoRef={videoRef}
       cameraReady={cameraReady}

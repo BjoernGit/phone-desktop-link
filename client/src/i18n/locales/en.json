@@ -43,7 +43,7 @@
       "seed": "Seed:",
       "readSession": "Read session",
       "sendOwnSession": "Send own session",
-      "mergeSessions": "Merge Sessions",
+      "mergeSessions": "Connect",
       "sessionsMerged": "Sessions have been merged",
       "advancedOptions": "Advanced Options",
       "joinAlone": "Join Alone",

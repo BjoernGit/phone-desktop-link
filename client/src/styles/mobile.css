@@ -587,11 +587,12 @@
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.7);
   color: #fff;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: 14px;
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.4);
   z-index: 90;
-  width: min(90vw, 320px);
+  width: fit-content;
+  max-width: 90vw;
 }
 
 .qrOfferClose {
@@ -601,17 +602,37 @@
   background: rgba(255, 255, 255, 0.2);
   border: none;
   color: #fff;
-  font-size: 24px;
+  font-size: 0;
   line-height: 1;
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   cursor: pointer;
   padding: 0;
   transition: background 0.2s;
+}
+
+.qrOfferClose::before,
+.qrOfferClose::after {
+  content: "";
+  position: absolute;
+  width: 14px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+  left: 50%;
+  top: calc(54% - 1px);
+  transform-origin: center;
+}
+
+.qrOfferClose::before {
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.qrOfferClose::after {
+  transform: translate(-50%, -50%) rotate(-45deg);
 }
 
 .qrOfferClose:hover {
