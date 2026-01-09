@@ -53,6 +53,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   const sharedFilesRef = useRef(sharedFiles);
   sharedFilesRef.current = sharedFiles;
 
+  // Track active Socket.io transfers for cancellation support
+  // Map<fileId, Set<{targetUuid, cancelled: {current: boolean}}>>
+  const activeSocketioTransfersRef = useRef(new Map());
+
   // Callback for peer file list updates (called from useSessionSockets)
   const handlePeerFileList = useCallback(({ fromUuid, files }) => {
     setPeerFiles((prev) => {
@@ -172,6 +176,15 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         return;
       }
 
+      // Track this transfer for cancellation support
+      const cancelledRef = { current: false };
+      const transferInfo = { targetUuid: fromUuid, cancelledRef, fileName: fileToSend.name };
+
+      if (!activeSocketioTransfersRef.current.has(fileId)) {
+        activeSocketioTransfersRef.current.set(fileId, new Set());
+      }
+      activeSocketioTransfersRef.current.get(fileId).add(transferInfo);
+
       const totalChunks = Math.ceil(fileToSend.file.size / SOCKETIO_CHUNK_SIZE);
       socket.emit("file-transfer-socketio-start", {
         targetUuid: fromUuid,
@@ -183,6 +196,25 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       });
 
       for (let i = 0; i < totalChunks; i++) {
+        // Check if transfer was cancelled (file removed by sender)
+        if (cancelledRef.current) {
+          console.log(`[Socket.io] Transfer cancelled for ${fileToSend.name} at chunk ${i}/${totalChunks}`);
+          socket.emit("file-transfer-socketio-revoked", {
+            targetUuid: fromUuid,
+            fileId,
+            fileName: fileToSend.name,
+          });
+          // Cleanup tracking
+          const transfers = activeSocketioTransfersRef.current.get(fileId);
+          if (transfers) {
+            transfers.delete(transferInfo);
+            if (transfers.size === 0) {
+              activeSocketioTransfersRef.current.delete(fileId);
+            }
+          }
+          return;
+        }
+
         const start = i * SOCKETIO_CHUNK_SIZE;
         const end = Math.min(start + SOCKETIO_CHUNK_SIZE, fileToSend.file.size);
         const chunk = fileToSend.file.slice(start, end);
@@ -194,6 +226,15 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
           chunk: arrayBuffer,
           chunkIndex: i,
         });
+      }
+
+      // Cleanup tracking on successful completion
+      const transfers = activeSocketioTransfersRef.current.get(fileId);
+      if (transfers) {
+        transfers.delete(transferInfo);
+        if (transfers.size === 0) {
+          activeSocketioTransfersRef.current.delete(fileId);
+        }
       }
 
       socket.emit("file-transfer-socketio-complete", {
@@ -288,16 +329,29 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       }
     };
 
+    // Handle file revoked by sender mid-transfer
+    const handleFileTransferRevoked = ({ fileId, fileName }) => {
+      console.warn(`[Socket.io] File revoked by sender: ${fileName || fileId}`);
+      // Discard any partial chunks - sender's data should not be kept
+      fileChunks.delete(fileId);
+      showAlert(
+        "desktop.fileTransfer.fileRevoked",
+        `desktop.fileTransfer.fileRevokedBySender:${fileName || fileId}`
+      );
+    };
+
     socket.on("file-transfer-socketio-start", handleFileTransferStart);
     socket.on("file-transfer-socketio", handleFileTransferSocketio);
     socket.on("file-transfer-socketio-complete", handleFileTransferComplete);
     socket.on("file-transfer-socketio-error", handleFileTransferError);
+    socket.on("file-transfer-socketio-revoked", handleFileTransferRevoked);
 
     return () => {
       socket.off("file-transfer-socketio-start", handleFileTransferStart);
       socket.off("file-transfer-socketio", handleFileTransferSocketio);
       socket.off("file-transfer-socketio-complete", handleFileTransferComplete);
       socket.off("file-transfer-socketio-error", handleFileTransferError);
+      socket.off("file-transfer-socketio-revoked", handleFileTransferRevoked);
     };
   }, [socket, isMobile, showAlert]);
 
@@ -368,6 +422,14 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
           showAlert(
             "desktop.fileTransfer.fileNotFound",
             `desktop.fileTransfer.fileNoLongerAvailable:${fileName || fileId}`
+          );
+        },
+        // onFileRevoked - sender revoked file mid-transfer
+        (fileId, fileName, transferId) => {
+          console.warn(`[FileTransfer] File revoked by sender: ${fileName || fileId}`);
+          showAlert(
+            "desktop.fileTransfer.fileRevoked",
+            `desktop.fileTransfer.fileRevokedBySender:${fileName || fileId}`
           );
         }
       );
@@ -448,9 +510,29 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   }, []);
 
   // Handle removing a file from own shared files
+  // Cancels any active transfers for this file before removing
   const handleRemoveFile = useCallback((fileId) => {
+    // First: cancel all active WebRTC transfers for this file
+    // This sends FILE_REVOKED to receivers, who will discard partial data
+    const cancelledWebRTC = fileTransfer.cancelTransfersForFile(fileId);
+    if (cancelledWebRTC > 0) {
+      console.log(`[FileTransfer] Cancelled ${cancelledWebRTC} active WebRTC transfer(s) for removed file ${fileId}`);
+    }
+
+    // Second: cancel all active Socket.io transfers for this file
+    const socketioTransfers = activeSocketioTransfersRef.current.get(fileId);
+    if (socketioTransfers && socketioTransfers.size > 0) {
+      let cancelledSocketio = 0;
+      for (const transferInfo of socketioTransfers) {
+        transferInfo.cancelledRef.current = true;
+        cancelledSocketio++;
+      }
+      console.log(`[FileTransfer] Cancelled ${cancelledSocketio} active Socket.io transfer(s) for removed file ${fileId}`);
+    }
+
+    // Then: remove from shared files list (also triggers broadcast to peers)
     setSharedFiles((prev) => prev.filter((f) => f.id !== fileId));
-  }, []);
+  }, [fileTransfer]);
 
   // Sync file metadata list to all peers (re-broadcast)
   const syncFilesToPeer = useCallback(

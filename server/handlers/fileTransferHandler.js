@@ -160,6 +160,47 @@ function registerFileTransferHandlers(socket, io, ip) {
       });
     });
   });
+
+  // File transfer revoked (sender removed file mid-transfer)
+  socket.on("file-transfer-socketio-revoked", ({ targetUuid, fileId, fileName }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    // Remove from active transfers
+    untrackTransfer(ip, fileId);
+
+    console.log(`[File Transfer Socket.io Revoked] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileName || fileId}`);
+
+    const sockets = findSocketsByUuid(io, sid, targetUuid);
+    sockets.forEach((s) => {
+      s.emit("file-transfer-socketio-revoked", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
+        fileName,
+      });
+    });
+  });
+
+  // File transfer error relay
+  socket.on("file-transfer-socketio-error", ({ targetUuid, fileId, fileName, error }) => {
+    const sid = socket.data.sessionId;
+    if (!sid || !isValidUuid(targetUuid)) return;
+
+    // Remove from active transfers if tracked
+    untrackTransfer(ip, fileId);
+
+    console.log(`[File Transfer Socket.io Error] From ${socket.data.clientUuid} to ${targetUuid}, file: ${fileId}, error: ${error}`);
+
+    const sockets = findSocketsByUuid(io, sid, targetUuid);
+    sockets.forEach((s) => {
+      s.emit("file-transfer-socketio-error", {
+        fromUuid: socket.data.clientUuid,
+        fileId,
+        fileName,
+        error,
+      });
+    });
+  });
 }
 
 module.exports = { registerFileTransferHandlers };

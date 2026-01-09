@@ -45,6 +45,10 @@ export function useFileSender({
   transferTimeoutsRef,
   cleanupTimeoutsRef,
 }) {
+  // Track active transfers by fileId for revocation support
+  // Map<fileId, Set<{transferId, cancelFn, dataChannel}>>
+  const activeFileTransfersRef = useRef(new Map());
+
   const sendFile = useCallback(
     async (file, dataChannel, peerUuid, onProgress, fileId = null) => {
       if (!dataChannel || dataChannel.readyState !== "open") {
@@ -75,6 +79,7 @@ export function useFileSender({
       // Initialize transfer state
       const transferState = {
         transferId,
+        fileId,
         fileName: file.name,
         fileSize: file.size,
         totalChunks,
@@ -89,7 +94,42 @@ export function useFileSender({
       let offset = 0;
       let chunkIndex = 0;
       let cancelled = false;
+      let revokedByUser = false; // Distinguish between timeout and user revocation
       let backpressureDelay = BACKPRESSURE_BASE_DELAY_MS;
+
+      // Cancel function for external revocation
+      const cancelFn = () => {
+        cancelled = true;
+        revokedByUser = true;
+      };
+
+      // Register this transfer for the fileId
+      if (fileId) {
+        if (!activeFileTransfersRef.current.has(fileId)) {
+          activeFileTransfersRef.current.set(fileId, new Set());
+        }
+        activeFileTransfersRef.current.get(fileId).add({
+          transferId,
+          cancelFn,
+          dataChannel,
+        });
+      }
+
+      // Cleanup function to unregister transfer
+      const unregisterTransfer = () => {
+        if (fileId && activeFileTransfersRef.current.has(fileId)) {
+          const transfers = activeFileTransfersRef.current.get(fileId);
+          for (const t of transfers) {
+            if (t.transferId === transferId) {
+              transfers.delete(t);
+              break;
+            }
+          }
+          if (transfers.size === 0) {
+            activeFileTransfersRef.current.delete(fileId);
+          }
+        }
+      };
 
       // Set transfer timeout
       const timeoutHandle = setTimeout(() => {
@@ -97,6 +137,7 @@ export function useFileSender({
         transferState.status = TRANSFER_STATUS.TIMEOUT;
         transfersRef.current.set(transferId, transferState);
         updateTransfers();
+        unregisterTransfer();
         console.error(`[FileSender] Transfer ${transferId} timed out`);
       }, TRANSFER_TIMEOUT_MS);
 
@@ -116,6 +157,23 @@ export function useFileSender({
         if (cancelled) {
           clearTimeout(timeoutHandle);
           transferTimeoutsRef.current.delete(transferId);
+          unregisterTransfer();
+
+          // If revoked by user, send revocation message to receiver
+          if (revokedByUser && dataChannel.readyState === "open") {
+            const revokeMsg = {
+              type: FILE_MESSAGE_TYPES.FILE_REVOKED,
+              transferId,
+              fileId,
+              fileName: file.name,
+            };
+            dataChannel.send(JSON.stringify(revokeMsg));
+            console.log(`[FileSender] Sent FILE_REVOKED for ${file.name} (${transferId})`);
+
+            transferState.status = TRANSFER_STATUS.REVOKED;
+            transfersRef.current.set(transferId, transferState);
+            updateTransfers();
+          }
           return;
         }
 
@@ -126,6 +184,7 @@ export function useFileSender({
           updateTransfers();
           clearTimeout(timeoutHandle);
           transferTimeoutsRef.current.delete(transferId);
+          unregisterTransfer();
           return;
         }
 
@@ -158,6 +217,7 @@ export function useFileSender({
 
           clearTimeout(timeoutHandle);
           transferTimeoutsRef.current.delete(transferId);
+          unregisterTransfer();
 
           // Don't auto-cleanup - keep completed transfers visible at 100%
           // scheduleCleanup();
@@ -199,5 +259,40 @@ export function useFileSender({
     [transfersRef, updateTransfers, transferTimeoutsRef, cleanupTimeoutsRef]
   );
 
-  return { sendFile };
+  /**
+   * Cancel all active transfers for a given fileId
+   * Used when sender revokes/removes a file
+   * @param {string} fileId - The file ID to cancel transfers for
+   * @returns {number} - Number of transfers cancelled
+   */
+  const cancelTransfersForFile = useCallback((fileId) => {
+    if (!fileId || !activeFileTransfersRef.current.has(fileId)) {
+      return 0;
+    }
+
+    const transfers = activeFileTransfersRef.current.get(fileId);
+    let cancelledCount = 0;
+
+    for (const { cancelFn } of transfers) {
+      cancelFn();
+      cancelledCount++;
+    }
+
+    console.log(`[FileSender] Cancelled ${cancelledCount} transfers for file ${fileId}`);
+    return cancelledCount;
+  }, []);
+
+  /**
+   * Check if a file has any active outgoing transfers
+   * @param {string} fileId - The file ID to check
+   * @returns {boolean} - True if file has active transfers
+   */
+  const hasActiveTransfers = useCallback((fileId) => {
+    if (!fileId || !activeFileTransfersRef.current.has(fileId)) {
+      return false;
+    }
+    return activeFileTransfersRef.current.get(fileId).size > 0;
+  }, []);
+
+  return { sendFile, cancelTransfersForFile, hasActiveTransfers };
 }

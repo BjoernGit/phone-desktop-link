@@ -21,7 +21,7 @@ export function useFileTransfer() {
   }, []);
 
   // Sender hook
-  const { sendFile } = useFileSender({
+  const { sendFile, cancelTransfersForFile, hasActiveTransfers } = useFileSender({
     transfersRef,
     updateTransfers,
     transferTimeoutsRef,
@@ -56,14 +56,15 @@ export function useFileTransfer() {
     }
   }, []);
 
-  // Clear all completed/failed transfers (manual cleanup)
+  // Clear all completed/failed/revoked transfers (manual cleanup)
   const clearCompletedTransfers = useCallback(() => {
     const toDelete = [];
     for (const [transferId, transfer] of transfersRef.current.entries()) {
       if (
         transfer.status === "completed" ||
         transfer.status === "failed" ||
-        transfer.status === "timeout"
+        transfer.status === "timeout" ||
+        transfer.status === "revoked"
       ) {
         toDelete.push(transferId);
       }
@@ -80,5 +81,7 @@ export function useFileTransfer() {
     createMessageHandler,
     clearTransfer,
     clearCompletedTransfers,
+    cancelTransfersForFile,
+    hasActiveTransfers,
   };
 }

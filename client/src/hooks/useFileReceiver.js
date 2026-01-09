@@ -36,9 +36,10 @@ export function useFileReceiver({
    * @param {Function} onFileReceived - Callback when file is fully received
    * @param {Function} onFileRequest - Callback when a file-request message is received (for sender-side handling)
    * @param {Function} onFileNotFound - Callback when requested file is no longer available
+   * @param {Function} onFileRevoked - Callback when sender revokes a file mid-transfer
    */
   const createMessageHandler = useCallback(
-    (onFileReceived, onFileRequest, onFileNotFound) => {
+    (onFileReceived, onFileRequest, onFileNotFound, onFileRevoked) => {
       // transferId -> { transfer, chunks, pendingChunkHeaders }
       const activeTransfers = new Map();
 
@@ -74,6 +75,40 @@ export function useFileReceiver({
           if (msg.type === FILE_MESSAGE_TYPES.FILE_NOT_FOUND && onFileNotFound) {
             console.warn(`[FileReceiver] File not found: ${msg.fileId} - ${msg.fileName}`);
             onFileNotFound(msg.fileId, msg.fileName);
+            return;
+          }
+
+          // Handle file-revoked (receiver side) - sender revoked file mid-transfer
+          if (msg.type === FILE_MESSAGE_TYPES.FILE_REVOKED) {
+            console.warn(`[FileReceiver] File revoked by sender: ${msg.fileId} - ${msg.fileName}`);
+
+            const transferData = activeTransfers.get(msg.transferId);
+            if (transferData) {
+              const { transfer } = transferData;
+
+              // Update transfer status to revoked
+              transfer.status = TRANSFER_STATUS.REVOKED;
+              transfersRef.current.set(msg.transferId, transfer);
+              updateTransfers();
+
+              // Clean up: delete all buffered chunks (sender's data should not be kept)
+              activeTransfers.delete(msg.transferId);
+              receiveBuffersRef.current.delete(msg.transferId);
+
+              // Clear timeout
+              const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
+              if (timeoutHandle) {
+                clearTimeout(timeoutHandle);
+                transferTimeoutsRef.current.delete(msg.transferId);
+              }
+
+              console.log(`[FileReceiver] Cleaned up revoked transfer ${msg.transferId}, discarded partial data`);
+            }
+
+            // Notify callback
+            if (onFileRevoked) {
+              onFileRevoked(msg.fileId, msg.fileName, msg.transferId);
+            }
             return;
           }
 

@@ -28,6 +28,7 @@ export const TRANSFER_STATUS = {
   COMPLETED: "completed",
   FAILED: "failed",
   TIMEOUT: "timeout",
+  REVOKED: "revoked", // Sender revoked the file mid-transfer
 };
 
 // Message types for WebRTC file transfer protocol
@@ -37,4 +38,5 @@ export const FILE_MESSAGE_TYPES = {
   FILE_COMPLETE: "file-complete",
   FILE_REQUEST: "file-request",
   FILE_NOT_FOUND: "file-not-found", // Sent when requested file is no longer available
+  FILE_REVOKED: "file-revoked", // Sender revoked the file mid-transfer
 };
