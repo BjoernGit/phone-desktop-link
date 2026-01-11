@@ -19,6 +19,10 @@ export const FILE_TRANSFER_CONFIG = {
   BACKPRESSURE_BASE_DELAY_MS: 5, // Base delay in ms
   BACKPRESSURE_MAX_DELAY_MS: 100, // Max delay in ms
   BACKPRESSURE_MULTIPLIER: 1.5, // Exponential backoff multiplier
+
+  // Retry settings
+  MAX_RETRY_ATTEMPTS: 3, // Maximum number of retry attempts
+  RETRY_DELAY_MS: 2000, // Base delay between retries (doubles each attempt)
 };
 
 // Transfer status constants

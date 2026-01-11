@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebRTC, DEBUG_WEBRTC } from "./useWebRTC";
 import { useFileTransfer } from "./useFileTransfer";
+import { FILE_TRANSFER_CONFIG } from "../config/fileTransfer";
 
 // Constants
 const SOCKETIO_CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
 const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
 const DEBUG_FILE_TRANSFER = false; // Set to true for verbose file transfer logging
+
+// Retry configuration
+const MAX_RETRY_ATTEMPTS = FILE_TRANSFER_CONFIG.MAX_RETRY_ATTEMPTS || 3;
+const RETRY_DELAY_MS = FILE_TRANSFER_CONFIG.RETRY_DELAY_MS || 2000;
 
 /**
  * Hook that orchestrates all file transfer functionality:
@@ -56,6 +61,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   // Track active Socket.io transfers for cancellation support
   // Map<fileId, Set<{targetUuid, cancelled: {current: boolean}}>>
   const activeSocketioTransfersRef = useRef(new Map());
+
+  // Track retry attempts for failed downloads
+  // Map<fileId, { attempts: number, lastAttempt: number }>
+  const retryAttemptsRef = useRef(new Map());
 
   // Callback for peer file list updates (called from useSessionSockets)
   const handlePeerFileList = useCallback(({ fromUuid, files }) => {
@@ -447,18 +456,22 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     };
   }, []);
 
-  // Handle file download (initiate transfer)
-  const handleFileDownload = useCallback(
-    async (file) => {
-      if (isMobile || !file.ownerUuid) return;
+  /**
+   * Internal function to attempt file download
+   * @param {Object} file - File metadata
+   * @param {boolean} isRetry - Whether this is a retry attempt
+   * @returns {Promise<boolean>} - True if request was sent successfully
+   */
+  const attemptFileDownload = useCallback(
+    async (file, isRetry = false) => {
+      if (isMobile || !file.ownerUuid) return false;
 
       const peerUuid = file.ownerUuid;
 
       const peerExists = peers.some(p => p.clientUuid === peerUuid);
       if (!peerExists) {
         console.error(`[FileTransfer] Peer ${peerUuid} is no longer in session`);
-        alert("The peer who owns this file is no longer connected.");
-        return;
+        return false;
       }
 
       let dataChannel = webRTC.dataChannels.get(peerUuid);
@@ -475,16 +488,12 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       if (!dataChannel || dataChannel.readyState !== "open") {
         if (forceWebRTC) {
           console.error(`[FileTransfer] WebRTC not available and fallback disabled`);
-          alert("WebRTC connection failed. Socket.io fallback is disabled in development mode.");
-          return;
+          return false;
         }
 
         if (file.size > SOCKETIO_MAX_FILE_SIZE) {
-          const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
-          const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
-          console.error(`[FileTransfer] File too large for Socket.io fallback: ${sizeMB}MB`);
-          alert(`WebRTC connection failed and file is too large (${sizeMB}MB) for Socket.io fallback.\nMaximum size for fallback: ${limitMB}MB.\n\nPlease try again or check your network connection.`);
-          return;
+          console.error(`[FileTransfer] File too large for Socket.io fallback`);
+          return false;
         }
 
         if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Using Socket.io fallback for ${(file.size / (1024 * 1024)).toFixed(1)}MB file`);
@@ -492,16 +501,109 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
           targetUuid: peerUuid,
           fileId: file.id,
         });
-        return;
+        return true;
       }
 
-      if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] Requesting file via WebRTC from ${peerUuid}`);
+      if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] ${isRetry ? 'Retrying' : 'Requesting'} file via WebRTC from ${peerUuid}`);
       dataChannel.send(JSON.stringify({
         type: "file-request",
         fileId: file.id,
       }));
+      return true;
     },
     [isMobile, webRTC, peers, socket]
+  );
+
+  /**
+   * Retry a failed file download with exponential backoff
+   * @param {Object} file - File metadata
+   */
+  const retryFileDownload = useCallback(
+    async (file) => {
+      const retryInfo = retryAttemptsRef.current.get(file.id) || { attempts: 0, lastAttempt: 0 };
+
+      if (retryInfo.attempts >= MAX_RETRY_ATTEMPTS) {
+        console.error(`[FileTransfer] Max retry attempts (${MAX_RETRY_ATTEMPTS}) reached for ${file.name}`);
+        showAlert(
+          "desktop.fileTransfer.maxRetriesReached",
+          `desktop.fileTransfer.maxRetriesMessage:${file.name}`
+        );
+        retryAttemptsRef.current.delete(file.id);
+        return;
+      }
+
+      // Calculate exponential backoff delay
+      const delay = RETRY_DELAY_MS * Math.pow(2, retryInfo.attempts);
+      const timeSinceLastAttempt = Date.now() - retryInfo.lastAttempt;
+
+      if (timeSinceLastAttempt < delay) {
+        const waitTime = delay - timeSinceLastAttempt;
+        console.log(`[FileTransfer] Waiting ${waitTime}ms before retry for ${file.name}`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+
+      retryInfo.attempts++;
+      retryInfo.lastAttempt = Date.now();
+      retryAttemptsRef.current.set(file.id, retryInfo);
+
+      console.log(`[FileTransfer] Retry attempt ${retryInfo.attempts}/${MAX_RETRY_ATTEMPTS} for ${file.name}`);
+
+      const success = await attemptFileDownload(file, true);
+      if (!success) {
+        // If attempt failed immediately, schedule another retry
+        if (retryInfo.attempts < MAX_RETRY_ATTEMPTS) {
+          setTimeout(() => retryFileDownload(file), RETRY_DELAY_MS);
+        } else {
+          showAlert(
+            "desktop.fileTransfer.maxRetriesReached",
+            `desktop.fileTransfer.maxRetriesMessage:${file.name}`
+          );
+          retryAttemptsRef.current.delete(file.id);
+        }
+      }
+    },
+    [attemptFileDownload, showAlert]
+  );
+
+  // Handle file download (initiate transfer)
+  const handleFileDownload = useCallback(
+    async (file) => {
+      if (isMobile || !file.ownerUuid) return;
+
+      const peerUuid = file.ownerUuid;
+
+      const peerExists = peers.some(p => p.clientUuid === peerUuid);
+      if (!peerExists) {
+        console.error(`[FileTransfer] Peer ${peerUuid} is no longer in session`);
+        alert("The peer who owns this file is no longer connected.");
+        return;
+      }
+
+      // Reset retry counter for new download
+      retryAttemptsRef.current.delete(file.id);
+
+      const success = await attemptFileDownload(file, false);
+
+      if (!success) {
+        const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
+        if (forceWebRTC) {
+          alert("WebRTC connection failed. Socket.io fallback is disabled in development mode.");
+          return;
+        }
+
+        if (file.size > SOCKETIO_MAX_FILE_SIZE) {
+          const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
+          const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
+          alert(`WebRTC connection failed and file is too large (${sizeMB}MB) for Socket.io fallback.\nMaximum size for fallback: ${limitMB}MB.\n\nPlease try again or check your network connection.`);
+          return;
+        }
+
+        // Start retry process
+        console.log(`[FileTransfer] Initial download failed for ${file.name}, starting retry process`);
+        retryFileDownload(file);
+      }
+    },
+    [isMobile, peers, attemptFileDownload, retryFileDownload]
   );
 
   // Handle own file list changes
@@ -565,6 +667,55 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     },
     [isMobile, sharedFiles, peers, socket, clientUuid]
   );
+
+  // Watch for failed transfers and trigger retry
+  // Store previous transfer states to detect transitions to "failed"
+  const prevTransfersRef = useRef(new Map());
+
+  useEffect(() => {
+    if (isMobile) return;
+
+    const prevTransfers = prevTransfersRef.current;
+    const currentTransfers = fileTransfer.transfers;
+
+    // Check for transfers that just failed
+    for (const [transferId, transfer] of currentTransfers.entries()) {
+      const prevTransfer = prevTransfers.get(transferId);
+
+      // Only trigger retry if transfer just transitioned to failed/timeout
+      if (
+        (transfer.status === "failed" || transfer.status === "timeout") &&
+        prevTransfer &&
+        prevTransfer.status !== "failed" &&
+        prevTransfer.status !== "timeout"
+      ) {
+        // Find the file metadata to retry
+        const fileId = transfer.fileId;
+        if (!fileId) continue;
+
+        // Find file in peerFiles
+        let fileToRetry = null;
+        for (const [, files] of peerFiles.entries()) {
+          const found = files.find(f => f.id === fileId);
+          if (found) {
+            fileToRetry = found;
+            break;
+          }
+        }
+
+        if (fileToRetry) {
+          console.log(`[FileTransfer] Transfer ${transferId} failed, scheduling automatic retry for ${fileToRetry.name}`);
+          // Schedule retry with a small delay
+          setTimeout(() => {
+            retryFileDownload(fileToRetry);
+          }, 500);
+        }
+      }
+    }
+
+    // Update previous transfers ref
+    prevTransfersRef.current = new Map(currentTransfers);
+  }, [fileTransfer.transfers, peerFiles, isMobile, retryFileDownload]);
 
   return {
     // State

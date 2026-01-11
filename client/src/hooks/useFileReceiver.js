@@ -4,6 +4,12 @@ import {
   TRANSFER_STATUS,
   FILE_MESSAGE_TYPES,
 } from "../config/fileTransfer";
+import {
+  storeChunk,
+  assembleChunksToBlob,
+  deleteTransfer,
+  getChunkCount,
+} from "../utils/transferDB";
 
 const {
   MAX_FILE_SIZE,
@@ -12,8 +18,72 @@ const {
 } = FILE_TRANSFER_CONFIG;
 
 /**
+ * Validate incoming file transfer message
+ * @param {Object} msg - The message to validate
+ * @param {string} expectedType - The expected message type
+ * @returns {{ valid: boolean, error?: string }}
+ */
+function validateMessage(msg, expectedType) {
+  if (!msg || typeof msg !== "object") {
+    return { valid: false, error: "Invalid message format" };
+  }
+
+  if (msg.type !== expectedType) {
+    return { valid: false, error: `Expected type ${expectedType}, got ${msg.type}` };
+  }
+
+  switch (expectedType) {
+    case FILE_MESSAGE_TYPES.FILE_START:
+      if (typeof msg.transferId !== "string" || msg.transferId.length === 0) {
+        return { valid: false, error: "Invalid transferId" };
+      }
+      if (typeof msg.fileName !== "string" || msg.fileName.length === 0) {
+        return { valid: false, error: "Invalid fileName" };
+      }
+      if (typeof msg.fileSize !== "number" || msg.fileSize <= 0) {
+        return { valid: false, error: "Invalid fileSize" };
+      }
+      if (typeof msg.totalChunks !== "number" || msg.totalChunks <= 0) {
+        return { valid: false, error: "Invalid totalChunks" };
+      }
+      break;
+
+    case FILE_MESSAGE_TYPES.FILE_CHUNK:
+      if (typeof msg.transferId !== "string" || msg.transferId.length === 0) {
+        return { valid: false, error: "Invalid transferId" };
+      }
+      if (typeof msg.chunkIndex !== "number" || msg.chunkIndex < 0) {
+        return { valid: false, error: "Invalid chunkIndex" };
+      }
+      break;
+
+    case FILE_MESSAGE_TYPES.FILE_COMPLETE:
+    case FILE_MESSAGE_TYPES.FILE_REVOKED:
+      if (typeof msg.transferId !== "string" || msg.transferId.length === 0) {
+        return { valid: false, error: "Invalid transferId" };
+      }
+      break;
+
+    case FILE_MESSAGE_TYPES.FILE_REQUEST:
+      if (typeof msg.fileId !== "string" || msg.fileId.length === 0) {
+        return { valid: false, error: "Invalid fileId" };
+      }
+      break;
+
+    case FILE_MESSAGE_TYPES.FILE_NOT_FOUND:
+      if (typeof msg.fileId !== "string" || msg.fileId.length === 0) {
+        return { valid: false, error: "Invalid fileId" };
+      }
+      break;
+  }
+
+  return { valid: true };
+}
+
+/**
  * Hook for receiving files via WebRTC DataChannel
  * Handles chunk reassembly, out-of-order handling, and progress tracking
+ * Uses IndexedDB for chunk storage to prevent memory issues on mobile
  *
  * @param {Object} options
  * @param {React.MutableRefObject<Map>} options.transfersRef - Shared ref for transfer states
@@ -40,17 +110,17 @@ export function useFileReceiver({
    */
   const createMessageHandler = useCallback(
     (onFileReceived, onFileRequest, onFileNotFound, onFileRevoked) => {
-      // transferId -> { transfer, chunks, pendingChunkHeaders }
+      // transferId -> { transfer, pendingChunkHeader, receivedChunkCount }
+      // Note: Chunks are stored in IndexedDB, not in memory
       const activeTransfers = new Map();
 
-      // Schedule cleanup after successful transfer
-      const scheduleCleanup = (transferId) => {
-        const cleanupHandle = setTimeout(() => {
-          transfersRef.current.delete(transferId);
-          updateTransfers();
-          cleanupTimeoutsRef.current.delete(transferId);
-        }, TRANSFER_CLEANUP_DELAY_MS);
-        cleanupTimeoutsRef.current.set(transferId, cleanupHandle);
+      // Clean up IndexedDB data for a transfer
+      const cleanupTransferData = async (transferId) => {
+        try {
+          await deleteTransfer(transferId);
+        } catch (e) {
+          console.warn(`[FileReceiver] Failed to cleanup IndexedDB for ${transferId}:`, e);
+        }
       };
 
       // Message handler that processes file transfer messages
@@ -65,21 +135,41 @@ export function useFileReceiver({
           }
 
           // Handle file-request (sender side) - delegate to callback
-          if (msg.type === FILE_MESSAGE_TYPES.FILE_REQUEST && onFileRequest) {
-            console.log(`[FileReceiver] Received file-request for ${msg.fileId}`);
-            onFileRequest(msg.fileId);
+          if (msg.type === FILE_MESSAGE_TYPES.FILE_REQUEST) {
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_REQUEST);
+            if (!validation.valid) {
+              console.warn(`[FileReceiver] Invalid file-request: ${validation.error}`);
+              return;
+            }
+            if (onFileRequest) {
+              console.log(`[FileReceiver] Received file-request for ${msg.fileId}`);
+              onFileRequest(msg.fileId);
+            }
             return;
           }
 
           // Handle file-not-found (receiver side) - file was deleted before transfer
-          if (msg.type === FILE_MESSAGE_TYPES.FILE_NOT_FOUND && onFileNotFound) {
-            console.warn(`[FileReceiver] File not found: ${msg.fileId} - ${msg.fileName}`);
-            onFileNotFound(msg.fileId, msg.fileName);
+          if (msg.type === FILE_MESSAGE_TYPES.FILE_NOT_FOUND) {
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_NOT_FOUND);
+            if (!validation.valid) {
+              console.warn(`[FileReceiver] Invalid file-not-found: ${validation.error}`);
+              return;
+            }
+            if (onFileNotFound) {
+              console.warn(`[FileReceiver] File not found: ${msg.fileId} - ${msg.fileName}`);
+              onFileNotFound(msg.fileId, msg.fileName);
+            }
             return;
           }
 
           // Handle file-revoked (receiver side) - sender revoked file mid-transfer
           if (msg.type === FILE_MESSAGE_TYPES.FILE_REVOKED) {
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_REVOKED);
+            if (!validation.valid) {
+              console.warn(`[FileReceiver] Invalid file-revoked: ${validation.error}`);
+              return;
+            }
+
             console.warn(`[FileReceiver] File revoked by sender: ${msg.fileId} - ${msg.fileName}`);
 
             const transferData = activeTransfers.get(msg.transferId);
@@ -91,9 +181,10 @@ export function useFileReceiver({
               transfersRef.current.set(msg.transferId, transfer);
               updateTransfers();
 
-              // Clean up: delete all buffered chunks (sender's data should not be kept)
+              // Clean up: delete all buffered chunks from IndexedDB
               activeTransfers.delete(msg.transferId);
               receiveBuffersRef.current.delete(msg.transferId);
+              await cleanupTransferData(msg.transferId);
 
               // Clear timeout
               const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
@@ -113,6 +204,12 @@ export function useFileReceiver({
           }
 
           if (msg.type === FILE_MESSAGE_TYPES.FILE_START) {
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_START);
+            if (!validation.valid) {
+              console.error(`[FileReceiver] Invalid file-start: ${validation.error}`);
+              return;
+            }
+
             // Validate file size
             if (msg.fileSize > MAX_FILE_SIZE) {
               console.error(
@@ -127,32 +224,29 @@ export function useFileReceiver({
               fileId: msg.fileId, // Original file ID for UI progress tracking
               fileName: msg.fileName,
               fileSize: msg.fileSize,
-              fileType: msg.fileType,
+              fileType: msg.fileType || "application/octet-stream",
               totalChunks: msg.totalChunks,
               receivedChunks: 0,
               progress: 0,
               status: TRANSFER_STATUS.RECEIVING,
             };
 
-            // Use Map for chunks to support out-of-order arrival
-            const chunksMap = new Map();
-
-            // Queue for pending chunk headers to prevent race conditions
-            const pendingChunkHeaders = [];
-
+            // Store transfer state with pending chunk header (one at a time per transfer)
+            // This fixes the race condition - each transfer tracks its own pending header
             activeTransfers.set(msg.transferId, {
               transfer: currentTransfer,
-              chunks: chunksMap,
-              pendingChunkHeaders,
+              pendingChunkHeader: null, // Will hold { chunkIndex, timestamp } when header received
+              receivedChunkCount: 0,
             });
 
-            receiveBuffersRef.current.set(msg.transferId, chunksMap);
+            // Keep a simple counter in receiveBuffersRef for compatibility
+            receiveBuffersRef.current.set(msg.transferId, { count: 0 });
 
             transfersRef.current.set(msg.transferId, currentTransfer);
             updateTransfers();
 
             // Set timeout for incomplete transfers
-            const timeoutHandle = setTimeout(() => {
+            const timeoutHandle = setTimeout(async () => {
               if (activeTransfers.has(msg.transferId)) {
                 const { transfer } = activeTransfers.get(msg.transferId);
                 transfer.status = TRANSFER_STATUS.TIMEOUT;
@@ -160,57 +254,84 @@ export function useFileReceiver({
                 updateTransfers();
                 activeTransfers.delete(msg.transferId);
                 receiveBuffersRef.current.delete(msg.transferId);
+                await cleanupTransferData(msg.transferId);
                 transferTimeoutsRef.current.delete(msg.transferId);
                 console.error(`[FileReceiver] Receive timeout for ${msg.transferId}`);
               }
             }, TRANSFER_TIMEOUT_MS);
 
             transferTimeoutsRef.current.set(msg.transferId, timeoutHandle);
+
           } else if (msg.type === FILE_MESSAGE_TYPES.FILE_CHUNK) {
-            // Chunk header received - add to queue for this transfer
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_CHUNK);
+            if (!validation.valid) {
+              console.warn(`[FileReceiver] Invalid file-chunk: ${validation.error}`);
+              return;
+            }
+
+            // Chunk header received - store it for THIS specific transfer
+            // This fixes the race condition by using transferId from the message
             const transferData = activeTransfers.get(msg.transferId);
             if (transferData) {
-              transferData.pendingChunkHeaders.push({
+              // Store the pending header for this specific transfer
+              transferData.pendingChunkHeader = {
                 chunkIndex: msg.chunkIndex,
                 timestamp: Date.now(),
-              });
+              };
             } else {
               console.warn(
                 `[FileReceiver] Received chunk header for unknown transfer ${msg.transferId}`
               );
             }
+
           } else if (msg.type === FILE_MESSAGE_TYPES.FILE_COMPLETE) {
-            // File transfer complete, assemble the file
+            const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_COMPLETE);
+            if (!validation.valid) {
+              console.warn(`[FileReceiver] Invalid file-complete: ${validation.error}`);
+              return;
+            }
+
+            // File transfer complete, assemble the file from IndexedDB
             const transferData = activeTransfers.get(msg.transferId);
 
             if (transferData) {
-              const { transfer, chunks, pendingChunkHeaders } = transferData;
+              const { transfer, pendingChunkHeader } = transferData;
 
-              // Check for unprocessed chunk headers (indicates lost data)
-              if (pendingChunkHeaders.length > 0) {
+              // Check for unprocessed chunk header (indicates lost data)
+              if (pendingChunkHeader !== null) {
                 console.warn(
-                  `[FileReceiver] ${pendingChunkHeaders.length} chunk headers without data for ${msg.transferId}`
+                  `[FileReceiver] Pending chunk header without data for ${msg.transferId}`
                 );
               }
 
-              // Find missing chunks for detailed error reporting
-              const missingChunks = [];
-              for (let i = 0; i < transfer.totalChunks; i++) {
-                if (!chunks.has(i)) {
-                  missingChunks.push(i);
-                }
-              }
-
-              if (missingChunks.length > 0) {
-                console.error(
-                  `[FileReceiver] Missing ${missingChunks.length} chunks for ${msg.transferId}: [${missingChunks.slice(0, 10).join(", ")}${missingChunks.length > 10 ? "..." : ""}]`
-                );
+              // Verify chunk count in IndexedDB
+              let actualChunkCount;
+              try {
+                actualChunkCount = await getChunkCount(msg.transferId);
+              } catch (e) {
+                console.error(`[FileReceiver] Failed to get chunk count:`, e);
                 transfer.status = TRANSFER_STATUS.FAILED;
-                transfer.error = `Missing ${missingChunks.length} chunk(s): ${missingChunks.slice(0, 5).join(", ")}${missingChunks.length > 5 ? "..." : ""}`;
+                transfer.error = "Failed to verify chunks in storage";
                 transfersRef.current.set(msg.transferId, transfer);
                 updateTransfers();
                 activeTransfers.delete(msg.transferId);
                 receiveBuffersRef.current.delete(msg.transferId);
+                await cleanupTransferData(msg.transferId);
+                return;
+              }
+
+              if (actualChunkCount !== transfer.totalChunks) {
+                const missingCount = transfer.totalChunks - actualChunkCount;
+                console.error(
+                  `[FileReceiver] Missing ${missingCount} chunks for ${msg.transferId} (got ${actualChunkCount}/${transfer.totalChunks})`
+                );
+                transfer.status = TRANSFER_STATUS.FAILED;
+                transfer.error = `Missing ${missingCount} chunk(s)`;
+                transfersRef.current.set(msg.transferId, transfer);
+                updateTransfers();
+                activeTransfers.delete(msg.transferId);
+                receiveBuffersRef.current.delete(msg.transferId);
+                await cleanupTransferData(msg.transferId);
 
                 // Clear timeout
                 const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
@@ -221,13 +342,25 @@ export function useFileReceiver({
                 return;
               }
 
-              // All chunks present, assemble file
-              const sortedChunks = [];
-              for (let i = 0; i < transfer.totalChunks; i++) {
-                sortedChunks.push(chunks.get(i));
+              // All chunks present, assemble file from IndexedDB
+              let blob;
+              try {
+                blob = await assembleChunksToBlob(
+                  msg.transferId,
+                  transfer.totalChunks,
+                  transfer.fileType
+                );
+              } catch (e) {
+                console.error(`[FileReceiver] Failed to assemble file:`, e);
+                transfer.status = TRANSFER_STATUS.FAILED;
+                transfer.error = "Failed to assemble file from chunks";
+                transfersRef.current.set(msg.transferId, transfer);
+                updateTransfers();
+                activeTransfers.delete(msg.transferId);
+                receiveBuffersRef.current.delete(msg.transferId);
+                await cleanupTransferData(msg.transferId);
+                return;
               }
-
-              const blob = new Blob(sortedChunks, { type: transfer.fileType });
 
               transfer.status = TRANSFER_STATUS.COMPLETED;
               transfer.progress = 100;
@@ -245,37 +378,45 @@ export function useFileReceiver({
               activeTransfers.delete(msg.transferId);
               receiveBuffersRef.current.delete(msg.transferId);
 
+              // Clean up IndexedDB after successful transfer
+              await cleanupTransferData(msg.transferId);
+
               // Clear timeout
               const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
               if (timeoutHandle) {
                 clearTimeout(timeoutHandle);
                 transferTimeoutsRef.current.delete(msg.transferId);
               }
-
-              // Don't auto-cleanup - keep completed transfers visible at 100%
-              // User can manually clear via clearCompletedTransfers if needed
-              // scheduleCleanup(msg.transferId);
             }
           }
         } else if (event.data instanceof ArrayBuffer) {
-          // Chunk data received - find the transfer with pending headers
-          // DataChannel is ordered, so we match ArrayBuffers to headers in FIFO order
+          // Chunk data received - find the transfer with a pending header
+          // Since DataChannel is ordered and each transfer tracks its own pending header,
+          // we iterate and find the one with a non-null pendingChunkHeader
           for (const [transferId, transferData] of activeTransfers.entries()) {
-            const { transfer, chunks, pendingChunkHeaders } = transferData;
+            const { transfer, pendingChunkHeader } = transferData;
 
             // Check if this transfer has a pending chunk header
-            if (pendingChunkHeaders.length > 0) {
-              // Consume the oldest header from the queue (FIFO)
-              const headerInfo = pendingChunkHeaders.shift();
-              const chunkIndex = headerInfo.chunkIndex;
+            if (pendingChunkHeader !== null) {
+              const chunkIndex = pendingChunkHeader.chunkIndex;
 
-              // Store chunk at the correct index
-              chunks.set(chunkIndex, event.data);
+              // Clear the pending header immediately
+              transferData.pendingChunkHeader = null;
 
-              // Update progress based on unique chunks received
-              transfer.receivedChunks = chunks.size;
-              transfer.progress = Math.round(
-                (chunks.size / transfer.totalChunks) * 100
+              // Store chunk in IndexedDB instead of RAM
+              try {
+                await storeChunk(transferId, chunkIndex, event.data);
+              } catch (e) {
+                console.error(`[FileReceiver] Failed to store chunk ${chunkIndex}:`, e);
+                // Continue anyway - the completion check will catch missing chunks
+              }
+
+              // Update progress
+              transferData.receivedChunkCount++;
+              transfer.receivedChunks = transferData.receivedChunkCount;
+              transfer.progress = Math.min(
+                100,
+                Math.round((transfer.receivedChunks / transfer.totalChunks) * 100)
               );
 
               transfersRef.current.set(transferId, transfer);

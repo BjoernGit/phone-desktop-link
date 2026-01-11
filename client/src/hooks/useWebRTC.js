@@ -27,6 +27,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
   const abortControllersRef = useRef(new Map());
   const messageBufferRef = useRef(new Map());
   const messageCallbacksRef = useRef(new Map());
+  const closeConnectionRef = useRef(null); // Ref to avoid circular dependency
 
   // Create a new RTCPeerConnection for a peer
   const createConnection = useCallback(
@@ -70,7 +71,10 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
           return next;
         });
         if (pc.connectionState === "failed" || pc.connectionState === "closed") {
-          closeConnection(peerUuid);
+          // Use ref to avoid circular dependency
+          if (closeConnectionRef.current) {
+            closeConnectionRef.current(peerUuid);
+          }
         }
       };
 
@@ -465,6 +469,9 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
     }
   }, []);
 
+  // Keep closeConnectionRef in sync with closeConnection
+  closeConnectionRef.current = closeConnection;
+
   // Setup socket listeners
   useEffect(() => {
     if (!socket || !enabled) return;
@@ -491,6 +498,7 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       socket.off("webrtc-offer");
       socket.off("webrtc-answer");
       socket.off("webrtc-ice-candidate");
+      socket.off("peer-left");
     };
   }, [socket, enabled, handleOffer, handleAnswer, handleIceCandidate, closeConnection]);
 

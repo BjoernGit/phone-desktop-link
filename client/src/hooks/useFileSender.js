@@ -241,9 +241,9 @@ export function useFileSender({
         offset += CHUNK_SIZE;
         chunkIndex++;
 
-        // Update progress
+        // Update progress (cap at 99% until complete message sent)
         transferState.sentChunks = chunkIndex;
-        transferState.progress = Math.round((offset / file.size) * 100);
+        transferState.progress = Math.min(99, Math.round((chunkIndex / totalChunks) * 100));
         transfersRef.current.set(transferId, transferState);
         updateTransfers();
 
