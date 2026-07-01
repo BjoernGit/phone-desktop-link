@@ -134,9 +134,10 @@ export default function App() {
   } = useSessionSockets({
     isMobile,
     deviceName,
+    offerSecret,
     onDecryptPhoto: decryptPhoto,
     onMergeRedirect: (payload) => {
-      console.log("[DEBUG] onMergeRedirect called", payload);
+      console.log("[DEBUG] onMergeRedirect called", { toSession: payload?.toSession, initiatorDevice: payload?.initiatorDevice });
       const { toSession, toSeed, toOfferSecret, initiatorDevice } = payload;
 
       // Auto-accept if flag is enabled
@@ -166,16 +167,16 @@ export default function App() {
       }
     },
     onSessionOffer: (payload) => {
-      console.log("[DEBUG] onSessionOffer called", { payload, hasEnc: !!payload?.enc, offerSecret: offerSecret?.slice(0, 8) });
+      console.log("[DEBUG] onSessionOffer called", { hasEnc: !!payload?.enc, from: payload?.fromDevice });
       if (!payload?.enc) {
         console.log("[DEBUG] No enc in payload, returning early");
         return;
       }
       const doDecrypt = async () => {
         try {
-          console.log("[DEBUG] Attempting decrypt with offerSecret:", offerSecret?.slice(0, 8));
+          console.log("[DEBUG] Attempting offer decrypt");
           const plain = await decryptJsonWithSecret(offerSecret, payload.enc, "offer-share");
-          console.log("[DEBUG] Decrypt result:", plain);
+          console.log("[DEBUG] Decrypt ok, session:", plain?.session);
           if (!plain?.session || !plain?.seed) {
             setOfferStatus(t("status.offerIncomplete"));
             return;
@@ -190,7 +191,7 @@ export default function App() {
             fromUuid: payload.fromUuid || "",
           };
 
-          console.log("[DEBUG] Created offer object:", offer);
+          console.log("[DEBUG] Created offer object", { session: offer.session, from: offer.from });
           console.log("[DEBUG] AUTO_ACCEPT_SESSION_OFFERS flag:", FEATURE_FLAGS.AUTO_ACCEPT_SESSION_OFFERS);
 
           // Auto-accept if flag is enabled
@@ -360,7 +361,7 @@ export default function App() {
 
   const applyQrOffer = useCallback(
     (offer) => {
-      console.log("[DEBUG] applyQrOffer called with:", offer);
+      console.log("[DEBUG] applyQrOffer called", { session: offer?.session, hasSeed: !!offer?.seed });
       if (!offer?.session) {
         console.log("[DEBUG] applyQrOffer: no session in offer");
         setQrStatus(t("status.noSession"));
@@ -392,7 +393,7 @@ export default function App() {
         setOfferSecret(offer.offerSecret);
       }
       if (offer.seed) {
-        console.log("[DEBUG] applyQrOffer: applying seed", offer.seed?.slice(0, 8));
+        console.log("[DEBUG] applyQrOffer: applying seed");
         applySeedAndStore(offer.seed, offer.session);
       }
       setQrStatus(t("status.sessionTaken"));
@@ -408,7 +409,7 @@ export default function App() {
   useEffect(() => {
     const handleAutoAccept = (event) => {
       const offer = event.detail;
-      console.log("[DEBUG] handleAutoAccept received event with offer:", offer);
+      console.log("[DEBUG] handleAutoAccept received event", { session: offer?.session, isMergeRedirect: !!offer?.isMergeRedirect });
       if (offer) {
         console.log("[DEBUG] Calling applyQrOffer with offer, isMergeRedirect:", offer.isMergeRedirect);
         applyQrOffer(offer);

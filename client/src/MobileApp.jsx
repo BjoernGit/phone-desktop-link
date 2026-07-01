@@ -136,10 +136,12 @@ export function MobileApp({
                 <button
                   type="button"
                   className="qrOfferBtn primary"
-                  onClick={() => {
-                    // Send merge request to all peers in current session
+                  onClick={async () => {
+                    // Send merge request to all peers in current session.
+                    // Await it: the encrypted merge must be emitted while we
+                    // are still joined to the source session.
                     if (sendSessionMerge) {
-                      sendSessionMerge(qrOffer);
+                      await sendSessionMerge(qrOffer);
                     }
                     // Also switch ourselves to the target session
                     applyQrOffer(qrOffer);

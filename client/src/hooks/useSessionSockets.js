@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { ensureDesktopSessionId, getSessionIdFromUrl } from "../utils/session";
-import { encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
+import { decryptJsonWithSecret, encryptJsonWithSecret, generateSeedBase64Url } from "../utils/crypto";
 
 // Set to true for verbose socket debugging
 const DEBUG_SOCKETS = true;
@@ -23,7 +23,7 @@ function getSocketUrl() {
   return window.location.origin;
 }
 
-export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSessionOffer, onMergeRedirect, onPeerStatus, onPeerFileList }) {
+export function useSessionSockets({ isMobile, deviceName, offerSecret, onDecryptPhoto, onSessionOffer, onMergeRedirect, onPeerStatus, onPeerFileList }) {
   const [sessionId, setSessionId] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [socketStatus, setSocketStatus] = useState("connecting");
@@ -38,6 +38,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
   const onMergeRedirectRef = useRef(onMergeRedirect);
   const onPeerStatusRef = useRef(onPeerStatus);
   const onPeerFileListRef = useRef(onPeerFileList);
+  const offerSecretRef = useRef(offerSecret);
 
   useEffect(() => {
     onDecryptPhotoRef.current = onDecryptPhoto;
@@ -45,6 +46,7 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
     onMergeRedirectRef.current = onMergeRedirect;
     onPeerStatusRef.current = onPeerStatus;
     onPeerFileListRef.current = onPeerFileList;
+    offerSecretRef.current = offerSecret;
   });
 
   const socket = useMemo(() => {
@@ -210,13 +212,15 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
       onPeerFileListRef.current?.(payload);
     });
 
-    // Session merge redirect - another device in our session initiated a merge
-    socket.on("merge-redirect", (payload) => {
-      if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-redirect received", payload);
-      const { toSession, toSeed, toOfferSecret, initiatorUuid, initiatorDevice, ts } = payload;
+    // Session merge redirect - another device in our session initiated a merge.
+    // Seed and offerSecret of the target session arrive E2E-encrypted with the
+    // current session's offerSecret; the server only relays the ciphertext.
+    socket.on("merge-redirect", async (payload) => {
+      if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-redirect received", { toSession: payload?.toSession, hasEnc: !!payload?.enc });
+      const { toSession, enc, initiatorUuid, initiatorDevice, ts } = payload || {};
 
       // Validate payload
-      if (!toSession || !toSeed) {
+      if (!toSession || !enc?.iv || !enc?.ciphertext) {
         console.warn("merge-redirect missing required fields");
         return;
       }
@@ -228,10 +232,31 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
         return;
       }
 
+      const secret = offerSecretRef.current;
+      if (!secret) {
+        console.warn("merge-redirect received but no offerSecret available to decrypt");
+        return;
+      }
+
+      let plain;
+      try {
+        plain = await decryptJsonWithSecret(secret, enc, "merge-redirect");
+      } catch (e) {
+        console.warn("merge-redirect decrypt failed", e);
+        return;
+      }
+
+      // Bind the plaintext target session to the routing field the server saw:
+      // a tampering relay cannot redirect peers to a different session.
+      if (!plain?.toSeed || plain?.toSession !== toSession) {
+        console.warn("merge-redirect payload mismatch, ignoring");
+        return;
+      }
+
       onMergeRedirectRef.current?.({
         toSession,
-        toSeed,
-        toOfferSecret,
+        toSeed: plain.toSeed,
+        toOfferSecret: plain.toOfferSecret || "",
         initiatorUuid,
         initiatorDevice,
       });
@@ -358,9 +383,17 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
    * @param {string} targetOffer.offerSecret - Target session offer secret
    */
   const sendSessionMerge = useCallback(
-    (targetOffer) => {
+    async (targetOffer) => {
       if (!sessionId || !targetOffer?.session || !targetOffer?.seed) {
-        console.warn("sendSessionMerge missing data", { sessionId, targetOffer });
+        console.warn("sendSessionMerge missing data", { sessionId, hasOffer: !!targetOffer });
+        return;
+      }
+
+      // Capture the *current* session's offerSecret synchronously - the caller
+      // may switch to the target session (and replace the secret) right after.
+      const secret = offerSecretRef.current;
+      if (!secret) {
+        console.warn("sendSessionMerge: no offerSecret for current session, aborting");
         return;
       }
 
@@ -372,11 +405,29 @@ export function useSessionSockets({ isMobile, deviceName, onDecryptPhoto, onSess
         });
       }
 
+      // Encrypt seed + offerSecret of the target session so the server never
+      // sees them. toSession stays plaintext (the server needs it for approval
+      // migration) but is repeated inside the ciphertext for integrity.
+      let enc;
+      try {
+        enc = await encryptJsonWithSecret(
+          secret,
+          {
+            toSession: targetOffer.session,
+            toSeed: targetOffer.seed,
+            toOfferSecret: targetOffer.offerSecret || "",
+          },
+          "merge-redirect"
+        );
+      } catch (e) {
+        console.warn("merge encrypt failed", e);
+        return;
+      }
+
       socket.emit("session-merge", {
         fromSession: sessionId,
         toSession: targetOffer.session,
-        toSeed: targetOffer.seed,
-        toOfferSecret: targetOffer.offerSecret || "",
+        enc,
       });
     },
     [sessionId, socket]

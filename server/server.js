@@ -268,8 +268,10 @@ io.on("connection", (socket) => {
     }
   });
 
-  // Session merge handler - merges all peers from one session into another
-  socket.on("session-merge", ({ fromSession, toSession, toSeed, toOfferSecret }) => {
+  // Session merge handler - merges all peers from one session into another.
+  // Seed/offerSecret of the target session travel E2E-encrypted (enc payload,
+  // keyed to the source session's offerSecret) - the server only relays them.
+  socket.on("session-merge", ({ fromSession, toSession, enc }) => {
     // Check if feature is enabled
     if (!FEATURE_FLAGS.ENABLE_SESSION_MERGE) {
       console.log("session-merge disabled by feature flag");
@@ -277,8 +279,8 @@ io.on("connection", (socket) => {
     }
 
     const sid = coerceSessionId(fromSession);
-    if (!sid || !toSession || !toSeed) {
-      console.warn("session-merge invalid payload", { fromSession, toSession, hasSeed: !!toSeed });
+    if (!sid || !toSession) {
+      console.warn("session-merge invalid payload", { fromSession, toSession });
       return;
     }
 
@@ -295,10 +297,10 @@ io.on("connection", (socket) => {
       return;
     }
 
-    // Validate seed format (base64url, 16-32 bytes = 22-43 chars)
-    if (!isValidBase64Url(toSeed, 16, 64)) {
-      console.warn("session-merge invalid seed", { ip, sid });
-      registerStrike(ip, "merge-invalid-seed");
+    // Validate encrypted payload structure (iv + ciphertext, base64url)
+    if (!isValidEncPayload(enc)) {
+      console.warn("session-merge invalid enc payload", { ip, sid });
+      registerStrike(ip, "merge-invalid-enc");
       return;
     }
 
@@ -343,12 +345,11 @@ io.on("connection", (socket) => {
       toState.approved.add(uuid);
     });
 
-    // Create merge-redirect payload
+    // Create merge-redirect payload (seed/secret stay inside enc)
     const ts = Date.now();
     const mergeRedirect = {
       toSession,
-      toSeed,
-      toOfferSecret: toOfferSecret || "",
+      enc,
       initiatorUuid: socket.data.clientUuid,
       initiatorDevice: socket.data.deviceName,
       ts,
