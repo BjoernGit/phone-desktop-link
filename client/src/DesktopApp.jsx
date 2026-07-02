@@ -14,6 +14,7 @@ import { AlertModal } from "./components/AlertModal";
 
 export function DesktopApp({
   sessionId,
+  authState,
   sessionSeed,
   offerSecret,
   sessionKeyB64,
@@ -143,7 +144,7 @@ export function DesktopApp({
     <>
       <div className="desktopShell">
         <div className="pageContent">
-          <DesktopHero />
+          <DesktopHero authState={authState} />
 
           {incomingOffer && (
             <SessionOfferBar

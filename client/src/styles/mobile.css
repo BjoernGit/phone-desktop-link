@@ -919,6 +919,15 @@
   z-index: 5;
 }
 
+.mobileAuthWrap {
+  position: fixed;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: 92vw;
+}
+
 .waitingForApprovalBanner {
   position: fixed;
   top: 50px;

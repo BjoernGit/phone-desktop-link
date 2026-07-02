@@ -8,9 +8,11 @@ import { PendingApprovals } from "./components/PendingApprovals";
 import { MobileQrDisplay } from "./components/MobileQrDisplay";
 import { MobileFilePanel } from "./components/MobileFilePanel";
 import { FEATURE_FLAGS } from "./config/features";
+import { AuthStatus } from "./components/AuthStatus";
 
 export function MobileApp({
   sessionId,
+  authState,
   sessionSeed,
   offerSecret,
   sessionKeyB64,
@@ -84,6 +86,11 @@ export function MobileApp({
       </div>
 
       <div className="selfIdBadge">{t("mobile.selfId", { id: clientUuid ? clientUuid.slice(0, 8) : "n/a" })}</div>
+      {authState ? (
+        <div className="mobileAuthWrap">
+          <AuthStatus {...authState} compact />
+        </div>
+      ) : null}
 
       {FEATURE_FLAGS.REQUIRE_DEVICE_APPROVAL && isWaitingForApproval && (
         <div className="waitingForApprovalBanner">

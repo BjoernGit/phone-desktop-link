@@ -1,8 +1,9 @@
 import React from "react";
 import { useTranslation } from "react-i18next";
 import heroLogo from "../assets/FileBeacon.png";
+import { AuthStatus } from "./AuthStatus";
 
-export function DesktopHero() {
+export function DesktopHero({ authState }) {
   const { t } = useTranslation();
 
   return (
@@ -11,6 +12,7 @@ export function DesktopHero() {
         <img className="heroLogo" src={heroLogo} alt="FileBeacon Logo" />
         <div className="heroSub">{t("desktop.hero.tagline")}</div>
       </div>
+      {authState ? <AuthStatus {...authState} /> : null}
     </header>
   );
 }

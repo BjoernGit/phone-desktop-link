@@ -28,6 +28,14 @@
       "takePhoto": "Take photo and send"
     }
   },
+  "auth": {
+    "notConfigured": "Supabase not configured",
+    "loading": "Auth loading...",
+    "signInGoogle": "Sign in with Google",
+    "signOut": "Sign out",
+    "signedInAs": "Signed in as {{email}}",
+    "unknownUser": "Unknown user"
+  },
   "mobile": {
     "blocked": {
       "title": "Scan QR Code",

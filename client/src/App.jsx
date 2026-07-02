@@ -21,15 +21,29 @@ import { MobileApp } from "./MobileApp";
 import { isLocalNetwork } from "./config/network";
 import { QR_TTL_MS, STATUS_DISMISS_MS, SESSION_STATUS_DISMISS_MS } from "./config/security";
 import { FEATURE_FLAGS } from "./config/features";
+import { getOrCreateDeviceId } from "./utils/device";
+import { useSupabaseAuth } from "./hooks/useSupabaseAuth";
 
 const QR_AUTO_CLOSE_SECONDS = 5;
 
 export default function App() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const {
+    supabase,
+    user,
+    loading: authLoading,
+    error: authError,
+    isConfigured: isSupabaseConfigured,
+    signInWithGoogle,
+    signOut,
+  } = useSupabaseAuth();
   const [isMobile, setIsMobile] = useState(() => isMobileDevice());
   const [lightboxSrc, setLightboxSrc] = useState(null);
   const { message: copyStatus, show: showCopyStatus } = useStatusMessage();
   const [debugDataUrl, setDebugDataUrl] = useState("");
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const lastSavedLanguageRef = useRef("");
   const host = window.location.hostname || "";
   const isLocalHost = isLocalNetwork(host);
   const allowDebug = isLocalHost && import.meta.env.VITE_LOCAL_DEBUG === "1";
@@ -81,6 +95,120 @@ export default function App() {
     if (ua.includes("Win")) return "Windows";
     return t("common.deviceName.unknown");
   }, [t]);
+
+  const deviceId = useMemo(() => getOrCreateDeviceId(), []);
+  const deviceType = isMobile ? "mobile" : "desktop";
+
+  useEffect(() => {
+    if (!supabase || !user) {
+      setSettingsLoaded(false);
+      return;
+    }
+
+    let isActive = true;
+    setProfileError("");
+
+    const loadSettings = async () => {
+      const { data, error } = await supabase
+        .from("user_settings")
+        .select("language")
+        .eq("user_id", user.id)
+        .limit(1);
+
+      if (!isActive) return;
+
+      if (error) {
+        setProfileError(error.message);
+      }
+
+      const settings = data?.[0];
+      if (settings?.language) {
+        lastSavedLanguageRef.current = settings.language;
+        i18n.changeLanguage(settings.language);
+      }
+
+      setSettingsLoaded(true);
+    };
+
+    loadSettings();
+
+    return () => {
+      isActive = false;
+    };
+  }, [supabase, user, i18n]);
+
+  useEffect(() => {
+    if (!supabase || !user || !settingsLoaded) return;
+
+    const language = i18n.language?.startsWith("de") ? "de" : "en";
+    if (lastSavedLanguageRef.current === language) return;
+
+    lastSavedLanguageRef.current = language;
+
+    const saveSettings = async () => {
+      const { error } = await supabase
+        .from("user_settings")
+        .upsert(
+          {
+            user_id: user.id,
+            language,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "user_id" }
+        );
+
+      if (error) {
+        setProfileError(error.message);
+      }
+    };
+
+    saveSettings();
+  }, [supabase, user, settingsLoaded, i18n.language]);
+
+  useEffect(() => {
+    if (!supabase || !user || !deviceId) return;
+
+    let isActive = true;
+
+    const registerDevice = async () => {
+      const { error } = await supabase
+        .from("devices")
+        .upsert(
+          {
+            user_id: user.id,
+            device_id: deviceId,
+            device_name: deviceName,
+            device_type: deviceType,
+            last_seen: new Date().toISOString(),
+          },
+          { onConflict: "user_id,device_id" }
+        );
+
+      if (!isActive) return;
+
+      if (error) {
+        setProfileError(error.message);
+      }
+    };
+
+    registerDevice();
+
+    return () => {
+      isActive = false;
+    };
+  }, [supabase, user, deviceId, deviceName, deviceType]);
+
+  const authState = useMemo(
+    () => ({
+      isConfigured: isSupabaseConfigured,
+      isLoading: authLoading,
+      user,
+      error: authError || profileError,
+      onLogin: signInWithGoogle,
+      onLogout: signOut,
+    }),
+    [isSupabaseConfigured, authLoading, user, authError, profileError, signInWithGoogle, signOut]
+  );
 
   useEffect(() => {
     const onResize = () => setIsMobile(isMobileDevice());
@@ -725,6 +853,7 @@ export default function App() {
   return (
     <DesktopApp
       sessionId={sessionId}
+      authState={authState}
     sessionSeed={sessionSeed}
     offerSecret={offerSecret}
     sessionKeyB64={sessionKeyB64}
@@ -787,6 +916,7 @@ export default function App() {
   return (
     <MobileApp
       sessionId={sessionId}
+      authState={authState}
       sessionSeed={sessionSeed}
       offerSecret={offerSecret}
       sessionKeyB64={sessionKeyB64}

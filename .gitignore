@@ -15,3 +15,4 @@ client/localhost*-key.pem
 docs/TODO.md
 docs/SESSION_MERGE_ANALYSIS.md
 docs/ARCHITECTURE_FUTURE.md
+docs/SUPABASE_SETUP.md
