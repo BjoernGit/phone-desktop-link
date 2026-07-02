@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 function getCaptureTarget(quality) {
-  // Bounds fuer lange/kurze Bildkante - orientierungs-agnostisch, damit
-  // Hoch- und Querformat dieselbe Qualitaetsstufe bekommen
+  // Feste Zielformate (lange x kurze Kante). Die Orientierung folgt der
+  // Quelle: Hochformat-Quelle -> z.B. 720x1280, Querformat-Quelle -> 1280x720
   switch (quality) {
     case "S":
       return { long: 640, short: 360, jpeg: 0.75 };
@@ -18,28 +18,48 @@ function getCaptureTarget(quality) {
 }
 
 /**
- * Compute the output size for a capture: preserve the source aspect ratio
- * and orientation (no cropping), only downscale so the long/short edges
- * fit within the quality bounds. Never upscale.
+ * Compute crop rectangle and output size for a capture.
+ * The fixed quality format is applied in the source's orientation
+ * (landscape source -> landscape format), center-cropping the source to
+ * the target aspect. Never upscales.
  */
-export function computeCaptureSize(srcW, srcH, target) {
-  const srcLong = Math.max(srcW, srcH);
-  const srcShort = Math.min(srcW, srcH);
-  const scale = Math.min(1, target.long / srcLong, target.short / srcShort);
-  return {
-    width: Math.max(1, Math.round(srcW * scale)),
-    height: Math.max(1, Math.round(srcH * scale)),
-  };
+export function computeCaptureRect(srcW, srcH, target) {
+  const landscape = srcW >= srcH;
+  const targetW = landscape ? target.long : target.short;
+  const targetH = landscape ? target.short : target.long;
+  const targetAspect = targetW / targetH;
+  const srcAspect = srcW / srcH;
+
+  let sW = srcW;
+  let sH = srcH;
+  let sx = 0;
+  let sy = 0;
+
+  // Center-Crop, um das Ziel-Aspect zu treffen
+  if (srcAspect > targetAspect) {
+    sW = Math.round(srcH * targetAspect);
+    sx = Math.round((srcW - sW) / 2);
+  } else if (srcAspect < targetAspect) {
+    sH = Math.round(srcW / targetAspect);
+    sy = Math.round((srcH - sH) / 2);
+  }
+
+  // Nicht hochskalieren: maximal 1:1
+  const scale = Math.min(1, targetW / sW, targetH / sH);
+  const outW = Math.max(1, Math.round(sW * scale));
+  const outH = Math.max(1, Math.round(sH * scale));
+
+  return { sx, sy, sW, sH, outW, outH };
 }
 
 function drawScaled(source, srcW, srcH, target, jpegQuality) {
-  const { width: outW, height: outH } = computeCaptureSize(srcW, srcH, target);
+  const { sx, sy, sW, sH, outW, outH } = computeCaptureRect(srcW, srcH, target);
 
   const canvas = document.createElement("canvas");
   canvas.width = outW;
   canvas.height = outH;
   const ctx = canvas.getContext("2d", { alpha: false });
-  ctx.drawImage(source, 0, 0, srcW, srcH, 0, 0, outW, outH);
+  ctx.drawImage(source, sx, sy, sW, sH, 0, 0, outW, outH);
 
   return canvas.toDataURL("image/jpeg", jpegQuality);
 }
@@ -76,11 +96,14 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     stopCamera();
 
     try {
+      // Aufloesung passend zur aktuellen Geraete-Orientierung anfordern,
+      // damit der Feed direkt richtig herum startet (quer -> Widescreen)
+      const landscape = window.matchMedia?.("(orientation: landscape)")?.matches ?? false;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 2560 },
-          height: { ideal: 1440 },
+          width: { ideal: landscape ? 2560 : 1440 },
+          height: { ideal: landscape ? 1440 : 2560 },
         },
         audio: false,
       });
@@ -313,6 +336,22 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     },
     [stopCamera]
   );
+
+  // Restart the camera when the device orientation changes while active.
+  // The stream is negotiated for one orientation; after a rotation the feed
+  // would otherwise keep the old orientation and render sideways/letterboxed.
+  useEffect(() => {
+    const mql = window.matchMedia?.("(orientation: landscape)");
+    if (!mql?.addEventListener) return undefined;
+
+    const onOrientationChange = () => {
+      if (!streamRef.current) return; // camera not running
+      startCamera();
+    };
+
+    mql.addEventListener("change", onOrientationChange);
+    return () => mql.removeEventListener("change", onOrientationChange);
+  }, [startCamera]);
 
   // stop camera when tab/page goes inactive
   useEffect(() => {
