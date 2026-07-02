@@ -19,14 +19,14 @@ function getCaptureTarget(quality) {
 
 /**
  * Compute crop rectangle and output size for a capture.
- * The fixed quality format is applied in the source's orientation
- * (landscape source -> landscape format), center-cropping the source to
- * the target aspect. Never upscales.
+ * The fixed quality format is applied in the requested orientation
+ * (device orientation, not stream orientation): if the stream delivers a
+ * landscape frame while the device is held upright, the portrait format is
+ * center-cropped out of it - no camera restart needed. Never upscales.
  */
-export function computeCaptureRect(srcW, srcH, target) {
-  const landscape = srcW >= srcH;
-  const targetW = landscape ? target.long : target.short;
-  const targetH = landscape ? target.short : target.long;
+export function computeCaptureRect(srcW, srcH, target, portrait) {
+  const targetW = portrait ? target.short : target.long;
+  const targetH = portrait ? target.long : target.short;
   const targetAspect = targetW / targetH;
   const srcAspect = srcW / srcH;
 
@@ -52,8 +52,8 @@ export function computeCaptureRect(srcW, srcH, target) {
   return { sx, sy, sW, sH, outW, outH };
 }
 
-function drawScaled(source, srcW, srcH, target, jpegQuality) {
-  const { sx, sy, sW, sH, outW, outH } = computeCaptureRect(srcW, srcH, target);
+function drawScaled(source, srcW, srcH, target, portrait, jpegQuality) {
+  const { sx, sy, sW, sH, outW, outH } = computeCaptureRect(srcW, srcH, target, portrait);
 
   const canvas = document.createElement("canvas");
   canvas.width = outW;
@@ -254,9 +254,14 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     if (!cameraReady || !videoRef.current || !sessionId) return;
 
     const target = getCaptureTarget(quality);
+    // Die Geraete-Orientierung bestimmt das Foto-Format - nicht die
+    // Orientierung des gelieferten Frames (der Stream kann nach einer
+    // Drehung noch in der alten Orientierung liefern)
+    const devicePortrait = window.matchMedia?.("(orientation: portrait)")?.matches ?? null;
 
     const trySend = (source, srcW, srcH) => {
-      const dataUrl = drawScaled(source, srcW, srcH, target, target.jpeg);
+      const portrait = devicePortrait ?? srcH >= srcW;
+      const dataUrl = drawScaled(source, srcW, srcH, target, portrait, target.jpeg);
       onSendPhoto?.(dataUrl);
       if (navigator.vibrate) navigator.vibrate(20);
     };
@@ -336,22 +341,6 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     },
     [stopCamera]
   );
-
-  // Restart the camera when the device orientation changes while active.
-  // The stream is negotiated for one orientation; after a rotation the feed
-  // would otherwise keep the old orientation and render sideways/letterboxed.
-  useEffect(() => {
-    const mql = window.matchMedia?.("(orientation: landscape)");
-    if (!mql?.addEventListener) return undefined;
-
-    const onOrientationChange = () => {
-      if (!streamRef.current) return; // camera not running
-      startCamera();
-    };
-
-    mql.addEventListener("change", onOrientationChange);
-    return () => mql.removeEventListener("change", onOrientationChange);
-  }, [startCamera]);
 
   // stop camera when tab/page goes inactive
   useEffect(() => {

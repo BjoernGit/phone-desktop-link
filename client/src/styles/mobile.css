@@ -63,9 +63,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  /* contain statt cover: Die Vorschau zeigt das echte Sensor-Format
-     (inkl. Querformat) - genau das, was beim Ausloesen gesendet wird */
-  object-fit: contain;
+  /* cover fuellt den Sucher in Viewport-Orientierung; der Capture cropt
+     denselben mittigen Ausschnitt (Center-Crop auf Geraete-Orientierung),
+     die Vorschau entspricht also dem gesendeten Bild */
+  object-fit: cover;
   object-position: center center;
   background: #000;
   z-index: 1;
