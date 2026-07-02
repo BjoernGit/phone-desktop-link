@@ -1,48 +1,45 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 function getCaptureTarget(quality) {
+  // Bounds fuer lange/kurze Bildkante - orientierungs-agnostisch, damit
+  // Hoch- und Querformat dieselbe Qualitaetsstufe bekommen
   switch (quality) {
     case "S":
-      return { width: 360, height: 640, jpeg: 0.75 };
+      return { long: 640, short: 360, jpeg: 0.75 };
     case "M":
-      return { width: 720, height: 1280, jpeg: 0.82 };
+      return { long: 1280, short: 720, jpeg: 0.82 };
     case "L":
-      return { width: 1080, height: 1920, jpeg: 0.88 };
+      return { long: 1920, short: 1080, jpeg: 0.88 };
     case "XL":
-      return { width: 1440, height: 2560, jpeg: 0.9 };
+      return { long: 2560, short: 1440, jpeg: 0.9 };
     default:
-      return { width: 720, height: 1280, jpeg: 0.82 };
+      return { long: 1280, short: 720, jpeg: 0.82 };
   }
 }
 
-function drawScaled(source, srcW, srcH, targetW, targetH, jpegQuality) {
-  const targetAspect = targetW / targetH;
-  const srcAspect = srcW / srcH;
+/**
+ * Compute the output size for a capture: preserve the source aspect ratio
+ * and orientation (no cropping), only downscale so the long/short edges
+ * fit within the quality bounds. Never upscale.
+ */
+export function computeCaptureSize(srcW, srcH, target) {
+  const srcLong = Math.max(srcW, srcH);
+  const srcShort = Math.min(srcW, srcH);
+  const scale = Math.min(1, target.long / srcLong, target.short / srcShort);
+  return {
+    width: Math.max(1, Math.round(srcW * scale)),
+    height: Math.max(1, Math.round(srcH * scale)),
+  };
+}
 
-  let sW = srcW;
-  let sH = srcH;
-  let sx = 0;
-  let sy = 0;
-
-  // Crop, um das Ziel-Aspect zu treffen
-  if (srcAspect > targetAspect) {
-    sW = Math.round(srcH * targetAspect);
-    sx = Math.round((srcW - sW) / 2);
-  } else if (srcAspect < targetAspect) {
-    sH = Math.round(srcW / targetAspect);
-    sy = Math.round((srcH - sH) / 2);
-  }
-
-  // Nicht hochskalieren: maximal 1:1
-  const scale = Math.min(1, targetW / sW, targetH / sH);
-  const outW = Math.max(1, Math.round(sW * scale));
-  const outH = Math.max(1, Math.round(sH * scale));
+function drawScaled(source, srcW, srcH, target, jpegQuality) {
+  const { width: outW, height: outH } = computeCaptureSize(srcW, srcH, target);
 
   const canvas = document.createElement("canvas");
   canvas.width = outW;
   canvas.height = outH;
   const ctx = canvas.getContext("2d", { alpha: false });
-  ctx.drawImage(source, sx, sy, sW, sH, 0, 0, outW, outH);
+  ctx.drawImage(source, 0, 0, srcW, srcH, 0, 0, outW, outH);
 
   return canvas.toDataURL("image/jpeg", jpegQuality);
 }
@@ -218,10 +215,10 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
 
-    const { width: targetW, height: targetH, jpeg } = getCaptureTarget(quality);
+    const target = getCaptureTarget(quality);
 
     const trySend = (source, srcW, srcH) => {
-      const dataUrl = drawScaled(source, srcW, srcH, targetW, targetH, jpeg);
+      const dataUrl = drawScaled(source, srcW, srcH, target, target.jpeg);
       onSendPhoto?.(dataUrl);
       if (navigator.vibrate) navigator.vibrate(20);
     };
