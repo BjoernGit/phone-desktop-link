@@ -52,6 +52,57 @@ export function computeCaptureRect(srcW, srcH, target, portrait) {
   return { sx, sy, sW, sH, outW, outH };
 }
 
+/**
+ * Aktuelle Bildschirm-Orientierung in Grad (0/90/180/270).
+ */
+function getOrientationAngle() {
+  if (typeof screen !== "undefined" && screen.orientation && typeof screen.orientation.angle === "number") {
+    return screen.orientation.angle;
+  }
+  if (typeof window !== "undefined" && typeof window.orientation === "number") {
+    return (window.orientation + 360) % 360;
+  }
+  return 0;
+}
+
+/**
+ * Um wieviel Grad (0/90/270, gegen den Uhrzeigersinn) muss ein Frame gedreht
+ * werden, damit sein Inhalt wieder aufrecht ist?
+ *
+ * Der Browser backt die Rotationskorrektur des Kamera-Streams beim Start
+ * fest ein. Dreht man das Geraet danach physisch, ist der Bildinhalt der
+ * Frames um die Orientierungs-Differenz verdreht. Browser, die den laufenden
+ * Stream selbst anpassen, liefern Frames bereits in Geraete-Orientierung -
+ * dann ist keine Korrektur noetig (erkennbar an den Frame-Dimensionen).
+ */
+export function computeFrameRotation({ startAngle, currentAngle, srcW, srcH, devicePortrait }) {
+  const delta = (((currentAngle - startAngle) % 360) + 360) % 360;
+  if (delta === 0) return 0;
+  // 180-Grad-Drehung ist ueber Dimensionen nicht erkennbar; auf Handys
+  // meist ohnehin deaktiviert - nicht korrigieren
+  if (delta === 180) return 0;
+  // Frame entspricht bereits der Geraete-Orientierung -> Browser hat den
+  // Stream selbst angepasst, nichts tun (bei quadratischen Frames nicht
+  // entscheidbar -> Korrektur anwenden)
+  const framePortrait = srcH > srcW;
+  if (srcW !== srcH && framePortrait === devicePortrait) return 0;
+  return delta;
+}
+
+/**
+ * Dreht einen Frame um 90/270 Grad (CCW) in einen aufrechten Offscreen-Canvas.
+ */
+function rotateToUpright(source, srcW, srcH, rotationCcw) {
+  const canvas = document.createElement("canvas");
+  canvas.width = srcH;
+  canvas.height = srcW;
+  const ctx = canvas.getContext("2d", { alpha: false });
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((-rotationCcw * Math.PI) / 180);
+  ctx.drawImage(source, -srcW / 2, -srcH / 2, srcW, srcH);
+  return canvas;
+}
+
 function drawScaled(source, srcW, srcH, target, portrait, jpegQuality) {
   const { sx, sy, sW, sH, outW, outH } = computeCaptureRect(srcW, srcH, target, portrait);
 
@@ -73,6 +124,10 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const imageCaptureRef = useRef(null);
+  // Bildschirm-Orientierung beim Stream-Start: der Browser fixiert die
+  // Rotationskorrektur des Streams zu diesem Zeitpunkt
+  const streamStartAngleRef = useRef(0);
+  const [previewRotation, setPreviewRotation] = useState(0);
   const reportInfo = useCallback(
     (payload) => {
       if (!onCapabilitiesChange) return;
@@ -89,6 +144,27 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     imageCaptureRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraReady(false);
+  }, []);
+
+  // Sucher-Korrektur: Wenn der Frame-Inhalt relativ zur Geraetelage verdreht
+  // ist, wird das <video> per CSS-Transform zurueckgedreht. Neu berechnen bei
+  // Orientierungswechsel und wenn der Browser die Frame-Groesse anpasst.
+  const updatePreviewRotation = useCallback(() => {
+    const v = videoRef.current;
+    if (!streamRef.current || !v || !v.videoWidth) {
+      setPreviewRotation(0);
+      return;
+    }
+    const devicePortrait = window.matchMedia?.("(orientation: portrait)")?.matches ?? true;
+    setPreviewRotation(
+      computeFrameRotation({
+        startAngle: streamStartAngleRef.current,
+        currentAngle: getOrientationAngle(),
+        srcW: v.videoWidth,
+        srcH: v.videoHeight,
+        devicePortrait,
+      })
+    );
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -109,43 +185,21 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
       });
 
       streamRef.current = stream;
+      streamStartAngleRef.current = getOrientationAngle();
 
       const track = stream.getVideoTracks()[0];
       if (track && track.getCapabilities) {
+        // Keine applyConstraints-Nachverhandlung: Die initialen Constraints
+        // fordern die Aufloesung bereits orientierungsabhaengig an; ein
+        // nachtraegliches Pinnen von width/height/aspect verleitet den
+        // Browser zu Crops (quadratischer Stream) und verhindert, dass er
+        // den Stream bei Rotation selbst anpassen kann.
         const caps = track.getCapabilities();
         const settings = track.getSettings ? track.getSettings() : {};
-        // Versuche moeglichst hohe Aufloesung per applyConstraints - aber
-        // unter Beibehaltung des gelieferten Seitenverhaeltnisses.
-        // width.max UND height.max gleichzeitig anzufordern erlaubt Chrome,
-        // den Stream auf diese Kombination zu croppen (bei gleichen Maxima
-        // wird er quadratisch).
-        const aspect =
-          settings.aspectRatio ||
-          (settings.width && settings.height ? settings.width / settings.height : 0);
-        if (track.applyConstraints && caps.width?.max && aspect) {
-          const maxW = caps.width.max;
-          const maxH = caps.height?.max || Math.round(maxW / aspect);
-          let targetW = maxW;
-          let targetH = Math.round(maxW / aspect);
-          if (targetH > maxH) {
-            targetH = maxH;
-            targetW = Math.round(maxH * aspect);
-          }
-          try {
-            await track.applyConstraints({
-              width: { ideal: targetW },
-              height: { ideal: targetH },
-              aspectRatio: { ideal: aspect },
-            });
-          } catch {
-            // ignorieren, fallback auf vorhandene Settings
-          }
-        }
-        const finalSettings = track.getSettings ? track.getSettings() : {};
         reportInfo({
           type: "track",
           caps,
-          settings: finalSettings,
+          settings,
         });
       }
 
@@ -244,11 +298,12 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
       }
 
       setCameraReady(true);
+      updatePreviewRotation();
     } catch (err) {
       setCameraError(err?.message ?? (t ? t("errors.cameraPermissionDenied") : "Camera permission denied"));
       setCameraReady(false);
     }
-  }, [reportInfo, stopCamera]);
+  }, [reportInfo, stopCamera, updatePreviewRotation]);
 
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
@@ -261,7 +316,27 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
 
     const trySend = (source, srcW, srcH) => {
       const portrait = devicePortrait ?? srcH >= srcW;
-      const dataUrl = drawScaled(source, srcW, srcH, target, portrait, target.jpeg);
+
+      // Hat sich das Geraet seit Stream-Start gedreht, ist der Bildinhalt
+      // der Frames verdreht -> rechnerisch zurueckdrehen (kein Neustart)
+      const rotation = computeFrameRotation({
+        startAngle: streamStartAngleRef.current,
+        currentAngle: getOrientationAngle(),
+        srcW,
+        srcH,
+        devicePortrait: portrait,
+      });
+
+      let src = source;
+      let w = srcW;
+      let h = srcH;
+      if (rotation === 90 || rotation === 270) {
+        src = rotateToUpright(source, srcW, srcH, rotation);
+        w = srcH;
+        h = srcW;
+      }
+
+      const dataUrl = drawScaled(src, w, h, target, portrait, target.jpeg);
       onSendPhoto?.(dataUrl);
       if (navigator.vibrate) navigator.vibrate(20);
     };
@@ -342,6 +417,17 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     [stopCamera]
   );
 
+  useEffect(() => {
+    const mql = window.matchMedia?.("(orientation: portrait)");
+    const v = videoRef.current;
+    mql?.addEventListener?.("change", updatePreviewRotation);
+    v?.addEventListener?.("resize", updatePreviewRotation);
+    return () => {
+      mql?.removeEventListener?.("change", updatePreviewRotation);
+      v?.removeEventListener?.("resize", updatePreviewRotation);
+    };
+  }, [updatePreviewRotation]);
+
   // stop camera when tab/page goes inactive
   useEffect(() => {
     const onVisibility = () => {
@@ -370,6 +456,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     cameraReady,
     cameraError,
     isStartingCamera,
+    previewRotation,
     handleStartCamera,
     handleShutter,
     handleStopCamera,

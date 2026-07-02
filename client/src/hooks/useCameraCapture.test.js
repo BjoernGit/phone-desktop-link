@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeCaptureRect } from './useCameraCapture';
+import { computeCaptureRect, computeFrameRotation } from './useCameraCapture';
 
 const M = { long: 1280, short: 720 };
 const XL = { long: 2560, short: 1440 };
@@ -49,5 +49,59 @@ describe('computeCaptureRect', () => {
   it('never upscales small sources', () => {
     const r = computeCaptureRect(640, 360, XL, false);
     expect([r.outW, r.outH]).toEqual([640, 360]);
+  });
+});
+
+describe('computeFrameRotation', () => {
+  it('no rotation when orientation is unchanged since stream start', () => {
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 0, srcW: 1080, srcH: 1920, devicePortrait: true,
+    });
+    expect(r).toBe(0);
+  });
+
+  it('no correction when the browser already adapted the stream', () => {
+    // Geraet wurde gedreht, aber der Frame ist bereits quer -> Browser hat angepasst
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 90, srcW: 1920, srcH: 1080, devicePortrait: false,
+    });
+    expect(r).toBe(0);
+  });
+
+  it('corrects a frozen stream after rotating portrait -> landscape', () => {
+    // Stream in Hochkant gestartet (liefert weiter 1080x1920), Geraet jetzt quer
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 90, srcW: 1080, srcH: 1920, devicePortrait: false,
+    });
+    expect(r).toBe(90);
+  });
+
+  it('corrects the opposite rotation direction with 270 degrees', () => {
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 270, srcW: 1080, srcH: 1920, devicePortrait: false,
+    });
+    expect(r).toBe(270);
+  });
+
+  it('corrects a frozen stream after rotating landscape -> portrait', () => {
+    // Stream quer gestartet (Winkel 90), Geraet zurueck auf aufrecht (0)
+    const r = computeFrameRotation({
+      startAngle: 90, currentAngle: 0, srcW: 1920, srcH: 1080, devicePortrait: true,
+    });
+    expect(r).toBe(270);
+  });
+
+  it('ignores 180 degree flips (not detectable via dimensions)', () => {
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 180, srcW: 1080, srcH: 1920, devicePortrait: true,
+    });
+    expect(r).toBe(0);
+  });
+
+  it('applies the correction for square frames (orientation not decidable)', () => {
+    const r = computeFrameRotation({
+      startAngle: 0, currentAngle: 90, srcW: 1000, srcH: 1000, devicePortrait: false,
+    });
+    expect(r).toBe(90);
   });
 });

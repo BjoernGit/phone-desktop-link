@@ -72,6 +72,20 @@
   z-index: 1;
 }
 
+/* Frame-Inhalt ist relativ zur Geraetelage verdreht (Stream wurde in
+   anderer Orientierung gestartet): Sucher per Transform zurueckdrehen.
+   Breite/Hoehe getauscht, damit das rotierte Element den Viewport fuellt. */
+.mobileSimpleVideo.frameRotated {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  height: 100vw;
+  width: 100dvh;
+  height: 100dvw;
+  transform: translate(-50%, -50%) rotate(var(--frame-rotation, 0deg));
+}
+
 .mobileCameraView {
   position: absolute;
   inset: 0;

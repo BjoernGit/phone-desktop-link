@@ -462,6 +462,7 @@ export default function App() {
     cameraReady,
     cameraError,
     isStartingCamera,
+    previewRotation,
     handleStartCamera,
     handleShutter,
     quality,
@@ -799,6 +800,7 @@ export default function App() {
       cameraReady={cameraReady}
       cameraError={cameraError}
       isStartingCamera={isStartingCamera}
+      previewRotation={previewRotation}
       handleStartCamera={handleStartCamera}
       handleShutter={handleShutter}
       fileInputRef={fileInputRef}
