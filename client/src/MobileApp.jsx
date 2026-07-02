@@ -6,6 +6,7 @@ import { SessionOfferModal } from "./components/SessionOfferModal";
 import { PhotoGrid } from "./components/PhotoGrid";
 import { PendingApprovals } from "./components/PendingApprovals";
 import { MobileQrDisplay } from "./components/MobileQrDisplay";
+import { MobileFilePanel } from "./components/MobileFilePanel";
 import { FEATURE_FLAGS } from "./config/features";
 
 export function MobileApp({
@@ -57,6 +58,13 @@ export function MobileApp({
   isWaitingForApproval = false,
   clientUuid,
   qrUrl,
+  peers = [],
+  allFiles = [],
+  sharedFiles = [],
+  handleFileDownload,
+  handleRemoveFile,
+  handleSharedFilesChange,
+  fileTransfers,
 }) {
   const { t } = useTranslation();
 
@@ -243,6 +251,19 @@ export function MobileApp({
               </div>
             )}
           </div>
+        </div>
+      ) : mobileView === "files" ? (
+        <div className="mobileFilesView" onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+          <MobileFilePanel
+            files={allFiles}
+            sharedFiles={sharedFiles}
+            peers={peers}
+            clientUuid={clientUuid}
+            onDownload={handleFileDownload}
+            onRemoveFile={handleRemoveFile}
+            onFilesChange={handleSharedFilesChange}
+            transfers={fileTransfers}
+          />
         </div>
       ) : (
         <MobileQrDisplay url={qrUrl} sessionId={sessionId} clientUuid={clientUuid} />

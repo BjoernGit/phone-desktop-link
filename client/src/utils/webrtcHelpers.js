@@ -59,6 +59,14 @@ export function setupDataChannelEventHandlers(dc, peerUuid, options) {
 
   dc.onopen = () => {
     if (DEBUG_WEBRTC) console.log(`[WebRTC] DataChannel opened for ${peerUuid}`);
+    // With glare (both sides initiating) two channels can open for the same
+    // peer. Keep the first healthy one - a duplicate must not displace it,
+    // otherwise the registered per-peer state points at the wrong channel.
+    const existing = dataChannelsRef.current.get(peerUuid);
+    if (existing && existing !== dc && existing.readyState === "open") {
+      if (DEBUG_WEBRTC) console.log(`[WebRTC] Duplicate DataChannel for ${peerUuid}, keeping existing`);
+      return;
+    }
     dataChannelsRef.current.set(peerUuid, dc);
     setDataChannels(new Map(dataChannelsRef.current));
     if (onOpenCallback) {
@@ -68,6 +76,11 @@ export function setupDataChannelEventHandlers(dc, peerUuid, options) {
 
   dc.onclose = () => {
     if (DEBUG_WEBRTC) console.log(`[WebRTC] DataChannel closed for ${peerUuid}`);
+    // Only clear per-peer state if this channel is still the active one.
+    // With glare (both sides initiating) a superseded channel can close
+    // long after its replacement opened - it must not clobber the new
+    // channel's registration, or messages silently pile up in the buffer.
+    if (dataChannelsRef.current.get(peerUuid) !== dc) return;
     dataChannelsRef.current.delete(peerUuid);
     setDataChannels(new Map(dataChannelsRef.current));
     messageBufferRef.current.delete(peerUuid);

@@ -240,6 +240,142 @@
   background: linear-gradient(180deg, #0c0f1a 0%, #0b0d18 100%);
 }
 
+/* Mobile Files View */
+.mobileFilesView {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: auto;
+  background: linear-gradient(180deg, #0c0f1a 0%, #0b0d18 100%);
+  padding: 24px 16px;
+}
+
+.mobileFilePanel {
+  max-width: 640px;
+  margin: 0 auto;
+  color: #fff;
+}
+
+.mobileFileHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.mobileFileHeader h2 {
+  margin: 0;
+}
+
+.mobileFileSelectBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0c0f1a;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+}
+
+.mobileFileEmpty {
+  text-align: center;
+  padding: 32px 16px;
+  color: rgba(255, 255, 255, 0.85);
+  line-height: 1.4;
+}
+
+.mobileFileHint {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 14px;
+}
+
+.mobileFileList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 24px;
+}
+
+.mobileFileRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.mobileFileIcon {
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.mobileFileInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobileFileName {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 15px;
+}
+
+.mobileFileMeta {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+.mobileFileProgress {
+  margin-top: 6px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.15);
+  overflow: hidden;
+}
+
+.mobileFileProgressBar {
+  height: 100%;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  transition: width 0.2s ease;
+}
+
+.mobileFileAction {
+  flex-shrink: 0;
+}
+
+.mobileFileDownloadBtn {
+  border: none;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #052239;
+  background: rgba(111, 201, 255, 0.9);
+}
+
+.mobileFileRemoveBtn {
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.mobileFileDone {
+  color: #4ade80;
+  font-size: 18px;
+}
+
+.mobileFilePercent {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 14px;
+}
+
 /* Mobile QR Display View */
 .mobileQrDisplayView {
   position: absolute;

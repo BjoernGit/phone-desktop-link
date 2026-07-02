@@ -23,9 +23,8 @@ const RETRY_DELAY_MS = FILE_TRANSFER_CONFIG.RETRY_DELAY_MS || 2000;
  * @param {Object} options.socket - Socket.io socket instance
  * @param {string} options.clientUuid - Current client's UUID
  * @param {Array} options.peers - Array of connected peers
- * @param {boolean} options.isMobile - Whether running on mobile device
  */
-export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
+export function useAppFileTransfer({ socket, clientUuid, peers }) {
   // File state
   const [sharedFiles, setSharedFiles] = useState([]); // Own files to share
   const [peerFiles, setPeerFiles] = useState(new Map()); // peerUuid -> file list
@@ -42,11 +41,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     setAlertMessage(null);
   }, []);
 
-  // WebRTC & File Transfer Hooks (only on desktop)
+  // WebRTC & File Transfer Hooks (all devices, mobile included)
   const webRTC = useWebRTC({
     socket,
     clientUuid,
-    enabled: !isMobile,
   });
 
   const fileTransfer = useFileTransfer();
@@ -83,7 +81,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   // Use UUID comparison as tie-breaker to avoid "glare" (both sides sending offers)
   // Only the peer with the "higher" UUID initiates the connection
   useEffect(() => {
-    if (isMobile || !socket || !socket.connected || !clientUuid) return;
+    if (!socket || !socket.connected || !clientUuid) return;
 
     for (const peer of peers) {
       const peerUuid = peer.clientUuid;
@@ -150,11 +148,11 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       }
       return hasChanges ? next : prev;
     });
-  }, [peers, socket, isMobile, webRTC.createOffer, webRTC.dataChannels, clientUuid]);
+  }, [peers, socket, webRTC.createOffer, webRTC.dataChannels, clientUuid]);
 
   // Broadcast own file list to peers when it changes
   useEffect(() => {
-    if (isMobile || !socket || !socket.connected) return;
+    if (!socket || !socket.connected) return;
 
     const fileMetadata = sharedFiles.map((f) => ({
       id: f.id,
@@ -165,11 +163,11 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     }));
 
     socket.emit("file-list-update", { files: fileMetadata });
-  }, [sharedFiles, socket, clientUuid, isMobile]);
+  }, [sharedFiles, socket, clientUuid]);
 
   // Socket.io fallback: Handle file requests (sending)
   useEffect(() => {
-    if (isMobile || !socket) return;
+    if (!socket) return;
 
     const handleFileRequestSocketio = async ({ fromUuid, fileId }) => {
       const fileToSend = sharedFiles.find((f) => f.id === fileId);
@@ -256,11 +254,11 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
     return () => {
       socket.off("file-request-socketio", handleFileRequestSocketio);
     };
-  }, [socket, isMobile, sharedFiles]);
+  }, [socket, sharedFiles]);
 
   // Socket.io fallback: Receive file chunks
   useEffect(() => {
-    if (isMobile || !socket) return;
+    if (!socket) return;
 
     const fileChunks = new Map();
 
@@ -362,12 +360,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       socket.off("file-transfer-socketio-error", handleFileTransferError);
       socket.off("file-transfer-socketio-revoked", handleFileTransferRevoked);
     };
-  }, [socket, isMobile, showAlert]);
+  }, [socket, showAlert]);
 
   // Setup WebRTC file receiver and sender on data channels
   useEffect(() => {
-    if (isMobile) return;
-
     const currentPeers = new Set(webRTC.dataChannels.keys());
     const registeredPeers = new Set(registeredHandlersRef.current.keys());
 
@@ -446,7 +442,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       const callbackCleanup = webRTC.registerMessageCallback(peerUuid, fileTransferHandler);
       registeredHandlersRef.current.set(peerUuid, callbackCleanup);
     });
-  }, [webRTC.dataChannels, webRTC.registerMessageCallback, fileTransfer, isMobile]);
+  }, [webRTC.dataChannels, webRTC.registerMessageCallback, fileTransfer]);
 
   // Cleanup all handlers on unmount
   useEffect(() => {
@@ -464,7 +460,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
    */
   const attemptFileDownload = useCallback(
     async (file, isRetry = false) => {
-      if (isMobile || !file.ownerUuid) return false;
+      if (!file.ownerUuid) return false;
 
       const peerUuid = file.ownerUuid;
 
@@ -511,7 +507,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       }));
       return true;
     },
-    [isMobile, webRTC, peers, socket]
+    [webRTC, peers, socket]
   );
 
   /**
@@ -568,7 +564,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   // Handle file download (initiate transfer)
   const handleFileDownload = useCallback(
     async (file) => {
-      if (isMobile || !file.ownerUuid) return;
+      if (!file.ownerUuid) return;
 
       const peerUuid = file.ownerUuid;
 
@@ -603,7 +599,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
         retryFileDownload(file);
       }
     },
-    [isMobile, peers, attemptFileDownload, retryFileDownload]
+    [peers, attemptFileDownload, retryFileDownload]
   );
 
   // Handle own file list changes
@@ -639,8 +635,8 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   // Sync file metadata list to all peers (re-broadcast)
   const syncFilesToPeer = useCallback(
     async (peerUuid) => {
-      if (isMobile || !peerUuid || !socket) {
-        console.warn("[FileTransfer] Cannot sync: mobile mode, no peer UUID, or no socket");
+      if (!peerUuid || !socket) {
+        console.warn("[FileTransfer] Cannot sync: no peer UUID or no socket");
         return;
       }
 
@@ -665,7 +661,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
       socket.emit("file-list-update", { files: fileMetadata });
       console.log(`[FileTransfer] File metadata broadcast complete (${fileMetadata.length} files)`);
     },
-    [isMobile, sharedFiles, peers, socket, clientUuid]
+    [sharedFiles, peers, socket, clientUuid]
   );
 
   // Watch for failed transfers and trigger retry
@@ -673,8 +669,6 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
   const prevTransfersRef = useRef(new Map());
 
   useEffect(() => {
-    if (isMobile) return;
-
     const prevTransfers = prevTransfersRef.current;
     const currentTransfers = fileTransfer.transfers;
 
@@ -715,7 +709,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, isMobile }) {
 
     // Update previous transfers ref
     prevTransfersRef.current = new Map(currentTransfers);
-  }, [fileTransfer.transfers, peerFiles, isMobile, retryFileDownload]);
+  }, [fileTransfer.transfers, peerFiles, retryFileDownload]);
 
   return {
     // State

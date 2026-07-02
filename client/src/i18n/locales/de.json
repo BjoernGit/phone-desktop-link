@@ -66,12 +66,21 @@
       "empty": "Noch keine Fotos in dieser Session.",
       "swipeBack": "Swipe nach rechts zurueck zur Kamera."
     },
+    "files": {
+      "title": "Dateien",
+      "select": "Dateien teilen",
+      "empty": "Keine Dateien in dieser Session.",
+      "hint": "Geteilte Dateien von allen Geräten erscheinen hier.",
+      "download": "Laden",
+      "remove": "Entfernen",
+      "you": "Dieses Gerät"
+    },
     "qrDisplay": {
       "title": "QR-Code anzeigen",
       "instructions": "Scanne diesen QR-Code mit einem anderen Gerät, um es mit dieser Session zu verbinden.",
       "sessionId": "Session-ID",
       "deviceId": "Geräte-ID",
-      "swipeHint": "← Swipe links: Galerie | Swipe rechts: Kamera →",
+      "swipeHint": "← Swipe links: Kamera | Swipe rechts: Dateien →",
       "hiddenForSecurity": "QR-Code aus Sicherheitsgründen ausgeblendet",
       "showQr": "QR-Code anzeigen"
     },

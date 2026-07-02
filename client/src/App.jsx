@@ -247,7 +247,6 @@ export default function App() {
     socket,
     clientUuid,
     peers,
-    isMobile,
   });
 
   // Set the ref so useSessionSockets can forward peer-file-list events
@@ -276,7 +275,7 @@ export default function App() {
 
   // Auto-sync files when peers become approved (if manual sync is disabled)
   useEffect(() => {
-    if (FEATURE_FLAGS.MANUAL_FILE_SYNC || isMobile || !syncFilesToPeer) return;
+    if (FEATURE_FLAGS.MANUAL_FILE_SYNC || !syncFilesToPeer) return;
 
     const approvedPeers = Object.entries(peerStatuses)
       .filter(([_, status]) => status === "approved")
@@ -292,7 +291,7 @@ export default function App() {
         });
       }
     });
-  }, [peerStatuses, syncFilesToPeer, isMobile, peers, sharedFiles.length]);
+  }, [peerStatuses, syncFilesToPeer, peers, sharedFiles.length]);
 
   // Handle content sync to a late joiner (files metadata only for now)
   const handleSyncFiles = useCallback(
@@ -836,6 +835,13 @@ export default function App() {
       isWaitingForApproval={isWaitingForApproval}
       clientUuid={clientUuid}
       qrUrl={qrUrl}
+      peers={peers}
+      allFiles={allFiles}
+      sharedFiles={sharedFiles}
+      handleFileDownload={handleFileDownload}
+      handleRemoveFile={handleRemoveFile}
+      handleSharedFilesChange={handleSharedFilesChange}
+      fileTransfers={fileTransfers}
     />
   );
 }

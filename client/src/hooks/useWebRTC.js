@@ -65,6 +65,10 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       // Track connection state
       pc.onconnectionstatechange = () => {
         if (DEBUG_WEBRTC) console.log(`[WebRTC] Connection state for ${peerUuid}: ${pc.connectionState}`);
+        // Ignore events from superseded connections (glare can leave an
+        // orphaned RTCPeerConnection behind) - a dying orphan must not
+        // report state for the peer or tear down the active connection.
+        if (connectionsRef.current.get(peerUuid) !== pc) return;
         setConnectionStates((prev) => {
           const next = new Map(prev);
           next.set(peerUuid, pc.connectionState);
