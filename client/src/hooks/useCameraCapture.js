@@ -90,24 +90,39 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
       const track = stream.getVideoTracks()[0];
       if (track && track.getCapabilities) {
         const caps = track.getCapabilities();
-        // Versuche moeglichst hohe Aufloesung per applyConstraints
-        const targetW = caps.width?.max || 2560;
-        const targetH = caps.height?.max || 2560;
-        if (targetW && targetH && track.applyConstraints) {
+        const settings = track.getSettings ? track.getSettings() : {};
+        // Versuche moeglichst hohe Aufloesung per applyConstraints - aber
+        // unter Beibehaltung des gelieferten Seitenverhaeltnisses.
+        // width.max UND height.max gleichzeitig anzufordern erlaubt Chrome,
+        // den Stream auf diese Kombination zu croppen (bei gleichen Maxima
+        // wird er quadratisch).
+        const aspect =
+          settings.aspectRatio ||
+          (settings.width && settings.height ? settings.width / settings.height : 0);
+        if (track.applyConstraints && caps.width?.max && aspect) {
+          const maxW = caps.width.max;
+          const maxH = caps.height?.max || Math.round(maxW / aspect);
+          let targetW = maxW;
+          let targetH = Math.round(maxW / aspect);
+          if (targetH > maxH) {
+            targetH = maxH;
+            targetW = Math.round(maxH * aspect);
+          }
           try {
             await track.applyConstraints({
               width: { ideal: targetW },
               height: { ideal: targetH },
+              aspectRatio: { ideal: aspect },
             });
           } catch {
             // ignorieren, fallback auf vorhandene Settings
           }
         }
-        const settings = track.getSettings ? track.getSettings() : {};
+        const finalSettings = track.getSettings ? track.getSettings() : {};
         reportInfo({
           type: "track",
           caps,
-          settings,
+          settings: finalSettings,
         });
       }
 
