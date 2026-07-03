@@ -135,6 +135,9 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
   // Frame-Format (hoch/quer) des ersten gelieferten Frames - Referenz, um
   // spaeter zu erkennen, ob der Browser den Stream bei Rotation anpasst
   const streamStartFramePortraitRef = useRef(null);
+  // Grad (CCW), um die der Sucher zurueckgedreht werden muss, damit der
+  // Feed aufrecht angezeigt wird - gleiche Logik wie beim Foto
+  const [previewRotation, setPreviewRotation] = useState(0);
   const reportInfo = useCallback(
     (payload) => {
       if (!onCapabilitiesChange) return;
@@ -151,6 +154,26 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     imageCaptureRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
     setCameraReady(false);
+  }, []);
+
+  // Sucher-Korrektur mit derselben (am Foto validierten) Rotationslogik.
+  // Neu berechnen bei Orientierungswechsel und wenn der Browser die
+  // Frame-Groesse anpasst.
+  const updatePreviewRotation = useCallback(() => {
+    const v = videoRef.current;
+    if (!streamRef.current || !v || !v.videoWidth) {
+      setPreviewRotation(0);
+      return;
+    }
+    setPreviewRotation(
+      computeFrameRotation({
+        startAngle: streamStartAngleRef.current,
+        currentAngle: getOrientationAngle(),
+        srcW: v.videoWidth,
+        srcH: v.videoHeight,
+        startFramePortrait: streamStartFramePortraitRef.current,
+      })
+    );
   }, []);
 
   const startCamera = useCallback(async () => {
@@ -292,11 +315,12 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
           : null;
 
       setCameraReady(true);
+      updatePreviewRotation();
     } catch (err) {
       setCameraError(err?.message ?? (t ? t("errors.cameraPermissionDenied") : "Camera permission denied"));
       setCameraReady(false);
     }
-  }, [reportInfo, stopCamera]);
+  }, [reportInfo, stopCamera, updatePreviewRotation]);
 
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
@@ -410,6 +434,17 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     [stopCamera]
   );
 
+  useEffect(() => {
+    const mql = window.matchMedia?.("(orientation: portrait)");
+    const v = videoRef.current;
+    mql?.addEventListener?.("change", updatePreviewRotation);
+    v?.addEventListener?.("resize", updatePreviewRotation);
+    return () => {
+      mql?.removeEventListener?.("change", updatePreviewRotation);
+      v?.removeEventListener?.("resize", updatePreviewRotation);
+    };
+  }, [updatePreviewRotation]);
+
   // stop camera when tab/page goes inactive
   useEffect(() => {
     const onVisibility = () => {
@@ -438,6 +473,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     cameraReady,
     cameraError,
     isStartingCamera,
+    previewRotation,
     handleStartCamera,
     handleShutter,
     handleStopCamera,
