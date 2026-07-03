@@ -71,21 +71,26 @@ function getOrientationAngle() {
  *
  * Der Browser backt die Rotationskorrektur des Kamera-Streams beim Start
  * fest ein. Dreht man das Geraet danach physisch, ist der Bildinhalt der
- * Frames um die Orientierungs-Differenz verdreht. Browser, die den laufenden
- * Stream selbst anpassen, liefern Frames bereits in Geraete-Orientierung -
- * dann ist keine Korrektur noetig (erkennbar an den Frame-Dimensionen).
+ * Frames um die Orientierungs-Differenz verdreht.
+ *
+ * Ob der Browser den laufenden Stream doch selbst angepasst hat, wird am
+ * Frame-Format erkannt: Hat es sich seit dem Start getauscht, hat der
+ * Browser rotiert -> keine Korrektur. Unveraendertes Format heisst
+ * eingefrorener Stream -> um die Winkeldifferenz korrigieren. (Manche
+ * Geraete liefern unabhaengig von der Lage immer sensor-native Querformat-
+ * Frames - ein Vergleich mit der Geraetelage waere dort irrefuehrend.)
  */
-export function computeFrameRotation({ startAngle, currentAngle, srcW, srcH, devicePortrait }) {
+export function computeFrameRotation({ startAngle, currentAngle, srcW, srcH, startFramePortrait }) {
   const delta = (((currentAngle - startAngle) % 360) + 360) % 360;
   if (delta === 0) return 0;
   // 180-Grad-Drehung ist ueber Dimensionen nicht erkennbar; auf Handys
   // meist ohnehin deaktiviert - nicht korrigieren
   if (delta === 180) return 0;
-  // Frame entspricht bereits der Geraete-Orientierung -> Browser hat den
-  // Stream selbst angepasst, nichts tun (bei quadratischen Frames nicht
-  // entscheidbar -> Korrektur anwenden)
+  // Frame-Format hat sich seit Stream-Start getauscht -> Browser hat den
+  // Stream selbst angepasst, nichts tun (bei unbekanntem Start-Format oder
+  // quadratischen Frames nicht entscheidbar -> Korrektur anwenden)
   const framePortrait = srcH > srcW;
-  if (srcW !== srcH && framePortrait === devicePortrait) return 0;
+  if (startFramePortrait != null && srcW !== srcH && framePortrait !== startFramePortrait) return 0;
   return delta;
 }
 
@@ -127,6 +132,9 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
   // Bildschirm-Orientierung beim Stream-Start: der Browser fixiert die
   // Rotationskorrektur des Streams zu diesem Zeitpunkt
   const streamStartAngleRef = useRef(0);
+  // Frame-Format (hoch/quer) des ersten gelieferten Frames - Referenz, um
+  // spaeter zu erkennen, ob der Browser den Stream bei Rotation anpasst
+  const streamStartFramePortraitRef = useRef(null);
   const reportInfo = useCallback(
     (payload) => {
       if (!onCapabilitiesChange) return;
@@ -275,6 +283,14 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
         });
       }
 
+      // Format des ersten Frames festhalten (Referenz fuer die spaetere
+      // Erkennung, ob der Browser den Stream bei Rotation selbst anpasst)
+      const firstFrame = videoRef.current;
+      streamStartFramePortraitRef.current =
+        firstFrame && firstFrame.videoWidth && firstFrame.videoHeight
+          ? firstFrame.videoHeight > firstFrame.videoWidth
+          : null;
+
       setCameraReady(true);
     } catch (err) {
       setCameraError(err?.message ?? (t ? t("errors.cameraPermissionDenied") : "Camera permission denied"));
@@ -301,7 +317,7 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
         currentAngle: getOrientationAngle(),
         srcW,
         srcH,
-        devicePortrait: portrait,
+        startFramePortrait: streamStartFramePortraitRef.current,
       });
 
       let src = source;
