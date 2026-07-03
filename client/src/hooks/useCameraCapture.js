@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-// Wunsch-Aufloesung des Kamera-Streams (lange x kurze Kante)
-const STREAM_IDEAL_LONG = 2560;
-const STREAM_IDEAL_SHORT = 1440;
-
 function getCaptureTarget(quality) {
   // Feste Zielformate (lange x kurze Kante). Die Orientierung folgt der
   // Quelle: Hochformat-Quelle -> z.B. 720x1280, Querformat-Quelle -> 1280x720
@@ -180,43 +176,6 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
     );
   }, []);
 
-  // Laufenden Track lagegerecht rekonfigurieren (kein Neustart, keine neue
-  // Freigabe): Nach einer Drehung wird das volle Sichtfeld in der neuen
-  // Orientierung angefordert statt aus dem alten Frame zu schneiden.
-  // Ignoriert das Geraet die Anfrage, bleibt die Dreh-Korrektur der Fallback.
-  const reconfigureStreamForOrientation = useCallback(async () => {
-    const track = streamRef.current?.getVideoTracks?.()[0];
-    const v = videoRef.current;
-    if (!track || !track.applyConstraints || !v) return;
-
-    const portrait = window.matchMedia?.("(orientation: portrait)")?.matches ?? true;
-    const w = portrait ? STREAM_IDEAL_SHORT : STREAM_IDEAL_LONG;
-    const h = portrait ? STREAM_IDEAL_LONG : STREAM_IDEAL_SHORT;
-    try {
-      await track.applyConstraints({
-        width: { ideal: w },
-        height: { ideal: h },
-        aspectRatio: { ideal: w / h },
-      });
-    } catch {
-      updatePreviewRotation();
-      return;
-    }
-
-    // Hat die Rekonfiguration gewirkt (Frame-Format passt zur Lage)?
-    // Dann gilt der Stream als frisch in dieser Orientierung gestartet -
-    // Referenzen neu setzen, damit die Dreh-Logik nicht weiter korrigiert.
-    const settings = track.getSettings ? track.getSettings() : {};
-    const newW = settings.width || v.videoWidth;
-    const newH = settings.height || v.videoHeight;
-    const framePortrait = newH > newW;
-    if (newW && newH && framePortrait === portrait) {
-      streamStartAngleRef.current = getOrientationAngle();
-      streamStartFramePortraitRef.current = framePortrait;
-    }
-    updatePreviewRotation();
-  }, [updatePreviewRotation]);
-
   const startCamera = useCallback(async () => {
     setCameraError("");
     stopCamera();
@@ -228,8 +187,8 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: landscape ? STREAM_IDEAL_LONG : STREAM_IDEAL_SHORT },
-          height: { ideal: landscape ? STREAM_IDEAL_SHORT : STREAM_IDEAL_LONG },
+          width: { ideal: landscape ? 2560 : 1440 },
+          height: { ideal: landscape ? 1440 : 2560 },
         },
         audio: false,
       });
@@ -356,16 +315,12 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
           : null;
 
       setCameraReady(true);
-      // Falls der Stream nicht in der angeforderten Orientierung startete
-      // (manche Geraete liefern immer sensor-natives Querformat), einmal
-      // lagegerecht nachfordern - sonst wird das aufrechte Foto unnoetig
-      // stark aus dem Quer-Frame geschnitten
-      await reconfigureStreamForOrientation();
+      updatePreviewRotation();
     } catch (err) {
       setCameraError(err?.message ?? (t ? t("errors.cameraPermissionDenied") : "Camera permission denied"));
       setCameraReady(false);
     }
-  }, [reportInfo, stopCamera, reconfigureStreamForOrientation]);
+  }, [reportInfo, stopCamera, updatePreviewRotation]);
 
   const takePhotoAndSend = useCallback(async () => {
     if (!cameraReady || !videoRef.current || !sessionId) return;
@@ -482,16 +437,13 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
   useEffect(() => {
     const mql = window.matchMedia?.("(orientation: portrait)");
     const v = videoRef.current;
-    const onOrientationChange = () => {
-      reconfigureStreamForOrientation();
-    };
-    mql?.addEventListener?.("change", onOrientationChange);
+    mql?.addEventListener?.("change", updatePreviewRotation);
     v?.addEventListener?.("resize", updatePreviewRotation);
     return () => {
-      mql?.removeEventListener?.("change", onOrientationChange);
+      mql?.removeEventListener?.("change", updatePreviewRotation);
       v?.removeEventListener?.("resize", updatePreviewRotation);
     };
-  }, [updatePreviewRotation, reconfigureStreamForOrientation]);
+  }, [updatePreviewRotation]);
 
   // stop camera when tab/page goes inactive
   useEffect(() => {
