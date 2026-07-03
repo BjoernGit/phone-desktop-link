@@ -15,20 +15,12 @@ export function MobileControls({
   setQuality,
   showQualityPicker,
   setShowQualityPicker,
-  previewRotation = 0,
   hidden = false,
 }) {
   const { t } = useTranslation();
   return (
     <div className={hidden ? "mobileCameraView hidden" : "mobileCameraView"}>
-      <video
-        ref={videoRef}
-        className={previewRotation ? "mobileSimpleVideo frameRotated" : "mobileSimpleVideo"}
-        style={previewRotation ? { "--frame-rotation": `${-previewRotation}deg` } : undefined}
-        playsInline
-        muted
-        autoPlay
-      />
+      <video ref={videoRef} className="mobileSimpleVideo" playsInline muted autoPlay />
 
       <input
         ref={fileInputRef}

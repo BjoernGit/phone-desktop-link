@@ -23,7 +23,6 @@ export function MobileApp({
   cameraReady,
   cameraError,
   isStartingCamera,
-  previewRotation,
   handleStartCamera,
   handleShutter,
   fileInputRef,
@@ -102,7 +101,6 @@ export function MobileApp({
         cameraReady={cameraReady}
         cameraError={cameraError}
         isStartingCamera={isStartingCamera}
-        previewRotation={previewRotation}
         handleStartCamera={handleStartCamera}
         handleShutter={handleShutter}
         fileInputRef={fileInputRef}
