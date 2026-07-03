@@ -186,12 +186,15 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
       // 16:9: Das 16:9-Videofenster ist selbst nur ein Crop des 4:3-Sensors;
       // mit 4:3 bleibt mehr Sichtfeld uebrig, aus dem die festen Foto-
       // Formate geschnitten werden (weniger Zoom-Effekt).
+      // 12MP-Klasse (4032x3024), damit auch der XL-Hochkant-Ausschnitt
+      // (1440x2560) ohne Hochskalieren erreichbar ist - "ideal" ist weich,
+      // das Geraet liefert sonst einfach sein Maximum.
       const landscape = window.matchMedia?.("(orientation: landscape)")?.matches ?? false;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: landscape ? 2560 : 1920 },
-          height: { ideal: landscape ? 1920 : 2560 },
+          width: { ideal: landscape ? 4032 : 3024 },
+          height: { ideal: landscape ? 3024 : 4032 },
         },
         audio: false,
       });
