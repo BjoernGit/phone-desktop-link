@@ -182,13 +182,16 @@ export function useCameraCapture({ sessionId, onSendPhoto, onCapabilitiesChange,
 
     try {
       // Aufloesung passend zur aktuellen Geraete-Orientierung anfordern,
-      // damit der Feed direkt richtig herum startet (quer -> Widescreen)
+      // damit der Feed direkt richtig herum startet. Bewusst 4:3 statt
+      // 16:9: Das 16:9-Videofenster ist selbst nur ein Crop des 4:3-Sensors;
+      // mit 4:3 bleibt mehr Sichtfeld uebrig, aus dem die festen Foto-
+      // Formate geschnitten werden (weniger Zoom-Effekt).
       const landscape = window.matchMedia?.("(orientation: landscape)")?.matches ?? false;
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: landscape ? 2560 : 1440 },
-          height: { ideal: landscape ? 1440 : 2560 },
+          width: { ideal: landscape ? 2560 : 1920 },
+          height: { ideal: landscape ? 1920 : 2560 },
         },
         audio: false,
       });

@@ -63,9 +63,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
-  /* contain zeigt den kompletten Kamera-Frame ohne Anzeige-Crop (mit
-     Balken). Das Foto ist der mittige Format-Ausschnitt daraus. */
-  object-fit: contain;
+  /* cover fuellt den Sucher bildschirmfuellend und zeigt genau den
+     mittigen Ausschnitt, der beim Ausloesen im Foto landet - auch im
+     rotierten Zustand (frameRotated erbt dieses object-fit). */
+  object-fit: cover;
   object-position: center center;
   background: #000;
   z-index: 1;
