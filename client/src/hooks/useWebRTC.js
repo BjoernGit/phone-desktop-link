@@ -4,6 +4,8 @@ import {
   setupDataChannelEventHandlers,
   processBufferedIceCandidates,
   createPeerConnectionConfig,
+  loadRelayIceServers,
+  relayIceServersReady,
   WEBRTC_CONFIG,
 } from "../utils/webrtcHelpers";
 
@@ -28,6 +30,13 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
   const messageBufferRef = useRef(new Map());
   const messageCallbacksRef = useRef(new Map());
   const closeConnectionRef = useRef(null); // Ref to avoid circular dependency
+
+  // Fetch TURN relay credentials once so peer connections can use them
+  useEffect(() => {
+    if (socket && enabled) {
+      loadRelayIceServers(socket);
+    }
+  }, [socket, enabled]);
 
   // Create a new RTCPeerConnection for a peer
   const createConnection = useCallback(
@@ -125,6 +134,9 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
       }
 
       if (DEBUG_WEBRTC) console.log(`[WebRTC] Creating offer for ${peerUuid}`);
+
+      // Make sure TURN credentials (if any) are in before gathering ICE
+      await relayIceServersReady();
 
       // Check if there's an existing connection in a bad state - close it first
       let pc = connectionsRef.current.get(peerUuid);
@@ -232,6 +244,10 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
         if (abortController.signal.aborted) return;
 
         if (DEBUG_WEBRTC) console.log(`[WebRTC] Received offer from ${fromUuid}`);
+
+        // Make sure TURN credentials (if any) are in before gathering ICE
+        await relayIceServersReady();
+        if (abortController.signal.aborted) return;
 
         // Check if there's an existing connection - for a new offer, we should start fresh
         let pc = connectionsRef.current.get(fromUuid);

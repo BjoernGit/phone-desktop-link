@@ -148,14 +148,67 @@ export const WEBRTC_CONFIG = {
   DEFAULT_OFFER_TIMEOUT_MS: 15000,
   DRAIN_TIMEOUT_MS: 5000,
   DRAIN_CHECK_INTERVAL_MS: 50,
+  ICE_SERVERS_LOAD_TIMEOUT_MS: 4000,
 };
+
+// TURN/STUN servers issued by the backend (Cloudflare relay). Loaded once
+// per page; empty when the server has no TURN key configured, in which
+// case connections stay STUN-only as before.
+let relayIceServers = [];
+let relayIceServersPromise = null;
+
+/**
+ * Request TURN credentials from the backend over the socket connection.
+ * Safe to call multiple times - only the first call fetches. Resolves once
+ * the answer arrives or after a timeout; failures leave STUN-only config.
+ *
+ * @param {Socket} socket - Connected socket.io instance
+ * @returns {Promise<void>}
+ */
+export function loadRelayIceServers(socket) {
+  if (relayIceServersPromise || !socket) {
+    return relayIceServersPromise || Promise.resolve();
+  }
+
+  relayIceServersPromise = new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      if (DEBUG_WEBRTC) console.log("[WebRTC] TURN credentials request timed out, staying STUN-only");
+      resolve();
+    }, WEBRTC_CONFIG.ICE_SERVERS_LOAD_TIMEOUT_MS);
+
+    try {
+      // socket.io buffers the emit until connected, so calling early is fine
+      socket.emit("request-turn-credentials", (response) => {
+        clearTimeout(timer);
+        if (response && Array.isArray(response.iceServers)) {
+          relayIceServers = response.iceServers;
+          if (DEBUG_WEBRTC) console.log("[WebRTC] Loaded relay ICE servers", relayIceServers);
+        }
+        resolve();
+      });
+    } catch {
+      clearTimeout(timer);
+      resolve();
+    }
+  });
+
+  return relayIceServersPromise;
+}
+
+/**
+ * Await the relay ICE server load kicked off by loadRelayIceServers.
+ * Resolves immediately if it was never started.
+ */
+export function relayIceServersReady() {
+  return relayIceServersPromise || Promise.resolve();
+}
 
 /**
  * Create RTCPeerConnection configuration object
  */
 export function createPeerConnectionConfig() {
   return {
-    iceServers: WEBRTC_CONFIG.ICE_SERVERS,
+    iceServers: [...WEBRTC_CONFIG.ICE_SERVERS, ...relayIceServers],
     iceCandidatePoolSize: 10,
     bundlePolicy: "max-bundle",
     rtcpMuxPolicy: "require",

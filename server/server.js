@@ -45,6 +45,7 @@ const {
 // Handlers
 const { registerWebRTCHandlers } = require("./handlers/webrtcSignaling");
 const { registerFileTransferHandlers } = require("./handlers/fileTransferHandler");
+const { registerTurnHandlers } = require("./handlers/turnCredentials");
 
 const app = express();
 app.use(cors());
@@ -388,6 +389,7 @@ io.on("connection", (socket) => {
   // Register modular handlers
   registerWebRTCHandlers(socket, io);
   registerFileTransferHandlers(socket, io, ip);
+  registerTurnHandlers(socket);
 
   socket.on("disconnect", () => {
     const sessionId = socket.data.sessionId;
