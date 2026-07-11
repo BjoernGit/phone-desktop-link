@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useWebRTC, DEBUG_WEBRTC } from "./useWebRTC";
 import { useFileTransfer } from "./useFileTransfer";
 import { FILE_TRANSFER_CONFIG } from "../config/fileTransfer";
+import { requestDirectConnectionBoost } from "../utils/directConnection";
 
 // Constants
 const SOCKETIO_CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
@@ -23,8 +24,10 @@ const RETRY_DELAY_MS = FILE_TRANSFER_CONFIG.RETRY_DELAY_MS || 2000;
  * @param {Object} options.socket - Socket.io socket instance
  * @param {string} options.clientUuid - Current client's UUID
  * @param {Array} options.peers - Array of connected peers
+ * @param {boolean} options.directConnectionPromptEnabled - Offer the camera-permission
+ *   "direct connection boost" when WebRTC fails (desktop only; the modal lives there)
  */
-export function useAppFileTransfer({ socket, clientUuid, peers }) {
+export function useAppFileTransfer({ socket, clientUuid, peers, directConnectionPromptEnabled = false }) {
   // File state
   const [sharedFiles, setSharedFiles] = useState([]); // Own files to share
   const [peerFiles, setPeerFiles] = useState(new Map()); // peerUuid -> file list
@@ -40,6 +43,12 @@ export function useAppFileTransfer({ socket, clientUuid, peers }) {
   const clearAlert = useCallback(() => {
     setAlertMessage(null);
   }, []);
+
+  // Direct connection boost: offered once per session when WebRTC fails.
+  // Granting camera/mic permission unmasks the local IP in ICE candidates,
+  // which fixes P2P on multicast-blocking LANs (see utils/directConnection.js).
+  const [directConnectionPrompt, setDirectConnectionPrompt] = useState(null); // { file } | null
+  const directConnectionOfferedRef = useRef(false);
 
   // WebRTC & File Transfer Hooks (all devices, mobile included)
   const webRTC = useWebRTC({
@@ -487,6 +496,15 @@ export function useAppFileTransfer({ socket, clientUuid, peers }) {
           return false;
         }
 
+        // Before resorting to the fallback, offer the direct connection
+        // boost once per session - the modal decision resumes the download.
+        if (directConnectionPromptEnabled && !directConnectionOfferedRef.current) {
+          directConnectionOfferedRef.current = true;
+          if (DEBUG_FILE_TRANSFER) console.log(`[FileTransfer] WebRTC failed for ${peerUuid}, offering direct connection boost`);
+          setDirectConnectionPrompt({ file });
+          return true;
+        }
+
         if (file.size > SOCKETIO_MAX_FILE_SIZE) {
           console.error(`[FileTransfer] File too large for Socket.io fallback`);
           return false;
@@ -507,7 +525,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers }) {
       }));
       return true;
     },
-    [webRTC, peers, socket]
+    [webRTC, peers, socket, directConnectionPromptEnabled]
   );
 
   /**
@@ -601,6 +619,32 @@ export function useAppFileTransfer({ socket, clientUuid, peers }) {
     },
     [peers, attemptFileDownload, retryFileDownload]
   );
+
+  // User accepted the direct connection boost: request the permission
+  // (unmasks the local IP), rebuild the peer connection so ICE gathers
+  // fresh candidates, then retry the download from scratch.
+  const acceptDirectConnection = useCallback(async () => {
+    const prompt = directConnectionPrompt;
+    setDirectConnectionPrompt(null);
+    if (!prompt) return;
+
+    const granted = await requestDirectConnectionBoost();
+    if (granted && prompt.file.ownerUuid) {
+      // Force a fresh connection - the old one gathered masked candidates
+      webRTC.closeConnection(prompt.file.ownerUuid, false);
+    } else if (!granted) {
+      console.warn(`[FileTransfer] Direct connection boost not granted, continuing with fallback`);
+    }
+    handleFileDownload(prompt.file);
+  }, [directConnectionPrompt, webRTC, handleFileDownload]);
+
+  // User declined: resume the download via the normal fallback path
+  // (the once-per-session flag prevents re-prompting).
+  const declineDirectConnection = useCallback(() => {
+    const prompt = directConnectionPrompt;
+    setDirectConnectionPrompt(null);
+    if (prompt) handleFileDownload(prompt.file);
+  }, [directConnectionPrompt, handleFileDownload]);
 
   // Handle own file list changes
   const handleSharedFilesChange = useCallback((files) => {
@@ -720,6 +764,11 @@ export function useAppFileTransfer({ socket, clientUuid, peers }) {
     // Alert state for error messages
     alertMessage,
     clearAlert,
+
+    // Direct connection boost prompt (desktop modal)
+    directConnectionPrompt,
+    acceptDirectConnection,
+    declineDirectConnection,
 
     // Handlers
     handleFileDownload,

@@ -243,10 +243,15 @@ export default function App() {
     webRTCConnections,
     alertMessage,
     clearAlert,
+    directConnectionPrompt,
+    acceptDirectConnection,
+    declineDirectConnection,
   } = useAppFileTransfer({
     socket,
     clientUuid,
     peers,
+    // The boost modal only exists on desktop; mobile has camera permission anyway
+    directConnectionPromptEnabled: !isMobile,
   });
 
   // Set the ref so useSessionSockets can forward peer-file-list events
@@ -781,6 +786,9 @@ export default function App() {
       webRTCConnections={webRTCConnections}
       alertMessage={alertMessage}
       clearAlert={clearAlert}
+      directConnectionPrompt={directConnectionPrompt}
+      acceptDirectConnection={acceptDirectConnection}
+      declineDirectConnection={declineDirectConnection}
     />
 );
   }

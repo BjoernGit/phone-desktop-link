@@ -11,6 +11,7 @@ import { FooterBar } from "./components/FooterBar";
 import { FileUploadPanel } from "./components/FileUploadPanel";
 import { FileGallery } from "./components/FileGallery";
 import { AlertModal } from "./components/AlertModal";
+import { DirectConnectionModal } from "./components/DirectConnectionModal";
 
 export function DesktopApp({
   sessionId,
@@ -69,6 +70,9 @@ export function DesktopApp({
   webRTCConnections = new Map(),
   alertMessage = null,
   clearAlert,
+  directConnectionPrompt = null,
+  acceptDirectConnection,
+  declineDirectConnection,
 }) {
   const { t } = useTranslation();
   const peerCount = peers.length;
@@ -309,6 +313,14 @@ export function DesktopApp({
               : t(alertMessage.message)
           }
           onClose={clearAlert}
+        />
+      )}
+
+      {directConnectionPrompt && (
+        <DirectConnectionModal
+          isOpen={!!directConnectionPrompt}
+          onEnable={acceptDirectConnection}
+          onSkip={declineDirectConnection}
         />
       )}
     </>

@@ -138,6 +138,12 @@
       "fileNoLongerAvailable": "Die Datei \"{{fileName}}\" ist nicht mehr verfügbar. Der Besitzer hat sie möglicherweise aus der Freigabe entfernt.",
       "fileRevoked": "Übertragung abgebrochen",
       "fileRevokedBySender": "Die Übertragung von \"{{fileName}}\" wurde vom Absender abgebrochen."
+    },
+    "directConnection": {
+      "title": "Direktverbindung aktivieren?",
+      "message": "Zu diesem Gerät konnte keine direkte Verbindung aufgebaut werden. In manchen Netzwerken (z. B. Mesh-WLAN) verstecken Browser die lokale Adresse, bis du einmalig Kamera- oder Mikrofonzugriff erlaubst.\n\nDie Kamera wird dabei nicht verwendet – die Freigabe erlaubt dem Browser nur, deine lokale Netzwerkadresse mit dem anderen Gerät zu teilen. Dateien werden dann direkt übertragen: schneller und ohne Größenlimit.",
+      "enable": "Direktverbindung aktivieren",
+      "skip": "Ohne fortfahren"
     }
   },
   "offer": {
