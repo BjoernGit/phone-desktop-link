@@ -15,6 +15,7 @@ const {
   MAX_FILE_SIZE,
   TRANSFER_TIMEOUT_MS,
   TRANSFER_CLEANUP_DELAY_MS,
+  STALL_DETECT_MS,
 } = FILE_TRANSFER_CONFIG;
 
 /**
@@ -114,6 +115,58 @@ export function useFileReceiver({
       // Note: Chunks are stored in IndexedDB, not in memory
       const activeTransfers = new Map();
 
+      // Short local watchdogs: no chunk for STALL_DETECT_MS flips the transfer
+      // to "stalled" so the UI reacts without waiting for any network event
+      const stallTimers = new Map();
+
+      const clearStallTimer = (transferId) => {
+        const handle = stallTimers.get(transferId);
+        if (handle) {
+          clearTimeout(handle);
+          stallTimers.delete(transferId);
+        }
+      };
+
+      const armStallTimer = (transferId) => {
+        clearStallTimer(transferId);
+        stallTimers.set(
+          transferId,
+          setTimeout(() => {
+            stallTimers.delete(transferId);
+            const transferData = activeTransfers.get(transferId);
+            if (!transferData) return;
+            const { transfer } = transferData;
+            if (transfer.status !== TRANSFER_STATUS.RECEIVING) return;
+            console.warn(`[FileReceiver] Transfer ${transferId} stalled - no data for ${STALL_DETECT_MS}ms`);
+            transfer.status = TRANSFER_STATUS.STALLED;
+            transfersRef.current.set(transferId, transfer);
+            updateTransfers();
+          }, STALL_DETECT_MS)
+        );
+      };
+
+      // Inactivity timeout: re-armed on every chunk, so only a transfer with
+      // no data at all for TRANSFER_TIMEOUT_MS dies - never a slow one
+      const armInactivityTimeout = (transferId) => {
+        const existing = transferTimeoutsRef.current.get(transferId);
+        if (existing) clearTimeout(existing);
+        const timeoutHandle = setTimeout(async () => {
+          if (activeTransfers.has(transferId)) {
+            const { transfer } = activeTransfers.get(transferId);
+            transfer.status = TRANSFER_STATUS.TIMEOUT;
+            transfersRef.current.set(transferId, transfer);
+            updateTransfers();
+            activeTransfers.delete(transferId);
+            receiveBuffersRef.current.delete(transferId);
+            clearStallTimer(transferId);
+            await cleanupTransferData(transferId);
+            transferTimeoutsRef.current.delete(transferId);
+            console.error(`[FileReceiver] Receive timeout for ${transferId}`);
+          }
+        }, TRANSFER_TIMEOUT_MS);
+        transferTimeoutsRef.current.set(transferId, timeoutHandle);
+      };
+
       // Clean up IndexedDB data for a transfer
       const cleanupTransferData = async (transferId) => {
         try {
@@ -186,7 +239,8 @@ export function useFileReceiver({
               receiveBuffersRef.current.delete(msg.transferId);
               await cleanupTransferData(msg.transferId);
 
-              // Clear timeout
+              // Clear watchdogs
+              clearStallTimer(msg.transferId);
               const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
               if (timeoutHandle) {
                 clearTimeout(timeoutHandle);
@@ -245,22 +299,9 @@ export function useFileReceiver({
             transfersRef.current.set(msg.transferId, currentTransfer);
             updateTransfers();
 
-            // Set timeout for incomplete transfers
-            const timeoutHandle = setTimeout(async () => {
-              if (activeTransfers.has(msg.transferId)) {
-                const { transfer } = activeTransfers.get(msg.transferId);
-                transfer.status = TRANSFER_STATUS.TIMEOUT;
-                transfersRef.current.set(msg.transferId, transfer);
-                updateTransfers();
-                activeTransfers.delete(msg.transferId);
-                receiveBuffersRef.current.delete(msg.transferId);
-                await cleanupTransferData(msg.transferId);
-                transferTimeoutsRef.current.delete(msg.transferId);
-                console.error(`[FileReceiver] Receive timeout for ${msg.transferId}`);
-              }
-            }, TRANSFER_TIMEOUT_MS);
-
-            transferTimeoutsRef.current.set(msg.transferId, timeoutHandle);
+            // Watchdogs: both re-armed on every chunk
+            armInactivityTimeout(msg.transferId);
+            armStallTimer(msg.transferId);
 
           } else if (msg.type === FILE_MESSAGE_TYPES.FILE_CHUNK) {
             const validation = validateMessage(msg, FILE_MESSAGE_TYPES.FILE_CHUNK);
@@ -333,7 +374,8 @@ export function useFileReceiver({
                 receiveBuffersRef.current.delete(msg.transferId);
                 await cleanupTransferData(msg.transferId);
 
-                // Clear timeout
+                // Clear watchdogs
+                clearStallTimer(msg.transferId);
                 const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
                 if (timeoutHandle) {
                   clearTimeout(timeoutHandle);
@@ -381,7 +423,8 @@ export function useFileReceiver({
               // Clean up IndexedDB after successful transfer
               await cleanupTransferData(msg.transferId);
 
-              // Clear timeout
+              // Clear watchdogs
+              clearStallTimer(msg.transferId);
               const timeoutHandle = transferTimeoutsRef.current.get(msg.transferId);
               if (timeoutHandle) {
                 clearTimeout(timeoutHandle);
@@ -418,6 +461,14 @@ export function useFileReceiver({
                 100,
                 Math.round((transfer.receivedChunks / transfer.totalChunks) * 100)
               );
+
+              // Data is flowing (again): recover from a stall and push both
+              // watchdogs out
+              if (transfer.status === TRANSFER_STATUS.STALLED) {
+                transfer.status = TRANSFER_STATUS.RECEIVING;
+              }
+              armInactivityTimeout(transferId);
+              armStallTimer(transferId);
 
               transfersRef.current.set(transferId, transfer);
               updateTransfers();

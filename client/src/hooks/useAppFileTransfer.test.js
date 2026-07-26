@@ -184,6 +184,43 @@ describe('useAppFileTransfer download notices', () => {
     expect(notice?.progress).toBe(50);
   });
 
+  it('tombstones a stalled download the moment the file leaves the list', async () => {
+    const socket = makeSocket();
+    const { result, rerender } = renderHook(() =>
+      useAppFileTransfer({ socket, clientUuid: OWN_UUID, peers: [{ clientUuid: PEER_UUID }] })
+    );
+
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [smallPeerFile] });
+    });
+    await act(async () => {
+      await result.current.handleFileDownload(smallPeerFile);
+    });
+
+    // The local watchdog already flagged the transfer as stalled - the list
+    // update must still produce the tombstone immediately
+    fileTransferStub.transfers = new Map([
+      ['transfer-abc', {
+        transferId: 'transfer-abc',
+        fileId: smallPeerFile.id,
+        fileName: smallPeerFile.name,
+        progress: 50,
+        status: 'stalled',
+      }],
+    ]);
+    await act(async () => {
+      rerender();
+    });
+
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [] });
+    });
+
+    const notice = result.current.fileNotices.get(smallPeerFile.id);
+    expect(notice?.reason).toBe('revoked');
+    expect(notice?.progress).toBe(50);
+  });
+
   it('tombstones a socket.io fallback download without waiting for the revoke event', async () => {
     const socket = makeSocket();
     const { result } = renderTransferHook(socket);

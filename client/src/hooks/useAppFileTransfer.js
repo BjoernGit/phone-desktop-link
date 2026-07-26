@@ -200,7 +200,8 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       if ((transfer.fileId || transferId) !== fileId) continue;
       if (
         transfer.status === TRANSFER_STATUS.RECEIVING ||
-        transfer.status === TRANSFER_STATUS.SENDING
+        transfer.status === TRANSFER_STATUS.SENDING ||
+        transfer.status === TRANSFER_STATUS.STALLED
       ) {
         return true;
       }

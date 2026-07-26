@@ -11,8 +11,14 @@ function isTransferActive(transfer) {
   return transfer?.status === "sending" || transfer?.status === "receiving";
 }
 
-// A transfer that has stalled - the download is being retried in the background
-function isTransferStalled(transfer) {
+// Receiving, but no data has arrived for a few seconds - the local watchdog
+// flags this long before any revoke or list update makes it through
+function isTransferInterrupted(transfer) {
+  return transfer?.status === "stalled";
+}
+
+// A transfer that broke - the download is being retried in the background
+function isTransferBroken(transfer) {
   return transfer?.status === "failed" || transfer?.status === "timeout";
 }
 
@@ -147,13 +153,16 @@ export function MobileFilePanel({
             const isPending =
               !notice &&
               pendingDownloads.has(file.id) &&
-              (!transfer || isTransferStalled(transfer));
+              (!transfer || isTransferBroken(transfer));
             const isActive = !notice && !isPending && isTransferActive(transfer);
+            // Data stopped mid-transfer, cause not yet known
+            const isStalled = !notice && !isPending && isTransferInterrupted(transfer);
             const rowClass = [
               "mobileFileRow",
               notice ? "hasNotice" : "",
               isPending ? "isPending" : "",
               isActive ? "isTransferring" : "",
+              isStalled ? "isStalled" : "",
             ]
               .filter(Boolean)
               .join(" ");
@@ -163,11 +172,13 @@ export function MobileFilePanel({
                 <span className="mobileFileIcon">{getFileIcon(file.name)}</span>
                 <div className="mobileFileInfo">
                   <div className="mobileFileName" title={file.name}>{file.name}</div>
-                  <div className={`mobileFileMeta${notice ? " isNotice" : ""}`}>
+                  <div className={`mobileFileMeta${notice ? " isNotice" : ""}${isStalled ? " isStalled" : ""}`}>
                     {notice
                       ? noticeLabel(notice.reason, t)
                       : isPending
                       ? t("mobile.files.preparing", "Verbindung wird aufgebaut …")
+                      : isStalled
+                      ? t("mobile.files.stalled", "Übertragung unterbrochen …")
                       : `${formatFileSize(file.size)} · ${getOwnerLabel(file, peers, clientUuid, t)}`}
                   </div>
                   {notice ? (
@@ -186,7 +197,7 @@ export function MobileFilePanel({
                   ) : transfer && transfer.status !== "completed" ? (
                     <div className="mobileFileProgress">
                       <div
-                        className={`mobileFileProgressBar${isActive ? " isActive" : ""}`}
+                        className={`mobileFileProgressBar${isActive ? " isActive" : ""}${isStalled ? " isStalled" : ""}`}
                         style={{ width: `${transfer.progress}%` }}
                       ></div>
                     </div>

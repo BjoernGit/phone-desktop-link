@@ -496,29 +496,37 @@ export function useWebRTC({ socket, clientUuid, enabled = true }) {
   useEffect(() => {
     if (!socket || !enabled) return;
 
-    socket.on("webrtc-offer", ({ fromUuid, sdp }) => {
+    // Named handlers: socket.off with the exact reference removes only OUR
+    // listener. A bare socket.off("peer-left") would also strip the listener
+    // useSessionSockets registered for the same event on an effect re-run.
+    const onWebrtcOffer = ({ fromUuid, sdp }) => {
       handleOffer(fromUuid, sdp);
-    });
+    };
 
-    socket.on("webrtc-answer", ({ fromUuid, sdp }) => {
+    const onWebrtcAnswer = ({ fromUuid, sdp }) => {
       handleAnswer(fromUuid, sdp);
-    });
+    };
 
-    socket.on("webrtc-ice-candidate", ({ fromUuid, candidate }) => {
+    const onWebrtcIceCandidate = ({ fromUuid, candidate }) => {
       handleIceCandidate(fromUuid, candidate);
-    });
+    };
 
-    socket.on("peer-left", ({ clientUuid }) => {
+    const onPeerLeft = ({ clientUuid }) => {
       if (clientUuid) {
         closeConnection(clientUuid);
       }
-    });
+    };
+
+    socket.on("webrtc-offer", onWebrtcOffer);
+    socket.on("webrtc-answer", onWebrtcAnswer);
+    socket.on("webrtc-ice-candidate", onWebrtcIceCandidate);
+    socket.on("peer-left", onPeerLeft);
 
     return () => {
-      socket.off("webrtc-offer");
-      socket.off("webrtc-answer");
-      socket.off("webrtc-ice-candidate");
-      socket.off("peer-left");
+      socket.off("webrtc-offer", onWebrtcOffer);
+      socket.off("webrtc-answer", onWebrtcAnswer);
+      socket.off("webrtc-ice-candidate", onWebrtcIceCandidate);
+      socket.off("peer-left", onPeerLeft);
     };
   }, [socket, enabled, handleOffer, handleAnswer, handleIceCandidate, closeConnection]);
 

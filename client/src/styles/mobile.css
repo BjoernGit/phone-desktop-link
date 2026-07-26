@@ -408,6 +408,32 @@
   }
 }
 
+/* Stalled: data stopped mid-transfer, cause not yet known */
+.mobileFileRow.isStalled {
+  box-shadow: inset 3px 0 0 #f59e0b;
+  animation: mobileFileRowStalled 1.6s ease-in-out infinite;
+}
+
+@keyframes mobileFileRowStalled {
+  0%,
+  100% {
+    background: rgba(245, 158, 11, 0.07);
+  }
+  50% {
+    background: rgba(245, 158, 11, 0.17);
+  }
+}
+
+.mobileFileMeta.isStalled {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* Frozen amber bar - clearly not moving anymore */
+.mobileFileProgressBar.isStalled {
+  background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+}
+
 /* Tombstone: download ended without the file arriving */
 .mobileFileRow.hasNotice {
   box-shadow: inset 3px 0 0 #ff8a6c;
@@ -496,9 +522,14 @@
 @media (prefers-reduced-motion: reduce) {
   .mobileFileDownloadBtn.isPending,
   .mobileFileRow.isPending,
+  .mobileFileRow.isStalled,
   .mobileFileProgress.isIndeterminate .mobileFileProgressBar,
   .mobileFileProgressBar.isActive {
     animation: none;
+  }
+
+  .mobileFileRow.isStalled {
+    background: rgba(245, 158, 11, 0.13);
   }
 
   .mobileFileDownloadBtn.isPending {

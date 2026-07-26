@@ -131,17 +131,23 @@ export function useFileSender({
         }
       };
 
-      // Set transfer timeout
-      const timeoutHandle = setTimeout(() => {
-        cancelled = true;
-        transferState.status = TRANSFER_STATUS.TIMEOUT;
-        transfersRef.current.set(transferId, transferState);
-        updateTransfers();
-        unregisterTransfer();
-        console.error(`[FileSender] Transfer ${transferId} timed out`);
-      }, TRANSFER_TIMEOUT_MS);
-
-      transferTimeoutsRef.current.set(transferId, timeoutHandle);
+      // Inactivity timeout: re-armed after every sent chunk, so only a
+      // transfer that cannot move any data for TRANSFER_TIMEOUT_MS dies -
+      // a large file that simply takes longer keeps going
+      let timeoutHandle;
+      const armInactivityTimeout = () => {
+        clearTimeout(timeoutHandle);
+        timeoutHandle = setTimeout(() => {
+          cancelled = true;
+          transferState.status = TRANSFER_STATUS.TIMEOUT;
+          transfersRef.current.set(transferId, transferState);
+          updateTransfers();
+          unregisterTransfer();
+          console.error(`[FileSender] Transfer ${transferId} timed out`);
+        }, TRANSFER_TIMEOUT_MS);
+        transferTimeoutsRef.current.set(transferId, timeoutHandle);
+      };
+      armInactivityTimeout();
 
       // Schedule cleanup after completion
       const scheduleCleanup = () => {
@@ -240,6 +246,9 @@ export function useFileSender({
 
         offset += CHUNK_SIZE;
         chunkIndex++;
+
+        // Data moved - push the inactivity timeout out
+        armInactivityTimeout();
 
         // Update progress (cap at 99% until complete message sent)
         transferState.sentChunks = chunkIndex;

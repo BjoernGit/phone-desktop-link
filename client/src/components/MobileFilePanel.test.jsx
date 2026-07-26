@@ -142,6 +142,19 @@ describe('MobileFilePanel', () => {
     expect(document.querySelector('.mobileFileRow.isPending')).toBeInTheDocument();
   });
 
+  it('shows the interrupted state while data has stopped flowing', () => {
+    const transfers = new Map([
+      ['t1', { transferId: 't1', fileId: 'file-peer', progress: 50, status: 'stalled' }],
+    ]);
+    render(<MobileFilePanel {...defaultProps} files={[peerFile]} transfers={transfers} />);
+
+    expect(screen.getByText('mobile.files.stalled')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileRow.isStalled')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileProgressBar.isStalled')).toBeInTheDocument();
+    // Frozen progress stays visible in the action column
+    expect(screen.getByText('50%')).toBeInTheDocument();
+  });
+
   it('keeps a tombstone row when the sender revokes the file mid-transfer', async () => {
     const user = userEvent.setup();
     const onDismissNotice = vi.fn();

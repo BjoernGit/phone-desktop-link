@@ -1332,6 +1332,34 @@
   }
 }
 
+/* Stalled: data stopped mid-transfer, cause not yet known */
+.fileTableRow.isStalled {
+  border-color: rgba(245, 158, 11, 0.45);
+  box-shadow: inset 3px 0 0 #f59e0b;
+  animation: fileRowStalled 1.6s ease-in-out infinite;
+}
+
+@keyframes fileRowStalled {
+  0%,
+  100% {
+    background: rgba(245, 158, 11, 0.05);
+  }
+  50% {
+    background: rgba(245, 158, 11, 0.13);
+  }
+}
+
+.transferStalled {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fbbf24;
+}
+
+/* Frozen amber bar - clearly not moving anymore */
+.transferProgressBar.isStalled {
+  background: linear-gradient(90deg, #d97706 0%, #f59e0b 100%);
+}
+
 /* Tombstone: download ended without the file arriving */
 .fileTableRow.hasNotice {
   border-color: rgba(255, 138, 108, 0.45);
@@ -1435,9 +1463,14 @@
   .fileDownloadBtn.isPending,
   .fileDownloadBtn.isPending:hover,
   .fileTableRow.isPending,
+  .fileTableRow.isStalled,
   .statusPendingDot,
   .transferProgressBar.isActive {
     animation: none;
+  }
+
+  .fileTableRow.isStalled {
+    background: rgba(245, 158, 11, 0.1);
   }
 
   .fileDownloadBtn.isPending,

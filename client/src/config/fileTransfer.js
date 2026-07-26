@@ -12,8 +12,15 @@ export const FILE_TRANSFER_CONFIG = {
   MAX_FILE_SIZE: 2 * 1024 * 1024 * 1024, // 2 GB max file size
 
   // Timeouts
-  TRANSFER_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes (increased for larger files)
+  // Inactivity window: reset on every chunk, so a slow but moving transfer
+  // never dies - only one with no data at all for this long
+  TRANSFER_TIMEOUT_MS: 10 * 60 * 1000, // 10 minutes without any chunk
   TRANSFER_CLEANUP_DELAY_MS: 30 * 1000, // 30 seconds after completion
+
+  // Stall detection: no chunk for this long flips a receiving transfer to
+  // "stalled" so the UI can say "interrupted" without waiting for any
+  // network event (revoke messages can lag many seconds behind the data)
+  STALL_DETECT_MS: 3000,
 
   // Backpressure control
   BACKPRESSURE_BASE_DELAY_MS: 5, // Base delay in ms
@@ -29,6 +36,7 @@ export const FILE_TRANSFER_CONFIG = {
 export const TRANSFER_STATUS = {
   SENDING: "sending",
   RECEIVING: "receiving",
+  STALLED: "stalled", // Receiving, but no data has arrived for STALL_DETECT_MS
   COMPLETED: "completed",
   FAILED: "failed",
   TIMEOUT: "timeout",

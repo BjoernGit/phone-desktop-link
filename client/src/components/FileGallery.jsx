@@ -21,8 +21,14 @@ function isTransferActive(transfer) {
   return transfer?.status === "sending" || transfer?.status === "receiving";
 }
 
-// A transfer that has stalled - the download is being retried in the background
-function isTransferStalled(transfer) {
+// Receiving, but no data has arrived for a few seconds - the local watchdog
+// flags this long before any revoke or list update makes it through
+function isTransferInterrupted(transfer) {
+  return transfer?.status === "stalled";
+}
+
+// A transfer that broke - the download is being retried in the background
+function isTransferBroken(transfer) {
   return transfer?.status === "failed" || transfer?.status === "timeout";
 }
 
@@ -113,13 +119,16 @@ export function FileGallery({
             const isPending =
               !notice &&
               pendingDownloads.has(file.id) &&
-              (!transfer || isTransferStalled(transfer));
+              (!transfer || isTransferBroken(transfer));
             const isActive = !notice && !isPending && isTransferActive(transfer);
+            // Data stopped mid-transfer, cause not yet known
+            const isStalled = !notice && !isPending && isTransferInterrupted(transfer);
             const rowClass = [
               "fileTableRow",
               notice ? "hasNotice" : "",
               isPending ? "isPending" : "",
               isActive ? "isTransferring" : "",
+              isStalled ? "isStalled" : "",
             ]
               .filter(Boolean)
               .join(" ");
@@ -165,7 +174,7 @@ export function FileGallery({
                     <div className="transferStatus">
                       <div className="transferProgress">
                         <div
-                          className={`transferProgressBar${isActive ? " isActive" : ""}`}
+                          className={`transferProgressBar${isActive ? " isActive" : ""}${isStalled ? " isStalled" : ""}`}
                           style={{ width: `${transfer.progress}%` }}
                         ></div>
                       </div>
@@ -229,6 +238,10 @@ export function FileGallery({
                   ) : isActive ? (
                     <span className="transferActive">
                       {t("desktop.fileGallery.transferring", "Überträgt …")}
+                    </span>
+                  ) : isStalled ? (
+                    <span className="transferStalled">
+                      {t("desktop.fileGallery.stalled", "Übertragung unterbrochen …")}
                     </span>
                   ) : null}
                 </div>

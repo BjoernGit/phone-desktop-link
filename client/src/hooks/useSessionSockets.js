@@ -197,25 +197,26 @@ export function useSessionSockets({ isMobile, deviceName, offerSecret, onDecrypt
       // Plaine Payloads werden bewusst ignoriert, um Klartext zu verhindern
     };
 
-    socket.on("peer-joined", onPeerJoined);
-    socket.on("peer-left", onPeerLeft);
-    socket.on("photo", onPhoto);
-    socket.on("session-offer", (payload) => {
+    // Named handlers throughout: socket.off with the exact reference removes
+    // only OUR listener. A bare socket.off("event") would strip every listener
+    // of that event - including ones registered by other hooks - and events
+    // arriving during an effect re-run would be lost.
+    const onSessionOffer = (payload) => {
       if (DEBUG_SOCKETS) console.log("session-offer received", payload);
       onSessionOfferRef.current?.(payload);
-    });
-    socket.on("peer-status", (payload) => {
+    };
+    const onPeerStatus = (payload) => {
       onPeerStatusRef.current?.(payload);
-    });
-    socket.on("peer-file-list", (payload) => {
+    };
+    const onPeerFileList = (payload) => {
       if (DEBUG_SOCKETS) console.log("[useSessionSockets] peer-file-list received", payload);
       onPeerFileListRef.current?.(payload);
-    });
+    };
 
     // Session merge redirect - another device in our session initiated a merge.
     // Seed and offerSecret of the target session arrive E2E-encrypted with the
     // current session's offerSecret; the server only relays the ciphertext.
-    socket.on("merge-redirect", async (payload) => {
+    const onMergeRedirect = async (payload) => {
       if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-redirect received", { toSession: payload?.toSession, hasEnc: !!payload?.enc });
       const { toSession, enc, initiatorUuid, initiatorDevice, ts } = payload || {};
 
@@ -260,23 +261,32 @@ export function useSessionSockets({ isMobile, deviceName, offerSecret, onDecrypt
         initiatorUuid,
         initiatorDevice,
       });
-    });
+    };
 
     // Merge error (e.g., concurrent merge in progress)
-    socket.on("merge-error", (payload) => {
+    const onMergeError = (payload) => {
       if (DEBUG_SOCKETS) console.log("[useSessionSockets] merge-error received", payload);
       console.warn("Session merge failed:", payload?.error);
-    });
+    };
+
+    socket.on("peer-joined", onPeerJoined);
+    socket.on("peer-left", onPeerLeft);
+    socket.on("photo", onPhoto);
+    socket.on("session-offer", onSessionOffer);
+    socket.on("peer-status", onPeerStatus);
+    socket.on("peer-file-list", onPeerFileList);
+    socket.on("merge-redirect", onMergeRedirect);
+    socket.on("merge-error", onMergeError);
 
     return () => {
       socket.off("peer-joined", onPeerJoined);
       socket.off("peer-left", onPeerLeft);
       socket.off("photo", onPhoto);
-      socket.off("session-offer");
-      socket.off("peer-status");
-      socket.off("peer-file-list");
-      socket.off("merge-redirect");
-      socket.off("merge-error");
+      socket.off("session-offer", onSessionOffer);
+      socket.off("peer-status", onPeerStatus);
+      socket.off("peer-file-list", onPeerFileList);
+      socket.off("merge-redirect", onMergeRedirect);
+      socket.off("merge-error", onMergeError);
     };
   }, [clientUuid, isMobile, sessionId, socket, socketConnected]);
 
