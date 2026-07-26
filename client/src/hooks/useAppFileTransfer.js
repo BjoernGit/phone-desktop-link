@@ -82,6 +82,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     if (!fileId) return;
     const known = requestedFilesRef.current.get(fileId);
     setFileNotices((prev) => {
+      const existing = prev.get(fileId);
       const next = new Map(prev);
       next.set(fileId, {
         id: fileId,
@@ -89,8 +90,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         size: known?.size,
         type: known?.type,
         ownerUuid: known?.ownerUuid,
-        reason,
-        progress,
+        // The local notice comes first, the handshake confirms it later - keep
+        // the reason we already showed and never fall back to less progress
+        reason: existing?.reason || reason,
+        progress: Math.max(progress, existing?.progress || 0),
       });
       return next;
     });
@@ -131,6 +134,9 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
   // close over a stale map (used to keep the progress reached at abort time)
   const transfersSnapshotRef = useRef(fileTransfer.transfers);
   transfersSnapshotRef.current = fileTransfer.transfers;
+
+  const pendingDownloadsRef = useRef(pendingDownloads);
+  pendingDownloadsRef.current = pendingDownloads;
 
   // Progress a transfer had reached, looked up by file id
   const progressForFile = useCallback((fileId, transferId) => {
@@ -176,8 +182,54 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     };
   }, []);
 
+  /**
+   * Is this download still in progress from our point of view?
+   * Either requested and waiting, or actively receiving data.
+   */
+  const isDownloadInFlight = useCallback((fileId) => {
+    if (pendingDownloadsRef.current.has(fileId)) return true;
+    for (const [transferId, transfer] of transfersSnapshotRef.current.entries()) {
+      if ((transfer.fileId || transferId) !== fileId) continue;
+      if (
+        transfer.status === TRANSFER_STATUS.RECEIVING ||
+        transfer.status === TRANSFER_STATUS.SENDING
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
+  /**
+   * A file we are downloading dropped out of its owner's list. That is all the
+   * information we need to end the download here and now - the FILE_REVOKED
+   * handshake travels the congested data channel and can lag by seconds.
+   * @param {Array} stillAvailable - The owner's current file list
+   * @param {string} ownerUuid
+   * @param {"revoked"|"peerGone"} reason
+   */
+  const noticeVanishedDownloads = useCallback(
+    (stillAvailable, ownerUuid, reason) => {
+      const availableIds = new Set((stillAvailable || []).map((f) => f.id));
+
+      for (const [fileId, meta] of requestedFilesRef.current.entries()) {
+        if (meta.ownerUuid !== ownerUuid) continue;
+        if (availableIds.has(fileId)) continue;
+        if (!isDownloadInFlight(fileId)) continue;
+
+        console.warn(`[FileTransfer] ${fileId} disappeared from its owner's list while downloading`);
+        clearDownloadPending(fileId);
+        addFileNotice(fileId, reason, { progress: progressForFile(fileId) });
+      }
+    },
+    [isDownloadInFlight, clearDownloadPending, addFileNotice, progressForFile]
+  );
+
   // Callback for peer file list updates (called from useSessionSockets)
   const handlePeerFileList = useCallback(({ fromUuid, files }) => {
+    // Same batch as the list update below, so the row never blinks out
+    noticeVanishedDownloads(files, fromUuid, "revoked");
+
     setPeerFiles((prev) => {
       const next = new Map(prev);
       if (files && files.length > 0) {
@@ -187,7 +239,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       }
       return next;
     });
-  }, []);
+  }, [noticeVanishedDownloads]);
 
   // Eager WebRTC: Initiate connection to new peers immediately on join
   // Use UUID comparison as tie-breaker to avoid "glare" (both sides sending offers)
@@ -247,6 +299,12 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       }
     }
 
+    // A download from a peer that left can never finish
+    for (const meta of requestedFilesRef.current.values()) {
+      if (peers.some((p) => p.clientUuid === meta.ownerUuid)) continue;
+      noticeVanishedDownloads([], meta.ownerUuid, "peerGone");
+    }
+
     // Clean up files from peers that left
     setPeerFiles((prev) => {
       const next = new Map(prev);
@@ -260,7 +318,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       }
       return hasChanges ? next : prev;
     });
-  }, [peers, socket, webRTC.createOffer, webRTC.dataChannels, clientUuid]);
+  }, [peers, socket, webRTC.createOffer, webRTC.dataChannels, clientUuid, noticeVanishedDownloads]);
 
   // Broadcast own file list to peers when it changes
   useEffect(() => {
@@ -949,12 +1007,14 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     prevTransfersRef.current = new Map(currentTransfers);
   }, [fileTransfer.transfers, peerFiles, retryFileDownload]);
 
-  // If a file shows up in a peer's list again, the tombstone is obsolete
+  // A file that is on offer again makes a "the file is gone" tombstone obsolete.
+  // A failed download keeps its notice - the file never went anywhere.
   useEffect(() => {
     if (fileNotices.size === 0) return;
 
     const availableAgain = [];
-    for (const fileId of fileNotices.keys()) {
+    for (const [fileId, notice] of fileNotices.entries()) {
+      if (notice.reason === "failed") continue;
       for (const files of peerFiles.values()) {
         if (files.some((f) => f.id === fileId)) {
           availableAgain.push(fileId);

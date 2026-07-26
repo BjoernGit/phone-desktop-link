@@ -34,6 +34,9 @@ function noticeLabel(reason, t) {
   if (reason === "notFound") {
     return t("desktop.fileGallery.noticeNotFound", "Nicht mehr verfügbar");
   }
+  if (reason === "peerGone") {
+    return t("desktop.fileGallery.noticePeerGone", "Gerät nicht mehr verbunden");
+  }
   return t("desktop.fileGallery.noticeFailed", "Download fehlgeschlagen");
 }
 
@@ -180,7 +183,15 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColAction">
-                  {notice ? (
+                  {notice && notice.stillListed ? (
+                    // File is still on offer - let the user try again
+                    <button
+                      className="fileDownloadBtn"
+                      onClick={() => onDownload(file)}
+                    >
+                      {t("desktop.fileGallery.retry", "Erneut versuchen")}
+                    </button>
+                  ) : notice ? (
                     <button
                       className="fileNoticeDismissBtn"
                       onClick={() => onDismissNotice && onDismissNotice(file.id)}

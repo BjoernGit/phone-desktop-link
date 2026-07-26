@@ -171,6 +171,22 @@ describe('MobileFilePanel', () => {
     expect(onDismissNotice).toHaveBeenCalledWith('file-peer');
   });
 
+  it('offers a retry instead of a dismiss when the file is still on offer', async () => {
+    const user = userEvent.setup();
+    const onDownload = vi.fn();
+    const failed = {
+      ...peerFile,
+      notice: { reason: 'failed', progress: 8, stillListed: true },
+    };
+    render(<MobileFilePanel {...defaultProps} files={[failed]} onDownload={onDownload} />);
+
+    expect(screen.getByText('mobile.files.noticeFailed')).toBeInTheDocument();
+    expect(screen.queryByLabelText('mobile.files.dismissNotice')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('mobile.files.retry'));
+    expect(onDownload).toHaveBeenCalledWith(failed);
+  });
+
   it('labels a tombstone for a file that was already gone', () => {
     const gone = { ...peerFile, notice: { reason: 'notFound', progress: 0 } };
     render(<MobileFilePanel {...defaultProps} files={[gone]} />);

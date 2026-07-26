@@ -344,10 +344,19 @@ export default function App() {
     });
 
     // Keep a tombstone row for downloads that ended without the file arriving,
-    // so a transfer in progress does not silently disappear from the list
+    // so a transfer in progress does not silently disappear from the list.
+    // If the file is still on offer, the notice rides along on its row instead
+    // and the download can simply be retried.
     fileNotices.forEach((notice, fileId) => {
-      if (combined.some((file) => file.id === fileId)) return;
-      combined.push({ ...notice, notice });
+      const index = combined.findIndex((file) => file.id === fileId);
+      if (index === -1) {
+        combined.push({ ...notice, notice });
+      } else {
+        combined[index] = {
+          ...combined[index],
+          notice: { ...notice, stillListed: true },
+        };
+      }
     });
 
     return combined;

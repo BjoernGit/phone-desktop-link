@@ -24,6 +24,9 @@ function noticeLabel(reason, t) {
   if (reason === "notFound") {
     return t("mobile.files.noticeNotFound", "Nicht mehr verfügbar");
   }
+  if (reason === "peerGone") {
+    return t("mobile.files.noticePeerGone", "Gerät nicht mehr verbunden");
+  }
   return t("mobile.files.noticeFailed", "Download fehlgeschlagen");
 }
 
@@ -190,7 +193,16 @@ export function MobileFilePanel({
                   ) : null}
                 </div>
                 <div className="mobileFileAction">
-                  {notice ? (
+                  {notice && notice.stillListed ? (
+                    // File is still on offer - let the user try again
+                    <button
+                      type="button"
+                      className="mobileFileDownloadBtn"
+                      onClick={() => onDownload && onDownload(file)}
+                    >
+                      {t("mobile.files.retry", "Nochmal")}
+                    </button>
+                  ) : notice ? (
                     <button
                       type="button"
                       className="mobileFileNoticeDismissBtn"

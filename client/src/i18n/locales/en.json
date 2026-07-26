@@ -76,7 +76,9 @@
       "preparing": "Connecting …",
       "noticeRevoked": "Withdrawn by sender",
       "noticeNotFound": "No longer available",
+      "noticePeerGone": "Device no longer connected",
       "noticeFailed": "Download failed",
+      "retry": "Retry",
       "dismissNotice": "Dismiss notice",
       "remove": "Remove",
       "you": "This device"
@@ -142,8 +144,10 @@
       "transferring": "Transferring …",
       "noticeRevoked": "Withdrawn by sender",
       "noticeNotFound": "No longer available",
+      "noticePeerGone": "Device no longer connected",
       "noticeFailed": "Download failed",
       "noticeAtProgress": "at {{progress}}%",
+      "retry": "Try again",
       "dismissNotice": "Dismiss notice",
       "completed": "✓"
     },

@@ -76,7 +76,9 @@
       "preparing": "Verbindung wird aufgebaut …",
       "noticeRevoked": "Vom Absender zurückgezogen",
       "noticeNotFound": "Nicht mehr verfügbar",
+      "noticePeerGone": "Gerät nicht mehr verbunden",
       "noticeFailed": "Download fehlgeschlagen",
+      "retry": "Nochmal",
       "dismissNotice": "Hinweis ausblenden",
       "remove": "Entfernen",
       "you": "Dieses Gerät"
@@ -142,8 +144,10 @@
       "transferring": "Überträgt …",
       "noticeRevoked": "Vom Absender zurückgezogen",
       "noticeNotFound": "Nicht mehr verfügbar",
+      "noticePeerGone": "Gerät nicht mehr verbunden",
       "noticeFailed": "Download fehlgeschlagen",
       "noticeAtProgress": "bei {{progress}}%",
+      "retry": "Erneut versuchen",
       "dismissNotice": "Hinweis ausblenden",
       "completed": "✓"
     },
