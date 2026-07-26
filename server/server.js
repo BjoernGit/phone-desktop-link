@@ -407,9 +407,23 @@ io.on("connection", (socket) => {
 });
 
 const clientDistPath = path.join(__dirname, "..", "client", "dist");
-app.use(express.static(clientDistPath));
+app.use(
+  express.static(clientDistPath, {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith("index.html")) {
+        // Always revalidate the entry point so a new deploy reaches every
+        // client on the next load instead of serving a stale bundle reference
+        res.setHeader("Cache-Control", "no-cache");
+      } else if (/[\\/]assets[\\/]/.test(filePath)) {
+        // Hashed filenames never change content - cache them forever
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  })
+);
 
 app.get("*", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache");
   res.sendFile(path.join(clientDistPath, "index.html"));
 });
 

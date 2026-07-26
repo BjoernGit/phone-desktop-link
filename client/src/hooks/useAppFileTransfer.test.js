@@ -144,6 +144,46 @@ describe('useAppFileTransfer download notices', () => {
     expect(observed.slice(firstVisible)).not.toContain(false);
   });
 
+  it('tombstones an in-flight webrtc download at 50% the moment the file leaves the list', async () => {
+    const socket = makeSocket();
+    const { result, rerender } = renderHook(() =>
+      useAppFileTransfer({ socket, clientUuid: OWN_UUID, peers: [{ clientUuid: PEER_UUID }] })
+    );
+
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [smallPeerFile] });
+    });
+    await act(async () => {
+      await result.current.handleFileDownload(smallPeerFile);
+    });
+
+    // WebRTC receive in full swing: the engine reports a receiving transfer at 50%
+    fileTransferStub.transfers = new Map([
+      ['transfer-abc', {
+        transferId: 'transfer-abc',
+        fileId: smallPeerFile.id,
+        fileName: smallPeerFile.name,
+        progress: 50,
+        status: 'receiving',
+      }],
+    ]);
+    await act(async () => {
+      rerender();
+    });
+    // Data is flowing, so the pending state has been cleared - exactly the
+    // situation the user reproduced at 50%
+    expect(result.current.pendingDownloads.has(smallPeerFile.id)).toBe(false);
+
+    // Sender removes the file: the list update precedes FILE_REVOKED by seconds
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [] });
+    });
+
+    const notice = result.current.fileNotices.get(smallPeerFile.id);
+    expect(notice?.reason).toBe('revoked');
+    expect(notice?.progress).toBe(50);
+  });
+
   it('tombstones a socket.io fallback download without waiting for the revoke event', async () => {
     const socket = makeSocket();
     const { result } = renderTransferHook(socket);
