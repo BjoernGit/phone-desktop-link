@@ -72,6 +72,8 @@
       "empty": "Keine Dateien in dieser Session.",
       "hint": "Geteilte Dateien von allen Geräten erscheinen hier.",
       "download": "Laden",
+      "requested": "Warte …",
+      "preparing": "Verbindung wird aufgebaut …",
       "remove": "Entfernen",
       "you": "Dieses Gerät"
     },
@@ -131,6 +133,9 @@
       "fileStatus": "Status",
       "available": "Verfügbar",
       "download": "Download",
+      "requested": "Angefordert …",
+      "preparing": "Verbindung wird aufgebaut …",
+      "transferring": "Überträgt …",
       "completed": "✓"
     },
     "fileTransfer": {

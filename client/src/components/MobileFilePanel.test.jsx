@@ -89,6 +89,59 @@ describe('MobileFilePanel', () => {
     expect(screen.getByText('42%')).toBeInTheDocument();
   });
 
+  it('indicates a requested download while no data is flowing yet', () => {
+    render(
+      <MobileFilePanel
+        {...defaultProps}
+        files={[peerFile]}
+        pendingDownloads={new Set(['file-peer'])}
+      />
+    );
+
+    expect(screen.queryByText('mobile.files.download')).not.toBeInTheDocument();
+    const pendingBtn = screen.getByText('mobile.files.requested');
+    expect(pendingBtn).toBeDisabled();
+    expect(pendingBtn).toHaveClass('isPending');
+    expect(screen.getByText('mobile.files.preparing')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileRow.isPending')).toBeInTheDocument();
+  });
+
+  it('switches from requested to transferring once data arrives', () => {
+    const transfers = new Map([
+      ['t1', { transferId: 't1', fileId: 'file-peer', progress: 17, status: 'receiving' }],
+    ]);
+    render(
+      <MobileFilePanel
+        {...defaultProps}
+        files={[peerFile]}
+        transfers={transfers}
+        pendingDownloads={new Set()}
+      />
+    );
+
+    expect(screen.queryByText('mobile.files.requested')).not.toBeInTheDocument();
+    expect(screen.getByText('17%')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileRow.isTransferring')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileProgressBar.isActive')).toBeInTheDocument();
+  });
+
+  it('keeps the pending indication while a stalled transfer is retried', () => {
+    const transfers = new Map([
+      ['t1', { transferId: 't1', fileId: 'file-peer', progress: 12, status: 'failed' }],
+    ]);
+    render(
+      <MobileFilePanel
+        {...defaultProps}
+        files={[peerFile]}
+        transfers={transfers}
+        pendingDownloads={new Set(['file-peer'])}
+      />
+    );
+
+    expect(screen.getByText('mobile.files.requested')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileRow.isPending')).toBeInTheDocument();
+  });
+
   it('shows checkmark when transfer is completed', () => {
     const transfers = new Map([
       ['t1', { transferId: 't1', fileId: 'file-peer', progress: 100, status: 'completed' }],

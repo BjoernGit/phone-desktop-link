@@ -6,6 +6,16 @@ import { AlertModal } from "./AlertModal";
 
 const { MAX_FILE_SIZE } = FILE_TRANSFER_CONFIG;
 
+// A transfer that is actively moving data right now
+function isTransferActive(transfer) {
+  return transfer?.status === "sending" || transfer?.status === "receiving";
+}
+
+// A transfer that has stalled - the download is being retried in the background
+function isTransferStalled(transfer) {
+  return transfer?.status === "failed" || transfer?.status === "timeout";
+}
+
 function getTransferStatus(file, transfers) {
   // Direct lookup by file.id (sender-side transfers)
   const direct = transfers.get(file.id);
@@ -42,6 +52,7 @@ export function MobileFilePanel({
   onRemoveFile,
   onFilesChange,
   transfers = new Map(),
+  pendingDownloads = new Set(),
 }) {
   const { t } = useTranslation();
   const fileInputRef = useRef(null);
@@ -114,22 +125,40 @@ export function MobileFilePanel({
             const transfer = getTransferStatus(file, transfers);
             const isOwn = file.ownerUuid === clientUuid;
 
+            // Tap registered, but no data is flowing yet (connect / retry)
+            const isPending =
+              pendingDownloads.has(file.id) && (!transfer || isTransferStalled(transfer));
+            const isActive = !isPending && isTransferActive(transfer);
+            const rowClass = [
+              "mobileFileRow",
+              isPending ? "isPending" : "",
+              isActive ? "isTransferring" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
             return (
-              <div key={file.id} className="mobileFileRow">
+              <div key={file.id} className={rowClass}>
                 <span className="mobileFileIcon">{getFileIcon(file.name)}</span>
                 <div className="mobileFileInfo">
                   <div className="mobileFileName" title={file.name}>{file.name}</div>
                   <div className="mobileFileMeta">
-                    {formatFileSize(file.size)} · {getOwnerLabel(file, peers, clientUuid, t)}
+                    {isPending
+                      ? t("mobile.files.preparing", "Verbindung wird aufgebaut …")
+                      : `${formatFileSize(file.size)} · ${getOwnerLabel(file, peers, clientUuid, t)}`}
                   </div>
-                  {transfer && transfer.status !== "completed" && (
+                  {isPending ? (
+                    <div className="mobileFileProgress isIndeterminate">
+                      <div className="mobileFileProgressBar"></div>
+                    </div>
+                  ) : transfer && transfer.status !== "completed" ? (
                     <div className="mobileFileProgress">
                       <div
-                        className="mobileFileProgressBar"
+                        className={`mobileFileProgressBar${isActive ? " isActive" : ""}`}
                         style={{ width: `${transfer.progress}%` }}
                       ></div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
                 <div className="mobileFileAction">
                   {isOwn ? (
@@ -140,6 +169,14 @@ export function MobileFilePanel({
                       aria-label={t("mobile.files.remove", "Entfernen")}
                     >
                       ✕
+                    </button>
+                  ) : isPending ? (
+                    <button
+                      type="button"
+                      className="mobileFileDownloadBtn isPending"
+                      disabled
+                    >
+                      {t("mobile.files.requested", "Warte …")}
                     </button>
                   ) : transfer?.status === "completed" ? (
                     <span className="mobileFileDone">✓</span>

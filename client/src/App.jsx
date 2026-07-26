@@ -240,6 +240,7 @@ export default function App() {
     handlePeerFileList,
     syncFilesToPeer,
     fileTransfers,
+    pendingDownloads,
     webRTCConnections,
     alertMessage,
     clearAlert,
@@ -783,6 +784,7 @@ export default function App() {
       onFileDownload={handleFileDownload}
       onRemoveFile={handleRemoveFile}
       fileTransfers={fileTransfers}
+      pendingDownloads={pendingDownloads}
       webRTCConnections={webRTCConnections}
       alertMessage={alertMessage}
       clearAlert={clearAlert}
@@ -852,6 +854,7 @@ export default function App() {
       handleRemoveFile={handleRemoveFile}
       handleSharedFilesChange={handleSharedFilesChange}
       fileTransfers={fileTransfers}
+      pendingDownloads={pendingDownloads}
     />
   );
 }

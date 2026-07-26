@@ -16,6 +16,16 @@ function getDeviceName(ownerUuid, peers, clientUuid) {
   return ownerUuid ? ownerUuid.slice(0, 8) : "Unbekannt";
 }
 
+// A transfer that is actively moving data right now
+function isTransferActive(transfer) {
+  return transfer?.status === "sending" || transfer?.status === "receiving";
+}
+
+// A transfer that has stalled - the download is being retried in the background
+function isTransferStalled(transfer) {
+  return transfer?.status === "failed" || transfer?.status === "timeout";
+}
+
 function getTransferStatus(file, transfers) {
   // First try direct lookup by file.id (for sender-side transfers)
   let transfer = transfers.get(file.id);
@@ -37,6 +47,7 @@ export function FileGallery({
   onDownload,
   onRemoveFile,
   transfers = new Map(),
+  pendingDownloads = new Set(),
   connectionStates = new Map(),
 }) {
   const { t } = useTranslation();
@@ -80,8 +91,20 @@ export function FileGallery({
             const isOwn = file.ownerUuid === clientUuid;
             const connectionState = connectionStates.get(file.ownerUuid);
 
+            // Click registered, but no data is flowing yet (connect / retry)
+            const isPending =
+              pendingDownloads.has(file.id) && (!transfer || isTransferStalled(transfer));
+            const isActive = !isPending && isTransferActive(transfer);
+            const rowClass = [
+              "fileTableRow",
+              isPending ? "isPending" : "",
+              isActive ? "isTransferring" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
             return (
-              <div key={file.id} className="fileTableRow">
+              <div key={file.id} className={rowClass}>
                 <div className="fileTableCol fileColIcon">
                   <span className="fileIcon">{getFileIcon(file.name)}</span>
                 </div>
@@ -101,11 +124,16 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColStatus">
-                  {transfer ? (
+                  {isPending ? (
+                    <span className="statusPending">
+                      <span className="statusPendingDot"></span>
+                      {t("desktop.fileGallery.preparing", "Verbindung wird aufgebaut …")}
+                    </span>
+                  ) : transfer ? (
                     <div className="transferStatus">
                       <div className="transferProgress">
                         <div
-                          className="transferProgressBar"
+                          className={`transferProgressBar${isActive ? " isActive" : ""}`}
                           style={{ width: `${transfer.progress}%` }}
                         ></div>
                       </div>
@@ -131,6 +159,14 @@ export function FileGallery({
                     >
                       ✕
                     </button>
+                  ) : isPending ? (
+                    <button
+                      className="fileDownloadBtn isPending"
+                      disabled
+                      title={t("desktop.fileGallery.preparing", "Verbindung wird aufgebaut …")}
+                    >
+                      {t("desktop.fileGallery.requested", "Angefordert …")}
+                    </button>
                   ) : !transfer ? (
                     <button
                       className="fileDownloadBtn"
@@ -141,6 +177,10 @@ export function FileGallery({
                   ) : transfer.status === "completed" ? (
                     <span className="transferComplete">
                       {t("desktop.fileGallery.completed", "✓")}
+                    </span>
+                  ) : isActive ? (
+                    <span className="transferActive">
+                      {t("desktop.fileGallery.transferring", "Überträgt …")}
                     </span>
                   ) : null}
                 </div>

@@ -1272,6 +1272,142 @@
   box-shadow: 0 2px 8px rgba(106, 74, 255, 0.3);
 }
 
+/* Download requested, but no data flowing yet: pulsing gradient + glowing ring */
+.fileDownloadBtn.isPending,
+.fileDownloadBtn.isPending:hover {
+  cursor: progress;
+  transform: none;
+  color: rgba(255, 255, 255, 0.92);
+  background: linear-gradient(
+    100deg,
+    var(--primary, #6a4aff) 0%,
+    #9b8bff 35%,
+    var(--primary, #6a4aff) 70%,
+    #9b8bff 100%
+  );
+  background-size: 300% 100%;
+  animation: fileBtnPendingSweep 1.8s linear infinite,
+    fileBtnPendingGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes fileBtnPendingSweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes fileBtnPendingGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(155, 139, 255, 0.55);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(155, 139, 255, 0);
+  }
+}
+
+/* Row states: requested (pulsing) vs. actively transferring (steady accent) */
+.fileTableRow.isPending {
+  border-color: rgba(155, 139, 255, 0.5);
+  box-shadow: inset 3px 0 0 rgba(155, 139, 255, 0.85);
+  animation: fileRowPending 1.8s ease-in-out infinite;
+}
+
+.fileTableRow.isTransferring {
+  border-color: rgba(96, 165, 250, 0.5);
+  box-shadow: inset 3px 0 0 #60a5fa;
+  background: rgba(59, 130, 246, 0.07);
+}
+
+@keyframes fileRowPending {
+  0%,
+  100% {
+    background: rgba(155, 139, 255, 0.04);
+  }
+  50% {
+    background: rgba(155, 139, 255, 0.16);
+  }
+}
+
+.statusPending {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #b9adff;
+}
+
+.statusPendingDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b9adff;
+  animation: statusPendingDot 1.2s ease-in-out infinite;
+}
+
+@keyframes statusPendingDot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.75);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.transferActive {
+  font-size: 13px;
+  font-weight: 600;
+  color: #60a5fa;
+}
+
+/* Moving stripes make clear that data is flowing right now */
+.transferProgressBar.isActive {
+  background-image: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%),
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.25) 0 10px,
+      rgba(255, 255, 255, 0) 10px 20px
+    );
+  background-blend-mode: overlay;
+  background-size: 100% 100%, 40px 100%;
+  animation: transferStripes 0.9s linear infinite;
+}
+
+@keyframes transferStripes {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 0, 40px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fileDownloadBtn.isPending,
+  .fileDownloadBtn.isPending:hover,
+  .fileTableRow.isPending,
+  .statusPendingDot,
+  .transferProgressBar.isActive {
+    animation: none;
+  }
+
+  .fileDownloadBtn.isPending,
+  .fileDownloadBtn.isPending:hover {
+    background: #9b8bff;
+    box-shadow: 0 0 0 3px rgba(155, 139, 255, 0.35);
+  }
+
+  .fileTableRow.isPending {
+    background: rgba(155, 139, 255, 0.12);
+  }
+}
+
 .fileRemoveBtn {
   background: transparent;
   border: 1px solid var(--line);

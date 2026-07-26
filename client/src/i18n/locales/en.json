@@ -72,6 +72,8 @@
       "empty": "No files in this session.",
       "hint": "Files shared by any device will show up here.",
       "download": "Get",
+      "requested": "Waiting …",
+      "preparing": "Connecting …",
       "remove": "Remove",
       "you": "This device"
     },
@@ -131,6 +133,9 @@
       "fileStatus": "Status",
       "available": "Available",
       "download": "Download",
+      "requested": "Requested …",
+      "preparing": "Connecting …",
+      "transferring": "Transferring …",
       "completed": "✓"
     },
     "fileTransfer": {

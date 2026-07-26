@@ -374,6 +374,121 @@
   background: rgba(111, 201, 255, 0.9);
 }
 
+/* Tap registered, but no data flowing yet: pulsing gradient + glowing ring */
+.mobileFileDownloadBtn.isPending {
+  color: #04223a;
+  background: linear-gradient(
+    100deg,
+    rgba(111, 201, 255, 0.95) 0%,
+    rgba(180, 232, 255, 0.95) 35%,
+    rgba(111, 201, 255, 0.95) 70%,
+    rgba(180, 232, 255, 0.95) 100%
+  );
+  background-size: 300% 100%;
+  animation: mobileFileBtnSweep 1.8s linear infinite,
+    mobileFileBtnGlow 1.6s ease-in-out infinite;
+}
+
+@keyframes mobileFileBtnSweep {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@keyframes mobileFileBtnGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(111, 201, 255, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(111, 201, 255, 0);
+  }
+}
+
+/* Row states: requested (pulsing) vs. actively transferring (steady accent) */
+.mobileFileRow.isPending {
+  box-shadow: inset 3px 0 0 rgba(111, 201, 255, 0.9);
+  animation: mobileFileRowPending 1.8s ease-in-out infinite;
+}
+
+.mobileFileRow.isTransferring {
+  box-shadow: inset 3px 0 0 #22c55e;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+@keyframes mobileFileRowPending {
+  0%,
+  100% {
+    background: rgba(111, 201, 255, 0.06);
+  }
+  50% {
+    background: rgba(111, 201, 255, 0.2);
+  }
+}
+
+/* Indeterminate bar while we wait for the first byte */
+.mobileFileProgress.isIndeterminate .mobileFileProgressBar {
+  width: 40%;
+  background: linear-gradient(135deg, #6fc9ff 0%, #b4e8ff 100%);
+  animation: mobileFileProgressIndeterminate 1.3s ease-in-out infinite;
+}
+
+@keyframes mobileFileProgressIndeterminate {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* Moving stripes make clear that data is flowing right now */
+.mobileFileProgressBar.isActive {
+  background-image: linear-gradient(135deg, #4ade80 0%, #22c55e 100%),
+    repeating-linear-gradient(
+      115deg,
+      rgba(255, 255, 255, 0.3) 0 8px,
+      rgba(255, 255, 255, 0) 8px 16px
+    );
+  background-blend-mode: overlay;
+  background-size: 100% 100%, 32px 100%;
+  animation: mobileFileProgressStripes 0.9s linear infinite;
+}
+
+@keyframes mobileFileProgressStripes {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 0 0, 32px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobileFileDownloadBtn.isPending,
+  .mobileFileRow.isPending,
+  .mobileFileProgress.isIndeterminate .mobileFileProgressBar,
+  .mobileFileProgressBar.isActive {
+    animation: none;
+  }
+
+  .mobileFileDownloadBtn.isPending {
+    background: rgba(180, 232, 255, 0.95);
+    box-shadow: 0 0 0 3px rgba(111, 201, 255, 0.4);
+  }
+
+  .mobileFileRow.isPending {
+    background: rgba(111, 201, 255, 0.16);
+  }
+
+  .mobileFileProgress.isIndeterminate .mobileFileProgressBar {
+    width: 100%;
+  }
+}
+
 .mobileFileRemoveBtn {
   border: none;
   border-radius: 50%;

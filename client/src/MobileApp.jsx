@@ -66,6 +66,7 @@ export function MobileApp({
   handleRemoveFile,
   handleSharedFilesChange,
   fileTransfers,
+  pendingDownloads = new Set(),
 }) {
   const { t } = useTranslation();
 
@@ -265,6 +266,7 @@ export function MobileApp({
             onRemoveFile={handleRemoveFile}
             onFilesChange={handleSharedFilesChange}
             transfers={fileTransfers}
+            pendingDownloads={pendingDownloads}
           />
         </div>
       ) : (

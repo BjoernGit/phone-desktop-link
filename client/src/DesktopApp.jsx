@@ -67,6 +67,7 @@ export function DesktopApp({
   onFileDownload,
   onRemoveFile,
   fileTransfers = new Map(),
+  pendingDownloads = new Set(),
   webRTCConnections = new Map(),
   alertMessage = null,
   clearAlert,
@@ -237,6 +238,7 @@ export function DesktopApp({
                     onDownload={onFileDownload}
                     onRemoveFile={onRemoveFile}
                     transfers={fileTransfers}
+                    pendingDownloads={pendingDownloads}
                     connectionStates={webRTCConnections}
                   />
                 </div>

@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useWebRTC, DEBUG_WEBRTC } from "./useWebRTC";
 import { useFileTransfer } from "./useFileTransfer";
-import { FILE_TRANSFER_CONFIG } from "../config/fileTransfer";
+import { FILE_TRANSFER_CONFIG, TRANSFER_STATUS } from "../config/fileTransfer";
 import { requestDirectConnectionBoost } from "../utils/directConnection";
 
 // Constants
 const SOCKETIO_CHUNK_SIZE = 64 * 1024; // 64KB chunks for Socket.io
 const SOCKETIO_MAX_FILE_SIZE = 30 * 1024 * 1024; // 30 MB
+const SOCKETIO_COMPLETED_DISPLAY_MS = 4000; // How long a finished Socket.io transfer stays visible
 const DEBUG_FILE_TRANSFER = false; // Set to true for verbose file transfer logging
 
 // Retry configuration
@@ -33,8 +34,34 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
   const [peerFiles, setPeerFiles] = useState(new Map()); // peerUuid -> file list
   const [receivedBlobs, setReceivedBlobs] = useState(new Map()); // fileId -> blob
 
+  // Downloads that were requested but where no data is flowing yet
+  // (connection setup, waiting for the peer to answer, retry backoff)
+  const [pendingDownloads, setPendingDownloads] = useState(new Set()); // Set<fileId>
+
+  // Socket.io fallback transfers on the receiving side, keyed by fileId so the
+  // UI can render progress exactly like for WebRTC transfers
+  const [socketioTransfers, setSocketioTransfers] = useState(new Map());
+
   // Alert state for error messages
   const [alertMessage, setAlertMessage] = useState(null); // { title, message }
+
+  const markDownloadPending = useCallback((fileId) => {
+    setPendingDownloads((prev) => {
+      if (prev.has(fileId)) return prev;
+      const next = new Set(prev);
+      next.add(fileId);
+      return next;
+    });
+  }, []);
+
+  const clearDownloadPending = useCallback((fileId) => {
+    setPendingDownloads((prev) => {
+      if (!prev.has(fileId)) return prev;
+      const next = new Set(prev);
+      next.delete(fileId);
+      return next;
+    });
+  }, []);
 
   const showAlert = useCallback((title, message) => {
     setAlertMessage({ title, message });
@@ -72,6 +99,31 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
   // Track retry attempts for failed downloads
   // Map<fileId, { attempts: number, lastAttempt: number }>
   const retryAttemptsRef = useRef(new Map());
+
+  // Timeouts that remove finished Socket.io transfers from the UI
+  const socketioCleanupTimeoutsRef = useRef(new Map());
+
+  const removeSocketioTransfer = useCallback((fileId) => {
+    const handle = socketioCleanupTimeoutsRef.current.get(fileId);
+    if (handle) {
+      clearTimeout(handle);
+      socketioCleanupTimeoutsRef.current.delete(fileId);
+    }
+    setSocketioTransfers((prev) => {
+      if (!prev.has(fileId)) return prev;
+      const next = new Map(prev);
+      next.delete(fileId);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    const timeouts = socketioCleanupTimeoutsRef.current;
+    return () => {
+      timeouts.forEach((handle) => clearTimeout(handle));
+      timeouts.clear();
+    };
+  }, []);
 
   // Callback for peer file list updates (called from useSessionSockets)
   const handlePeerFileList = useCallback(({ fromUuid, files }) => {
@@ -280,6 +332,19 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         fileType,
         totalChunks,
       });
+
+      // Data is flowing now: swap the "pending" indication for real progress
+      setSocketioTransfers((prev) => {
+        const next = new Map(prev);
+        next.set(fileId, {
+          fileId,
+          fileName,
+          progress: 0,
+          status: TRANSFER_STATUS.RECEIVING,
+          transport: "socketio",
+        });
+        return next;
+      });
     };
 
     const handleFileTransferSocketio = ({ fileId, chunk, chunkIndex }) => {
@@ -290,6 +355,18 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       }
       transfer.chunks.set(chunkIndex, chunk);
       console.log(`[Socket.io] Received chunk ${chunkIndex + 1}/${transfer.totalChunks} for ${transfer.fileName}`);
+
+      const progress = transfer.totalChunks
+        ? Math.min(100, Math.round((transfer.chunks.size / transfer.totalChunks) * 100))
+        : 0;
+
+      setSocketioTransfers((prev) => {
+        const current = prev.get(fileId);
+        if (!current || current.progress === progress) return prev;
+        const next = new Map(prev);
+        next.set(fileId, { ...current, progress });
+        return next;
+      });
     };
 
     const handleFileTransferComplete = ({ fileId }) => {
@@ -302,6 +379,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       if (transfer.chunks.size !== transfer.totalChunks) {
         console.error(`[Socket.io] Missing chunks: received ${transfer.chunks.size}/${transfer.totalChunks}`);
         fileChunks.delete(fileId);
+        removeSocketioTransfer(fileId);
         return;
       }
 
@@ -311,6 +389,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         if (!chunk) {
           console.error(`[Socket.io] Missing chunk ${i} for ${transfer.fileName}`);
           fileChunks.delete(fileId);
+          removeSocketioTransfer(fileId);
           return;
         }
         orderedChunks.push(chunk);
@@ -330,11 +409,28 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
 
       console.log(`[Socket.io] File ${transfer.fileName} downloaded successfully`);
       fileChunks.delete(fileId);
+
+      // Show the completed state briefly, then drop it from the list
+      setSocketioTransfers((prev) => {
+        const current = prev.get(fileId);
+        if (!current) return prev;
+        const next = new Map(prev);
+        next.set(fileId, { ...current, progress: 100, status: TRANSFER_STATUS.COMPLETED });
+        return next;
+      });
+      const existingHandle = socketioCleanupTimeoutsRef.current.get(fileId);
+      if (existingHandle) clearTimeout(existingHandle);
+      socketioCleanupTimeoutsRef.current.set(
+        fileId,
+        setTimeout(() => removeSocketioTransfer(fileId), SOCKETIO_COMPLETED_DISPLAY_MS)
+      );
     };
 
     const handleFileTransferError = ({ fileId, error, fileName }) => {
       console.error(`[Socket.io] File transfer error for ${fileId}: ${error}`);
       fileChunks.delete(fileId);
+      removeSocketioTransfer(fileId);
+      clearDownloadPending(fileId);
       if (error === "file-not-found") {
         showAlert(
           "desktop.fileTransfer.fileNotFound",
@@ -350,6 +446,8 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       console.warn(`[Socket.io] File revoked by sender: ${fileName || fileId}`);
       // Discard any partial chunks - sender's data should not be kept
       fileChunks.delete(fileId);
+      removeSocketioTransfer(fileId);
+      clearDownloadPending(fileId);
       showAlert(
         "desktop.fileTransfer.fileRevoked",
         `desktop.fileTransfer.fileRevokedBySender:${fileName || fileId}`
@@ -369,7 +467,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       socket.off("file-transfer-socketio-error", handleFileTransferError);
       socket.off("file-transfer-socketio-revoked", handleFileTransferRevoked);
     };
-  }, [socket, showAlert]);
+  }, [socket, showAlert, removeSocketioTransfer, clearDownloadPending]);
 
   // Setup WebRTC file receiver and sender on data channels
   useEffect(() => {
@@ -433,6 +531,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         // onFileNotFound
         (fileId, fileName) => {
           console.warn(`[FileTransfer] File no longer available: ${fileName || fileId}`);
+          clearDownloadPending(fileId);
           showAlert(
             "desktop.fileTransfer.fileNotFound",
             `desktop.fileTransfer.fileNoLongerAvailable:${fileName || fileId}`
@@ -441,6 +540,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         // onFileRevoked - sender revoked file mid-transfer
         (fileId, fileName, transferId) => {
           console.warn(`[FileTransfer] File revoked by sender: ${fileName || fileId}`);
+          clearDownloadPending(fileId);
           showAlert(
             "desktop.fileTransfer.fileRevoked",
             `desktop.fileTransfer.fileRevokedBySender:${fileName || fileId}`
@@ -543,8 +643,12 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
           `desktop.fileTransfer.maxRetriesMessage:${file.name}`
         );
         retryAttemptsRef.current.delete(file.id);
+        clearDownloadPending(file.id);
         return;
       }
+
+      // Still waiting for data: keep the button in its "requested" state
+      markDownloadPending(file.id);
 
       // Calculate exponential backoff delay
       const delay = RETRY_DELAY_MS * Math.pow(2, retryInfo.attempts);
@@ -573,10 +677,11 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
             `desktop.fileTransfer.maxRetriesMessage:${file.name}`
           );
           retryAttemptsRef.current.delete(file.id);
+          clearDownloadPending(file.id);
         }
       }
     },
-    [attemptFileDownload, showAlert]
+    [attemptFileDownload, showAlert, markDownloadPending, clearDownloadPending]
   );
 
   // Handle file download (initiate transfer)
@@ -596,16 +701,21 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       // Reset retry counter for new download
       retryAttemptsRef.current.delete(file.id);
 
+      // Acknowledge the click immediately - the connection setup can take a while
+      markDownloadPending(file.id);
+
       const success = await attemptFileDownload(file, false);
 
       if (!success) {
         const forceWebRTC = import.meta.env.VITE_FORCE_WEBRTC === "true";
         if (forceWebRTC) {
+          clearDownloadPending(file.id);
           alert("WebRTC connection failed. Socket.io fallback is disabled in development mode.");
           return;
         }
 
         if (file.size > SOCKETIO_MAX_FILE_SIZE) {
+          clearDownloadPending(file.id);
           const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
           const limitMB = (SOCKETIO_MAX_FILE_SIZE / (1024 * 1024)).toFixed(0);
           alert(`WebRTC connection failed and file is too large (${sizeMB}MB) for Socket.io fallback.\nMaximum size for fallback: ${limitMB}MB.\n\nPlease try again or check your network connection.`);
@@ -617,7 +727,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
         retryFileDownload(file);
       }
     },
-    [peers, attemptFileDownload, retryFileDownload]
+    [peers, attemptFileDownload, retryFileDownload, markDownloadPending, clearDownloadPending]
   );
 
   // User accepted the direct connection boost: request the permission
@@ -755,11 +865,43 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     prevTransfersRef.current = new Map(currentTransfers);
   }, [fileTransfer.transfers, peerFiles, retryFileDownload]);
 
+  // WebRTC transfers plus Socket.io fallback transfers in one map for the UI
+  const fileTransfers = useMemo(() => {
+    if (socketioTransfers.size === 0) return fileTransfer.transfers;
+    const merged = new Map(fileTransfer.transfers);
+    for (const [fileId, transfer] of socketioTransfers.entries()) {
+      merged.set(fileId, transfer);
+    }
+    return merged;
+  }, [fileTransfer.transfers, socketioTransfers]);
+
+  // As soon as an actual transfer exists for a pending file, data is flowing:
+  // the UI switches from "requested" to "transferring"
+  useEffect(() => {
+    if (pendingDownloads.size === 0) return;
+
+    const started = new Set();
+    for (const [transferId, transfer] of fileTransfers.entries()) {
+      const fileId = transfer.fileId || transferId;
+      if (pendingDownloads.has(fileId)) started.add(fileId);
+    }
+    if (started.size === 0) return;
+
+    setPendingDownloads((prev) => {
+      const next = new Set(prev);
+      for (const fileId of started) next.delete(fileId);
+      return next;
+    });
+  }, [fileTransfers, pendingDownloads]);
+
   return {
     // State
     sharedFiles,
     peerFiles,
     receivedBlobs,
+
+    // Downloads requested but not yet transferring (Set of fileIds)
+    pendingDownloads,
 
     // Alert state for error messages
     alertMessage,
@@ -778,7 +920,7 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     syncFilesToPeer,
 
     // Exposed for components that need it
-    fileTransfers: fileTransfer.transfers,
+    fileTransfers,
     webRTCConnections: webRTC.connectionStates,
   };
 }
