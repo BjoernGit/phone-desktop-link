@@ -99,16 +99,6 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     });
   }, []);
 
-  // User dismissed the tombstone
-  const dismissFileNotice = useCallback((fileId) => {
-    setFileNotices((prev) => {
-      if (!prev.has(fileId)) return prev;
-      const next = new Map(prev);
-      next.delete(fileId);
-      return next;
-    });
-  }, []);
-
   // Direct connection boost: offered once per session when WebRTC fails.
   // Granting camera/mic permission unmasks the local IP in ICE candidates,
   // which fixes P2P on multicast-blocking LANs (see utils/directConnection.js).
@@ -122,6 +112,32 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
   });
 
   const fileTransfer = useFileTransfer();
+
+  // User dismissed the tombstone. Also drop the dead transfer from the
+  // engine - otherwise the derived tombstone effect below would recreate
+  // the notice from the leftover transfer on the very next render.
+  const dismissFileNotice = useCallback(
+    (fileId) => {
+      for (const [transferId, transfer] of fileTransfer.transfers.entries()) {
+        if ((transfer.fileId || transferId) === fileId) {
+          fileTransfer.clearTransfer(transferId);
+        }
+      }
+      setSocketioTransfers((prev) => {
+        if (!prev.has(fileId)) return prev;
+        const next = new Map(prev);
+        next.delete(fileId);
+        return next;
+      });
+      setFileNotices((prev) => {
+        if (!prev.has(fileId)) return prev;
+        const next = new Map(prev);
+        next.delete(fileId);
+        return next;
+      });
+    },
+    [fileTransfer]
+  );
 
   // Refs
   const webRTCInitiatedRef = useRef(new Set());
@@ -1070,6 +1086,40 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
       return next;
     });
   }, [fileTransfers, pendingDownloads]);
+
+  // Derived tombstones - the single swap the UI needs: a receive transfer
+  // whose source file is no longer in any peer list can never finish, so it
+  // becomes a notice. Pure state comparison on every change; does not depend
+  // on which event (or handler) removed the file, or on any ref snapshot.
+  useEffect(() => {
+    for (const [transferId, transfer] of fileTransfers.entries()) {
+      const fileId = transfer.fileId || transferId;
+      if (!fileId) continue;
+      // Receiver-side transfers only: sender-side ones describe our own
+      // shared files, whose removal is a normal local action
+      const isReceive =
+        transfer.receivedChunks !== undefined || transfer.transport === "socketio";
+      if (!isReceive) continue;
+      if (transfer.status === TRANSFER_STATUS.COMPLETED) continue;
+      if (fileNotices.has(fileId)) continue;
+
+      let stillListed = false;
+      for (const files of peerFiles.values()) {
+        if (files.some((f) => f.id === fileId)) {
+          stillListed = true;
+          break;
+        }
+      }
+      if (stillListed) continue;
+
+      console.warn(`[FileTransfer] Receive transfer for ${fileId} lost its source file - tombstoning`);
+      clearDownloadPending(fileId);
+      addFileNotice(fileId, "revoked", {
+        fileName: transfer.fileName,
+        progress: transfer.progress || 0,
+      });
+    }
+  }, [fileTransfers, peerFiles, fileNotices, clearDownloadPending, addFileNotice]);
 
   return {
     // State

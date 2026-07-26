@@ -359,8 +359,27 @@ export default function App() {
       }
     });
 
+    // Safety net for the very render in which a file drops out of the peer
+    // list: any receive transfer without a source row keeps a synthetic
+    // tombstone row until the derived notice takes over on the next tick.
+    // The row can therefore never vanish, no matter which code path removed
+    // the file.
+    fileTransfers.forEach((transfer, transferId) => {
+      const fileId = transfer.fileId || transferId;
+      if (!fileId || combined.some((file) => file.id === fileId)) return;
+      const isReceive =
+        transfer.receivedChunks !== undefined || transfer.transport === "socketio";
+      if (!isReceive || transfer.status === "completed") return;
+      combined.push({
+        id: fileId,
+        name: transfer.fileName || fileId,
+        size: transfer.fileSize,
+        notice: { reason: "revoked", progress: transfer.progress || 0 },
+      });
+    });
+
     return combined;
-  }, [sharedFiles, peerFiles, clientUuid, fileNotices]);
+  }, [sharedFiles, peerFiles, clientUuid, fileNotices, fileTransfers]);
 
   const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 

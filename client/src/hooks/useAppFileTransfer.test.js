@@ -70,6 +70,7 @@ describe('useAppFileTransfer download notices', () => {
   beforeEach(() => {
     webRTCStub.createOffer.mockReset().mockResolvedValue(null);
     fileTransferStub.transfers = new Map();
+    fileTransferStub.clearTransfer.mockReset();
   });
 
   it('marks a download as pending until data flows', async () => {
@@ -182,6 +183,93 @@ describe('useAppFileTransfer download notices', () => {
     const notice = result.current.fileNotices.get(smallPeerFile.id);
     expect(notice?.reason).toBe('revoked');
     expect(notice?.progress).toBe(50);
+  });
+
+  it('derives a tombstone for any receive transfer without a source row, however it vanished', async () => {
+    const socket = makeSocket();
+    const { result, rerender } = renderHook(() =>
+      useAppFileTransfer({ socket, clientUuid: OWN_UUID, peers: [{ clientUuid: PEER_UUID }] })
+    );
+
+    // A receive transfer exists, but no peer list contains its file - the
+    // derived effect must tombstone it without any event handler involved
+    fileTransferStub.transfers = new Map([
+      ['t9', {
+        transferId: 't9',
+        fileId: 'file-x',
+        fileName: 'x.bin',
+        receivedChunks: 5,
+        progress: 42,
+        status: 'receiving',
+      }],
+    ]);
+    await act(async () => {
+      rerender();
+    });
+
+    const notice = result.current.fileNotices.get('file-x');
+    expect(notice?.reason).toBe('revoked');
+    expect(notice?.progress).toBe(42);
+    expect(notice?.name).toBe('x.bin');
+  });
+
+  it('leaves sender-side transfers alone when own files are removed', async () => {
+    const socket = makeSocket();
+    const { result, rerender } = renderHook(() =>
+      useAppFileTransfer({ socket, clientUuid: OWN_UUID, peers: [{ clientUuid: PEER_UUID }] })
+    );
+
+    fileTransferStub.transfers = new Map([
+      ['t10', {
+        transferId: 't10',
+        fileId: 'file-own',
+        fileName: 'mine.bin',
+        sentChunks: 5,
+        progress: 42,
+        status: 'sending',
+      }],
+    ]);
+    await act(async () => {
+      rerender();
+    });
+
+    expect(result.current.fileNotices.size).toBe(0);
+  });
+
+  it('dismissing a derived tombstone clears the dead transfer so it stays gone', async () => {
+    fileTransferStub.clearTransfer.mockImplementation((transferId) => {
+      fileTransferStub.transfers.delete(transferId);
+    });
+
+    const socket = makeSocket();
+    const { result, rerender } = renderHook(() =>
+      useAppFileTransfer({ socket, clientUuid: OWN_UUID, peers: [{ clientUuid: PEER_UUID }] })
+    );
+
+    fileTransferStub.transfers = new Map([
+      ['t9', {
+        transferId: 't9',
+        fileId: 'file-x',
+        fileName: 'x.bin',
+        receivedChunks: 5,
+        progress: 42,
+        status: 'receiving',
+      }],
+    ]);
+    await act(async () => {
+      rerender();
+    });
+    expect(result.current.fileNotices.has('file-x')).toBe(true);
+
+    await act(async () => {
+      result.current.dismissFileNotice('file-x');
+    });
+    await act(async () => {
+      rerender();
+    });
+
+    expect(fileTransferStub.clearTransfer).toHaveBeenCalledWith('t9');
+    expect(result.current.fileNotices.has('file-x')).toBe(false);
   });
 
   it('tombstones a stalled download the moment the file leaves the list', async () => {
