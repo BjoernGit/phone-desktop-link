@@ -408,6 +408,32 @@
   }
 }
 
+/* Tombstone: download ended without the file arriving */
+.mobileFileRow.hasNotice {
+  box-shadow: inset 3px 0 0 #ff8a6c;
+  background: rgba(255, 138, 108, 0.12);
+}
+
+.mobileFileMeta.isNotice {
+  color: #ff8a6c;
+  font-weight: 600;
+}
+
+/* Frozen progress bar showing how far the transfer got before it stopped */
+.mobileFileProgress.isStopped .mobileFileProgressBar {
+  background: rgba(255, 138, 108, 0.55);
+}
+
+.mobileFileNoticeDismissBtn {
+  border: 1px solid rgba(255, 138, 108, 0.45);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  color: #ff8a6c;
+  background: rgba(255, 138, 108, 0.12);
+}
+
 /* Row states: requested (pulsing) vs. actively transferring (steady accent) */
 .mobileFileRow.isPending {
   box-shadow: inset 3px 0 0 rgba(111, 201, 255, 0.9);

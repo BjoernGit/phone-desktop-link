@@ -74,6 +74,10 @@
       "download": "Get",
       "requested": "Waiting …",
       "preparing": "Connecting …",
+      "noticeRevoked": "Withdrawn by sender",
+      "noticeNotFound": "No longer available",
+      "noticeFailed": "Download failed",
+      "dismissNotice": "Dismiss notice",
       "remove": "Remove",
       "you": "This device"
     },
@@ -136,6 +140,11 @@
       "requested": "Requested …",
       "preparing": "Connecting …",
       "transferring": "Transferring …",
+      "noticeRevoked": "Withdrawn by sender",
+      "noticeNotFound": "No longer available",
+      "noticeFailed": "Download failed",
+      "noticeAtProgress": "at {{progress}}%",
+      "dismissNotice": "Dismiss notice",
       "completed": "✓"
     },
     "fileTransfer": {

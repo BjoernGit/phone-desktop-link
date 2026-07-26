@@ -241,9 +241,9 @@ export default function App() {
     syncFilesToPeer,
     fileTransfers,
     pendingDownloads,
+    fileNotices,
+    dismissFileNotice,
     webRTCConnections,
-    alertMessage,
-    clearAlert,
     directConnectionPrompt,
     acceptDirectConnection,
     declineDirectConnection,
@@ -343,8 +343,15 @@ export default function App() {
       });
     });
 
+    // Keep a tombstone row for downloads that ended without the file arriving,
+    // so a transfer in progress does not silently disappear from the list
+    fileNotices.forEach((notice, fileId) => {
+      if (combined.some((file) => file.id === fileId)) return;
+      combined.push({ ...notice, notice });
+    });
+
     return combined;
-  }, [sharedFiles, peerFiles, clientUuid]);
+  }, [sharedFiles, peerFiles, clientUuid, fileNotices]);
 
   const { sessionKey, sessionKeyB64, applySeed, clearKey } = useEncryption(sessionId, setEncStatus);
 
@@ -785,9 +792,8 @@ export default function App() {
       onRemoveFile={handleRemoveFile}
       fileTransfers={fileTransfers}
       pendingDownloads={pendingDownloads}
+      onDismissNotice={dismissFileNotice}
       webRTCConnections={webRTCConnections}
-      alertMessage={alertMessage}
-      clearAlert={clearAlert}
       directConnectionPrompt={directConnectionPrompt}
       acceptDirectConnection={acceptDirectConnection}
       declineDirectConnection={declineDirectConnection}
@@ -855,6 +861,7 @@ export default function App() {
       handleSharedFilesChange={handleSharedFilesChange}
       fileTransfers={fileTransfers}
       pendingDownloads={pendingDownloads}
+      onDismissNotice={dismissFileNotice}
     />
   );
 }

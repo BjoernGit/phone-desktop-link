@@ -16,6 +16,17 @@ function isTransferStalled(transfer) {
   return transfer?.status === "failed" || transfer?.status === "timeout";
 }
 
+// Wording for a download that ended without the file arriving
+function noticeLabel(reason, t) {
+  if (reason === "revoked") {
+    return t("mobile.files.noticeRevoked", "Vom Absender zurückgezogen");
+  }
+  if (reason === "notFound") {
+    return t("mobile.files.noticeNotFound", "Nicht mehr verfügbar");
+  }
+  return t("mobile.files.noticeFailed", "Download fehlgeschlagen");
+}
+
 function getTransferStatus(file, transfers) {
   // Direct lookup by file.id (sender-side transfers)
   const direct = transfers.get(file.id);
@@ -51,6 +62,7 @@ export function MobileFilePanel({
   onDownload,
   onRemoveFile,
   onFilesChange,
+  onDismissNotice,
   transfers = new Map(),
   pendingDownloads = new Set(),
 }) {
@@ -125,12 +137,18 @@ export function MobileFilePanel({
             const transfer = getTransferStatus(file, transfers);
             const isOwn = file.ownerUuid === clientUuid;
 
+            // Tombstone: the download ended without the file arriving
+            const notice = file.notice;
+
             // Tap registered, but no data is flowing yet (connect / retry)
             const isPending =
-              pendingDownloads.has(file.id) && (!transfer || isTransferStalled(transfer));
-            const isActive = !isPending && isTransferActive(transfer);
+              !notice &&
+              pendingDownloads.has(file.id) &&
+              (!transfer || isTransferStalled(transfer));
+            const isActive = !notice && !isPending && isTransferActive(transfer);
             const rowClass = [
               "mobileFileRow",
+              notice ? "hasNotice" : "",
               isPending ? "isPending" : "",
               isActive ? "isTransferring" : "",
             ]
@@ -142,12 +160,23 @@ export function MobileFilePanel({
                 <span className="mobileFileIcon">{getFileIcon(file.name)}</span>
                 <div className="mobileFileInfo">
                   <div className="mobileFileName" title={file.name}>{file.name}</div>
-                  <div className="mobileFileMeta">
-                    {isPending
+                  <div className={`mobileFileMeta${notice ? " isNotice" : ""}`}>
+                    {notice
+                      ? noticeLabel(notice.reason, t)
+                      : isPending
                       ? t("mobile.files.preparing", "Verbindung wird aufgebaut …")
                       : `${formatFileSize(file.size)} · ${getOwnerLabel(file, peers, clientUuid, t)}`}
                   </div>
-                  {isPending ? (
+                  {notice ? (
+                    notice.progress > 0 && (
+                      <div className="mobileFileProgress isStopped">
+                        <div
+                          className="mobileFileProgressBar"
+                          style={{ width: `${notice.progress}%` }}
+                        ></div>
+                      </div>
+                    )
+                  ) : isPending ? (
                     <div className="mobileFileProgress isIndeterminate">
                       <div className="mobileFileProgressBar"></div>
                     </div>
@@ -161,7 +190,16 @@ export function MobileFilePanel({
                   ) : null}
                 </div>
                 <div className="mobileFileAction">
-                  {isOwn ? (
+                  {notice ? (
+                    <button
+                      type="button"
+                      className="mobileFileNoticeDismissBtn"
+                      onClick={() => onDismissNotice && onDismissNotice(file.id)}
+                      aria-label={t("mobile.files.dismissNotice", "Hinweis ausblenden")}
+                    >
+                      ✕
+                    </button>
+                  ) : isOwn ? (
                     <button
                       type="button"
                       className="mobileFileRemoveBtn"

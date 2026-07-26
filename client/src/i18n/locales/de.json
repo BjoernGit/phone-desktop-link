@@ -74,6 +74,10 @@
       "download": "Laden",
       "requested": "Warte …",
       "preparing": "Verbindung wird aufgebaut …",
+      "noticeRevoked": "Vom Absender zurückgezogen",
+      "noticeNotFound": "Nicht mehr verfügbar",
+      "noticeFailed": "Download fehlgeschlagen",
+      "dismissNotice": "Hinweis ausblenden",
       "remove": "Entfernen",
       "you": "Dieses Gerät"
     },
@@ -136,6 +140,11 @@
       "requested": "Angefordert …",
       "preparing": "Verbindung wird aufgebaut …",
       "transferring": "Überträgt …",
+      "noticeRevoked": "Vom Absender zurückgezogen",
+      "noticeNotFound": "Nicht mehr verfügbar",
+      "noticeFailed": "Download fehlgeschlagen",
+      "noticeAtProgress": "bei {{progress}}%",
+      "dismissNotice": "Hinweis ausblenden",
       "completed": "✓"
     },
     "fileTransfer": {

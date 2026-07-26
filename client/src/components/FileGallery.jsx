@@ -26,6 +26,17 @@ function isTransferStalled(transfer) {
   return transfer?.status === "failed" || transfer?.status === "timeout";
 }
 
+// Wording for a download that ended without the file arriving
+function noticeLabel(reason, t) {
+  if (reason === "revoked") {
+    return t("desktop.fileGallery.noticeRevoked", "Vom Absender zurückgezogen");
+  }
+  if (reason === "notFound") {
+    return t("desktop.fileGallery.noticeNotFound", "Nicht mehr verfügbar");
+  }
+  return t("desktop.fileGallery.noticeFailed", "Download fehlgeschlagen");
+}
+
 function getTransferStatus(file, transfers) {
   // First try direct lookup by file.id (for sender-side transfers)
   let transfer = transfers.get(file.id);
@@ -46,6 +57,7 @@ export function FileGallery({
   clientUuid,
   onDownload,
   onRemoveFile,
+  onDismissNotice,
   transfers = new Map(),
   pendingDownloads = new Set(),
   connectionStates = new Map(),
@@ -91,12 +103,18 @@ export function FileGallery({
             const isOwn = file.ownerUuid === clientUuid;
             const connectionState = connectionStates.get(file.ownerUuid);
 
+            // Tombstone: the download ended without the file arriving
+            const notice = file.notice;
+
             // Click registered, but no data is flowing yet (connect / retry)
             const isPending =
-              pendingDownloads.has(file.id) && (!transfer || isTransferStalled(transfer));
-            const isActive = !isPending && isTransferActive(transfer);
+              !notice &&
+              pendingDownloads.has(file.id) &&
+              (!transfer || isTransferStalled(transfer));
+            const isActive = !notice && !isPending && isTransferActive(transfer);
             const rowClass = [
               "fileTableRow",
+              notice ? "hasNotice" : "",
               isPending ? "isPending" : "",
               isActive ? "isTransferring" : "",
             ]
@@ -116,7 +134,7 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColSize">
-                  {formatFileSize(file.size)}
+                  {file.size == null ? "–" : formatFileSize(file.size)}
                 </div>
 
                 <div className="fileTableCol fileColOwner">
@@ -124,7 +142,18 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColStatus">
-                  {isPending ? (
+                  {notice ? (
+                    <span className="statusNotice" title={noticeLabel(notice.reason, t)}>
+                      {noticeLabel(notice.reason, t)}
+                      {notice.progress > 0 && (
+                        <span className="statusNoticeProgress">
+                          {t("desktop.fileGallery.noticeAtProgress", "bei {{progress}}%", {
+                            progress: notice.progress,
+                          })}
+                        </span>
+                      )}
+                    </span>
+                  ) : isPending ? (
                     <span className="statusPending">
                       <span className="statusPendingDot"></span>
                       {t("desktop.fileGallery.preparing", "Verbindung wird aufgebaut …")}
@@ -151,7 +180,15 @@ export function FileGallery({
                 </div>
 
                 <div className="fileTableCol fileColAction">
-                  {isOwn ? (
+                  {notice ? (
+                    <button
+                      className="fileNoticeDismissBtn"
+                      onClick={() => onDismissNotice && onDismissNotice(file.id)}
+                      title={t("desktop.fileGallery.dismissNotice", "Hinweis ausblenden")}
+                    >
+                      ✕
+                    </button>
+                  ) : isOwn ? (
                     <button
                       className="fileRemoveBtn"
                       onClick={() => onRemoveFile && onRemoveFile(file.id)}

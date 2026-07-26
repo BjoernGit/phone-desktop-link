@@ -142,6 +142,43 @@ describe('MobileFilePanel', () => {
     expect(document.querySelector('.mobileFileRow.isPending')).toBeInTheDocument();
   });
 
+  it('keeps a tombstone row when the sender revokes the file mid-transfer', async () => {
+    const user = userEvent.setup();
+    const onDismissNotice = vi.fn();
+    const revoked = {
+      ...peerFile,
+      notice: { reason: 'revoked', progress: 37 },
+    };
+    render(
+      <MobileFilePanel
+        {...defaultProps}
+        files={[revoked]}
+        onDismissNotice={onDismissNotice}
+      />
+    );
+
+    expect(screen.getByText('photo.jpg')).toBeInTheDocument();
+    expect(screen.getByText('mobile.files.noticeRevoked')).toBeInTheDocument();
+    expect(screen.queryByText('mobile.files.download')).not.toBeInTheDocument();
+    expect(document.querySelector('.mobileFileRow.hasNotice')).toBeInTheDocument();
+
+    // Progress reached before the abort stays visible, frozen
+    const bar = document.querySelector('.mobileFileProgress.isStopped .mobileFileProgressBar');
+    expect(bar).toBeInTheDocument();
+    expect(bar).toHaveStyle({ width: '37%' });
+
+    await user.click(screen.getByLabelText('mobile.files.dismissNotice'));
+    expect(onDismissNotice).toHaveBeenCalledWith('file-peer');
+  });
+
+  it('labels a tombstone for a file that was already gone', () => {
+    const gone = { ...peerFile, notice: { reason: 'notFound', progress: 0 } };
+    render(<MobileFilePanel {...defaultProps} files={[gone]} />);
+
+    expect(screen.getByText('mobile.files.noticeNotFound')).toBeInTheDocument();
+    expect(document.querySelector('.mobileFileProgress')).not.toBeInTheDocument();
+  });
+
   it('shows checkmark when transfer is completed', () => {
     const transfers = new Map([
       ['t1', { transferId: 't1', fileId: 'file-peer', progress: 100, status: 'completed' }],

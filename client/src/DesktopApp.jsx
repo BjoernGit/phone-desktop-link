@@ -10,7 +10,6 @@ import { Lightbox } from "./components/Lightbox";
 import { FooterBar } from "./components/FooterBar";
 import { FileUploadPanel } from "./components/FileUploadPanel";
 import { FileGallery } from "./components/FileGallery";
-import { AlertModal } from "./components/AlertModal";
 import { DirectConnectionModal } from "./components/DirectConnectionModal";
 
 export function DesktopApp({
@@ -68,9 +67,8 @@ export function DesktopApp({
   onRemoveFile,
   fileTransfers = new Map(),
   pendingDownloads = new Set(),
+  onDismissNotice,
   webRTCConnections = new Map(),
-  alertMessage = null,
-  clearAlert,
   directConnectionPrompt = null,
   acceptDirectConnection,
   declineDirectConnection,
@@ -239,6 +237,7 @@ export function DesktopApp({
                     onRemoveFile={onRemoveFile}
                     transfers={fileTransfers}
                     pendingDownloads={pendingDownloads}
+                    onDismissNotice={onDismissNotice}
                     connectionStates={webRTCConnections}
                   />
                 </div>
@@ -300,22 +299,6 @@ export function DesktopApp({
             <div className="legalModalBody">{legalContent}</div>
           </div>
         </div>
-      )}
-
-      {alertMessage && (
-        <AlertModal
-          isOpen={!!alertMessage}
-          title={t(alertMessage.title)}
-          message={
-            alertMessage.message.includes(":")
-              ? t(
-                  alertMessage.message.split(":")[0],
-                  { fileName: alertMessage.message.split(":").slice(1).join(":") }
-                )
-              : t(alertMessage.message)
-          }
-          onClose={clearAlert}
-        />
       )}
 
       {directConnectionPrompt && (
