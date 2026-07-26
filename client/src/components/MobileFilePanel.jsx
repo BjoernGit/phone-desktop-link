@@ -25,7 +25,7 @@ function isTransferBroken(transfer) {
 // Wording for a download that ended without the file arriving
 function noticeLabel(reason, t) {
   if (reason === "revoked") {
-    return t("mobile.files.noticeRevoked", "Vom Absender zurückgezogen");
+    return t("mobile.files.noticeRevoked", "Freigabe beendet");
   }
   if (reason === "notFound") {
     return t("mobile.files.noticeNotFound", "Nicht mehr verfügbar");

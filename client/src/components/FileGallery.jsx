@@ -35,7 +35,7 @@ function isTransferBroken(transfer) {
 // Wording for a download that ended without the file arriving
 function noticeLabel(reason, t) {
   if (reason === "revoked") {
-    return t("desktop.fileGallery.noticeRevoked", "Vom Absender zurückgezogen");
+    return t("desktop.fileGallery.noticeRevoked", "Freigabe beendet");
   }
   if (reason === "notFound") {
     return t("desktop.fileGallery.noticeNotFound", "Nicht mehr verfügbar");
