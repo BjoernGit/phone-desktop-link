@@ -49,7 +49,15 @@ const peerFile = {
 const smallPeerFile = { ...peerFile, id: 'file-small', size: 1024 };
 
 function makeSocket() {
-  return { connected: true, on: vi.fn(), off: vi.fn(), emit: vi.fn() };
+  // Keep the registered handlers so tests can fire socket events directly
+  const handlers = new Map();
+  return {
+    connected: true,
+    on: vi.fn((event, cb) => handlers.set(event, cb)),
+    off: vi.fn(),
+    emit: vi.fn(),
+    handlers,
+  };
 }
 
 function renderTransferHook(socket, peers = [{ clientUuid: PEER_UUID }]) {
@@ -134,6 +142,49 @@ describe('useAppFileTransfer download notices', () => {
 
     // Every render from the moment the row appeared must keep it on screen
     expect(observed.slice(firstVisible)).not.toContain(false);
+  });
+
+  it('tombstones a socket.io fallback download without waiting for the revoke event', async () => {
+    const socket = makeSocket();
+    const { result } = renderTransferHook(socket);
+
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [smallPeerFile] });
+    });
+    // WebRTC offer fails (stub resolves null), so the request goes via Socket.io
+    await act(async () => {
+      await result.current.handleFileDownload(smallPeerFile);
+    });
+
+    // Data starts flowing through the fallback: 4 of 10 chunks arrive
+    await act(async () => {
+      socket.handlers.get('file-transfer-socketio-start')({
+        fileId: smallPeerFile.id,
+        fileName: smallPeerFile.name,
+        fileSize: smallPeerFile.size,
+        fileType: smallPeerFile.type,
+        totalChunks: 10,
+      });
+    });
+    expect(result.current.pendingDownloads.has(smallPeerFile.id)).toBe(false);
+
+    await act(async () => {
+      const onChunk = socket.handlers.get('file-transfer-socketio');
+      for (let i = 0; i < 4; i++) {
+        onChunk({ fileId: smallPeerFile.id, chunk: new ArrayBuffer(8), chunkIndex: i });
+      }
+    });
+
+    // Sender removes the file: the list update precedes the revoke event
+    await act(async () => {
+      result.current.handlePeerFileList({ fromUuid: PEER_UUID, files: [] });
+    });
+
+    const notice = result.current.fileNotices.get(smallPeerFile.id);
+    expect(notice?.reason).toBe('revoked');
+    expect(notice?.progress).toBe(40);
+    // The stalled fallback transfer is gone from the merged transfer map
+    expect(result.current.fileTransfers.has(smallPeerFile.id)).toBe(false);
   });
 
   it('leaves files alone that were never requested', async () => {

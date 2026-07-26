@@ -138,6 +138,9 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
   const pendingDownloadsRef = useRef(pendingDownloads);
   pendingDownloadsRef.current = pendingDownloads;
 
+  const socketioTransfersRef = useRef(socketioTransfers);
+  socketioTransfersRef.current = socketioTransfers;
+
   // Progress a transfer had reached, looked up by file id
   const progressForFile = useCallback((fileId, transferId) => {
     const transfers = transfersSnapshotRef.current;
@@ -146,7 +149,8 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
     for (const transfer of transfers.values()) {
       if (transfer.fileId === fileId) return transfer.progress || 0;
     }
-    return 0;
+    // Socket.io fallback receives outside the WebRTC transfer engine
+    return socketioTransfersRef.current.get(fileId)?.progress || 0;
   }, []);
 
   // Track active Socket.io transfers for cancellation support
@@ -188,6 +192,10 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
    */
   const isDownloadInFlight = useCallback((fileId) => {
     if (pendingDownloadsRef.current.has(fileId)) return true;
+    // Socket.io fallback receives outside the WebRTC transfer engine
+    if (socketioTransfersRef.current.get(fileId)?.status === TRANSFER_STATUS.RECEIVING) {
+      return true;
+    }
     for (const [transferId, transfer] of transfersSnapshotRef.current.entries()) {
       if ((transfer.fileId || transferId) !== fileId) continue;
       if (
@@ -219,10 +227,12 @@ export function useAppFileTransfer({ socket, clientUuid, peers, directConnection
 
         console.warn(`[FileTransfer] ${fileId} disappeared from its owner's list while downloading`);
         clearDownloadPending(fileId);
+        // Read the progress before dropping the fallback transfer from the UI
         addFileNotice(fileId, reason, { progress: progressForFile(fileId) });
+        removeSocketioTransfer(fileId);
       }
     },
-    [isDownloadInFlight, clearDownloadPending, addFileNotice, progressForFile]
+    [isDownloadInFlight, clearDownloadPending, addFileNotice, progressForFile, removeSocketioTransfer]
   );
 
   // Callback for peer file list updates (called from useSessionSockets)
